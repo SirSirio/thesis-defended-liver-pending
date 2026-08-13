@@ -12,7 +12,7 @@
   --surface:    #141416;
   --surface-2:  #1B1B1E;
   --ink:        #F4F4F5;   /* 17.9:1 on --bg */
-  --ink-dim:    #A1A1A6;   /* 8.9:1 on --bg */
+  --ink-dim:    #A1A1A6;   /* 7.65:1 on --bg, recomputed. The old 8.9:1 here was wrong. */
   --ink-faint:  #6E6E73;
   --accent:     #990000;   /* DTU corporate red. Fills and large display only, 2.2:1 */
   --accent-lit: #E83F48;   /* DTU secondary red. All red TEXT uses this, 4.9:1 */
@@ -232,6 +232,9 @@ a { color: inherit; }
   .langswitch button { min-height: 44px; min-width: 44px; }
   .mark { min-height: 44px; }
   .facts__row--egg { min-height: 44px; }
+  /* The location buttons are sized in their own block further down the file,
+     not here. This block sits above .btn, and a class level rule in it loses
+     to .btn's own min-height on source order. See the note by .dirs. */
 }
 
 /* --------------------------------------------------------------------------
@@ -521,6 +524,84 @@ a { color: inherit; }
 }
 
 .pending__b { color: var(--ink-dim); }
+
+/* --------------------------------------------------------------------------
+   Location. The address is a labelled data field in mono, exactly like every
+   other data value on this page, because a fixed width string is faster to
+   parse at a glance in bad light than a prose line is.
+   -------------------------------------------------------------------------- */
+
+/* Same treatment as a .facts__row dt, on purpose. It is a field label, and
+   making it an uppercase mono eyebrow would give the page a second one. */
+.addr__label {
+  color: var(--ink-dim);
+  font-size: 14.5px;
+  margin-bottom: var(--s-2);
+}
+
+.addr__value {
+  font-family: var(--font-mono);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink);
+  overflow-wrap: break-word;    /* a long Danish street name wraps, never scrolls the page */
+}
+
+/* JS splits the address on its first comma and hands each half its own span.
+   Blocks, so the street and the postcode never share a line at some width
+   where both happen to fit. */
+.addr__value span { display: block; }
+
+.addr__note {
+  color: var(--ink-dim);
+  margin-top: var(--s-3);
+}
+
+/* Below 420px the two lines start competing with the viewport, and 18px still
+   clears the address by a wide margin over body text. */
+@media (max-width: 420px) {
+  .addr__value { font-size: 18px; }
+}
+
+/* The actions sit below the address rather than beside it, so a thumb aiming
+   at a button never lands on the selectable text above it. */
+.dirs {
+  display: flex; flex-wrap: wrap; gap: var(--s-3);
+  justify-content: flex-start;
+  margin-top: var(--s-5);
+}
+
+/* Both outcomes speak in the text safe red. No error icon and no red box: that
+   reads as form validation, which is the wrong register for a browser refusing
+   an API call. The recovery is the design, and the copy points at it. */
+.copybtn[data-state="copied"],
+.copybtn[data-state="failed"] {
+  border-color: var(--accent-lit);
+  color: var(--accent-lit);
+}
+
+/* Apple's 44pt floor assumes an indoor two handed tap. These two are the real
+   actions in the section and are pressed outdoors, one handed, in October. */
+.dirs .btn:not(.copybtn) { min-height: 52px; }
+
+/* Deliberately here rather than in the shared coarse pointer block near the top
+   of the file. That block sits above .btn, media queries carry no specificity
+   of their own, and a class level rule there therefore loses to .btn's own
+   48px on source order alone. Both minimums below would silently do nothing.
+   Do not "tidy" these back up into the shared block. */
+@media (pointer: coarse) {
+  .dirs .btn:not(.copybtn) { min-height: 56px; }
+  /* A cold thumb outdoors needs more than the inherited 48. */
+  .dirs .copybtn { min-height: 52px; }
+}
+
+/* Same stack as .hero__actions: equal width, full bleed, thumb sized. Ragged
+   auto widths read as an accident. */
+@media (max-width: 480px) {
+  .dirs { flex-direction: column; align-items: stretch; }
+  .dirs .btn { width: 100%; }
+}
 
 /* --------------------------------------------------------------------------
    Footer

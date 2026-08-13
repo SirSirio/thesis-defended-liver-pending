@@ -81,6 +81,7 @@
     renderCountdown();
     renderDeadline();
     renderNudge();
+    renderLocation();
   }
 
   function setLanguage(next) {
@@ -228,6 +229,303 @@
         loc.textContent = t('facts.location.tbd');
       }
     }
+  }
+
+  /* ======================================================================
+     LOCATION AND ACCESS
+     The core value of the whole site. A guest standing outside a 76 unit
+     kollegium at night needs the address readable in two seconds and one tap
+     from a route. Everything here is optimised for that guest, not for this
+     page being looked at on a desk.
+     ====================================================================== */
+
+  /* Rebuilds the .pending block that index.html ships as static markup. The
+     first render replaces the container's contents, so the static one is gone
+     and every later pending state has to be built here instead.
+
+     createElement plus textContent, never a markup string: config values flow
+     through these nodes and that discipline is what keeps config.js from
+     becoming an injection vector. */
+  function pendingBlock(titleKey, bodyKey) {
+    var box = document.createElement('div');
+    box.className = 'pending';
+
+    var head = document.createElement('p');
+    head.className = 'pending__t';
+    head.textContent = t(titleKey);
+
+    var body = document.createElement('p');
+    body.className = 'pending__b';
+    body.textContent = t(bodyKey);
+
+    box.appendChild(head);
+    box.appendChild(body);
+    return box;
+  }
+
+  /* Directions URLs, not place URLs, per D-05. A place URL drops the guest on a
+     pin and asks them to press one more thing in the cold. Both of these open
+     the native app when it is installed, on both platforms. The address is
+     encoded once, which is what keeps the a-ring and the spaces from
+     truncating the query. */
+  function directionsUrls(address) {
+    var q = encodeURIComponent(address);
+    return {
+      google: 'https://www.google.com/maps/dir/?api=1&destination=' + q,
+      apple: 'https://maps.apple.com/?daddr=' + q + '&dirflg=d'
+    };
+  }
+
+  /* D-06, evaluated in order, any positive signal wins.
+
+     Handing a Danish guest on Android an Apple Maps button gives them a web
+     page they cannot act on, so it is withheld there. The failure mode is the
+     part worth stating: when every signal is absent or unreadable this returns
+     true, because a button that does nothing on one platform is a smaller harm
+     than hiding the right button from someone standing outside who needed it.
+
+     Never inferred from screen width, from touch support, or by opening the URL
+     and measuring what happens. Those all guess, and this only reads. */
+  function isApplePlatform() {
+    var seen = false;
+
+    try {
+      var uad = navigator.userAgentData;
+      if (uad && typeof uad.platform === 'string' && uad.platform) {
+        seen = true;
+        if (/mac|ios|iphone|ipad/i.test(uad.platform)) return true;
+      }
+    } catch (e) { /* unreadable signal counts as absent, not as non Apple */ }
+
+    try {
+      if (typeof navigator.platform === 'string' && navigator.platform) {
+        seen = true;
+        // iPadOS 13 and later report MacIntel, and on a desktop Mac the link
+        // does open the Maps app, so the Mac prefix is deliberate.
+        if (/^(iPhone|iPad|iPod|Mac)/.test(navigator.platform)) return true;
+      }
+    } catch (e) { /* same */ }
+
+    try {
+      if (typeof navigator.userAgent === 'string' && navigator.userAgent) {
+        seen = true;
+        if (/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)) return true;
+      }
+    } catch (e) { /* same */ }
+
+    // A signal was present and clearly non Apple, so hide it. No signal at all
+    // is inconclusive, and inconclusive shows both.
+    return !seen;
+  }
+
+  function renderLocation() {
+    var host = $('#location-body');
+    if (!host) return;
+
+    var venue = CFG.venue || {};
+
+    /* #location-body owns two separate children. #loc-data is cleared and
+       rebuilt on every language switch. The map slot that arrives later is a
+       sibling, created once, because rebuilding it would tear down a mounted
+       iframe and make the guest pay Google a second time on mobile data. */
+    var data = $('#loc-data', host);
+    if (!data) {
+      host.textContent = '';          // discards the static pending markup
+      data = document.createElement('div');
+      data.id = 'loc-data';
+      host.appendChild(data);
+    } else {
+      data.textContent = '';
+    }
+
+    var address = typeof venue.address === 'string' ? venue.address : '';
+    if (!address) {
+      data.appendChild(pendingBlock('loc.pending.title', 'loc.pending.body'));
+      return;
+    }
+
+    var box = document.createElement('div');
+    box.className = 'addr';
+
+    var label = document.createElement('p');
+    label.className = 'addr__label';
+    label.textContent = t('loc.address');
+    box.appendChild(label);
+
+    var value = document.createElement('p');
+    value.className = 'addr__value';
+
+    /* Split on the first comma only: street on one line, postcode and city and
+       country on the second. Two short lines are read in one glance outdoors,
+       a single line wrapping wherever a 340px screen decides is not. This is
+       presentation only. venue.address stays intact for the copy action and
+       the map URLs, which must never be rebuilt out of the rendered lines. */
+    var lines = [];
+    var cut = address.indexOf(',');
+    if (cut === -1) {
+      lines.push(address);
+    } else {
+      lines.push(address.slice(0, cut));
+      lines.push(address.slice(cut + 1).replace(/^\s+/, ''));
+    }
+    for (var i = 0; i < lines.length; i++) {
+      var line = document.createElement('span');
+      line.textContent = lines[i];
+      value.appendChild(line);
+    }
+    box.appendChild(value);
+
+    if (venue.note) {
+      var note = document.createElement('p');
+      note.className = 'addr__note';
+      note.textContent = venue.note;
+      box.appendChild(note);
+    }
+
+    data.appendChild(box);
+
+    /* Actions sit in their own row below the address. This block is only ever
+       reached with an address in hand, so there is no disabled button and no
+       dead affordance anywhere in the section. Absent beats greyed out. */
+    var dirs = document.createElement('div');
+    dirs.className = 'dirs';
+
+    var urls = directionsUrls(address);
+
+    /* Google is the filled accent button because it works on every platform and
+       is the universal answer. That also keeps exactly one filled accent button
+       in this section, matching the hero and the nudge bar. */
+    var google = document.createElement('a');
+    google.className = 'btn btn--primary';
+    google.textContent = t('loc.google');
+    google.setAttribute('href', urls.google);
+    google.setAttribute('target', '_blank');
+    google.setAttribute('rel', 'noopener');
+    dirs.appendChild(google);
+
+    // Apple only where it can act, and absent from the DOM rather than hidden.
+    if (isApplePlatform()) {
+      var apple = document.createElement('a');
+      apple.className = 'btn btn--ghost';
+      apple.textContent = t('loc.apple');
+      apple.setAttribute('href', urls.apple);
+      apple.setAttribute('target', '_blank');
+      apple.setAttribute('rel', 'noopener');
+      dirs.appendChild(apple);
+    }
+
+    /* Copy goes last. Both handoffs belong under the thumb, and copying an
+       address is the least urgent of the three things a guest does here.
+
+       No loading state and no error state on either handoff: this is a
+       navigation handoff, the OS owns the transition, and every heuristic for
+       whether a native app opened produces false negatives on slow devices.
+       That refusal is deliberate, and recorded so nobody adds one later. */
+    var copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'btn btn--ghost copybtn';
+    copy.textContent = t('loc.copy');
+    dirs.appendChild(copy);
+
+    data.appendChild(dirs);
+  }
+
+  var copyRevert = null;
+
+  /* Two confirmation channels for one action, on purpose. On a phone the button
+     is under the guest's thumb at the moment its label changes, so they may
+     never see it. The toast is bottom centre, carries the full sentence, and
+     #toast already owns the polite live region, so assistive tech is served
+     without putting aria-live on the control itself. */
+  function copyFeedback(btn, state, labelKey, toastKey, ms) {
+    btn.setAttribute('data-state', state);
+    btn.textContent = t(labelKey);
+    toast(t(toastKey));
+
+    // One timer, cleared first, so repeated taps do not stack reverts.
+    if (copyRevert) clearTimeout(copyRevert);
+    copyRevert = setTimeout(function () {
+      btn.removeAttribute('data-state');
+      btn.textContent = t('loc.copy');
+    }, ms);
+  }
+
+  /* Tier one of D-10. The copied string is always CFG.venue.address, never text
+     read back out of the DOM, so the a-ring and the o-slash survive byte for
+     byte with no normalisation on the way through. */
+  function copyAddress(btn) {
+    var venue = CFG.venue || {};
+    var address = typeof venue.address === 'string' ? venue.address : '';
+    if (!address) return;
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(address).then(function () {
+          copyFeedback(btn, 'copied', 'loc.copied', 'loc.copied.toast', 2000);
+        }, function () {
+          copyByHand(btn, address);
+        });
+        return;
+      }
+    } catch (e) { /* no async clipboard here, fall through to tier two */ }
+
+    copyByHand(btn, address);
+  }
+
+  /* Tiers two and three. Older iOS Safari and some in app browsers have no
+     async clipboard but still honour execCommand. When that refuses too, the
+     address is selected on the page instead, which puts the guest one long
+     press from their own copy menu. Never a silent failure, and never a console
+     message as the guest facing outcome. */
+  function copyByHand(btn, address) {
+    var ok = false;
+    try {
+      var pad = document.createElement('textarea');
+      pad.value = address;
+      pad.setAttribute('readonly', 'readonly');   // stops iOS raising the keyboard
+      pad.style.position = 'fixed';
+      pad.style.top = '-1000px';
+      pad.style.opacity = '0';
+      document.body.appendChild(pad);
+      pad.select();
+      if (pad.setSelectionRange) pad.setSelectionRange(0, address.length);
+      ok = document.execCommand('copy') === true;
+      document.body.removeChild(pad);
+    } catch (e) { ok = false; }
+
+    if (ok) {
+      copyFeedback(btn, 'copied', 'loc.copied', 'loc.copied.toast', 2000);
+      return;
+    }
+
+    try {
+      var value = $('.addr__value');
+      if (value && window.getSelection && document.createRange) {
+        var range = document.createRange();
+        range.selectNodeContents(value);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    } catch (e) { /* the selection is a courtesy, losing it changes nothing */ }
+
+    copyFeedback(btn, 'failed', 'loc.copy.failed', 'loc.copy.failed.toast', 4000);
+  }
+
+  /* Delegated from the stable container and wired once from init(), because
+     renderLocation() re-runs on every language switch and a listener attached
+     in there would stack a duplicate handler per switch. */
+  function wireLocation() {
+    var host = $('#location-body');
+    if (!host) return;
+
+    host.addEventListener('click', function (ev) {
+      var node = ev.target;
+      var btn = (node && node.closest) ? node.closest('.copybtn') : null;
+      if (!btn && node && node.classList && node.classList.contains('copybtn')) btn = node;
+      if (!btn) return;
+      copyAddress(btn);
+    });
   }
 
   /* ======================================================================
@@ -400,6 +698,7 @@
   function init() {
     lang = resolveInitialLang();
     wireNudge();
+    wireLocation();
     applyLanguage();
     startClock();
 

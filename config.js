@@ -39,8 +39,9 @@ window.PARTY_CONFIG = {
      --------------------------------------------------------------------- */
 
   venue: {
+    // Optional. When set it replaces the address in the course fact table, and the two are never shown together.
     name: null,        // e.g. 'Anker Engelunds Vej 1, Bygning 101'
-    address: null,     // e.g. 'Anker Engelunds Vej 1, 2800 Kgs. Lyngby, Denmark'
+    address: 'Trongårdsvej 46, 2800 Kongens Lyngby, Denmark',
     note: null,        // optional extra line, e.g. 'Second floor, follow the noise'
   },
 

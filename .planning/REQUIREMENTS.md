@@ -54,11 +54,11 @@ moment they close the tab. This section closes that gap.
 
 ### Location
 
-- [ ] **LOC-01**: Address shown as text with a copy button and a confirmation on copy
+- [x] **LOC-01**: Address shown as text with a copy button and a confirmation on copy
 - [ ] **LOC-02**: Google Maps embedded via keyless iframe, no API key and no billing account
-- [ ] **LOC-03**: Direct links open Google Maps and Apple Maps in the guest's own app
+- [x] **LOC-03**: Direct links open Google Maps and Apple Maps in the guest's own app
 - [ ] **LOC-04**: Map iframe lazy-loads, so it never blocks first paint on mobile data
-- [ ] **LOC-05**: When the address is still a placeholder, the section says so plainly instead of showing a broken map
+- [x] **LOC-05**: When the address is still a placeholder, the section says so plainly instead of showing a broken map
 
 ### Door access
 
