@@ -9,7 +9,7 @@ that can go in a chat message. Everything after that raises the ceiling.
 
 ---
 
-## Phase 1 — Skeleton and countdown
+## Phase 1: Skeleton and countdown
 
 **Goal:** A deployed page at the real URL with a working countdown, correct structure, and
 the design system in place. Shareable at the end of this phase.
@@ -29,7 +29,7 @@ the page looks deliberate rather than unfinished.
 
 ---
 
-## Phase 2 — Practical information
+## Phase 2: Practical information
 
 **Goal:** The core value delivered. A guest outside the building can find the door.
 
@@ -44,7 +44,7 @@ night, on a bad connection.
 
 ---
 
-## Phase 3 — Enrollment, identity, and the group
+## Phase 3: Enrollment, identity, and the group
 
 **Goal:** The host knows who is coming. Moved ahead of photos because headcount is
 time sensitive and photos are not.
@@ -63,7 +63,7 @@ group with one more tap, and is never nudged again.
 
 ---
 
-## Phase 4 — Photos
+## Phase 4: Photos
 
 **Goal:** Guests can upload to a shared album, using the identity enrollment already gave them.
 
@@ -77,7 +77,7 @@ refused with a joke rather than an error.
 
 ---
 
-## Phase 5 — Spectacle and polish
+## Phase 5: Spectacle and polish
 
 **Goal:** The degradation arc, the easter egg, and the pass that makes it good rather than done.
 

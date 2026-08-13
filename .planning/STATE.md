@@ -36,7 +36,8 @@ Progress: [██░░░░░░░░] 20%
 | Live URL | https://sirsirio.github.io/thesis-defended-liver-pending/ verified serving over HTTPS, all assets 200 |
 | GitHub Pages | Active, deploying from `main` at repo root. `.nojekyll` committed. |
 | Repo | `SirSirio/thesis-defended-liver-pending`, all work pushed, working tree clean |
-| Supabase | Project `aplaxdplwnnlezffatal` wired into config.js and verified reachable. **Schema NOT yet applied**, so `public.enrollments`, `public.photos` and `public.attendees` do not exist. Running `supabase/schema.sql` is the owner's job and blocks phase 3. |
+| Supabase | Project `aplaxdplwnnlezffatal` wired into config.js. **Schema applied and verified 2026-08-13.** `enrollments`, `photos` and the `attendees` view all exist and respond. Phase 3 is unblocked and testable against a live database. |
+| Supabase RLS, verified | Guest can enroll (201). Raw `enrollments` reads back `[]` even holding rows, so notes stay private to the host. `attendees` view exposes first name and guest count only. Anonymous delete is refused. Note that both `[]` on a blocked read and `204` on a blocked delete look like success, so verify by inserting a row and querying after, never by status code alone. |
 | Supabase key | `sb_publishable_` key, verified active by differential test. The old service_role key was exposed in chat and the owner has since disabled it. |
 | Local preview | `Preview locally.cmd`, or `node tools/preview.js`, serves at 127.0.0.1:4173 |
 
@@ -117,8 +118,13 @@ None blocking. Five owner inputs are outstanding, each with a graceful placehold
 | Confirmed date and time | Countdown target | Provisional 2026-10-03 16:00 |
 | WhatsApp group invite link | Group handoff after enrollment | Placeholder, section hidden until set |
 
-Supabase credentials are no longer outstanding. They are in `config.js` and verified.
-What remains is the owner running `supabase/schema.sql` in the SQL editor.
+Supabase is fully set up. Credentials are in `config.js`, the schema is applied, and
+row level rules are verified against the live database. Nothing Supabase related
+blocks phase 3.
+
+Outstanding cleanup: a test row named `ZZTEST DeleteMe` may still be in
+`enrollments`. Remove it with
+`delete from public.enrollments where name = 'ZZTEST DeleteMe';`
 
 Concern: the DTU CourseBase joke lands hardest with classmates and may read as plain institutional design to relatives. Accepted deliberately. The practical information is legible regardless of whether the joke registers.
 

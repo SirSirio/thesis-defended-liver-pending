@@ -7,8 +7,17 @@
 -- It is safe to run more than once.
 --
 -- After running, copy two values from Project Settings > API into config.js:
---   Project URL      ->  photos.supabaseUrl
---   anon public key  ->  photos.supabaseAnonKey
+--   Project URL       ->  photos.supabaseUrl
+--   publishable key   ->  photos.supabaseKey   (starts sb_publishable_, or on
+--                                               older projects the anon JWT)
+--
+-- Never put a key starting sb_secret_ in config.js. It bypasses every rule
+-- below.
+--
+-- STATUS: applied to project aplaxdplwnnlezffatal on 2026-08-13, and verified
+-- against the live database. A guest can enroll, the raw enrollments table is
+-- unreadable by the public key even when it holds rows, the attendees view
+-- exposes first names only, and anonymous deletes are refused.
 -- ============================================================================
 
 
