@@ -44,9 +44,9 @@ metrics:
   duration: 7m
   completed: 2026-08-13
 actuals:
-  tokens: 5100
+  tokens: 5185
   tasks: 3
-  commits: 4
+  commits: 6
 ---
 
 # Phase 02 Plan 01: Location Data Core Summary
@@ -150,8 +150,12 @@ All modified files present, all four commits verified in `git log`.
 | Item | Result |
 |---|---|
 | config.js, copy.js, index.html, app.js, styles.css | all present, all modified |
-| `27cc4e9` | found |
-| `1fd9996` | found |
-| `c91d48b` | found |
-| `00e877f` | found |
-| working tree | clean before this document |
+| `27cc4e9` task 1 | found |
+| `1fd9996` task 2 | found |
+| `c91d48b` task 3 | found |
+| `00e877f` Rule 1 fix | found |
+| `06705f7` this summary | found |
+| `c03d556` requirements | found |
+| working tree | clean |
+
+STATE.md and ROADMAP.md were deliberately not touched. This plan ran as a parallel worktree agent, and the orchestrator owns those writes after the wave completes.
