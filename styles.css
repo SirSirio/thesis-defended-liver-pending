@@ -684,3 +684,95 @@ body[data-nudge="1"] { padding-bottom: 76px; }
   }
   .hero::before { animation: none; opacity: 0.9; }
 }
+
+/* ==========================================================================
+   DTU MASTHEAD
+   --------------------------------------------------------------------------
+   Appended as one self-contained block rather than edited into the rules
+   above, for two reasons: it is removable in one deletion, and appending
+   avoids colliding with concurrent edits elsewhere in this file.
+
+   The topbar becomes a solid DTU red band carrying the white lockup, which
+   is DTU's own house pattern and the single change that makes the page read
+   as CourseBase rather than as a dark site with a logo on it.
+
+   Red as a large fill is sanctioned by the brief. What is NOT sanctioned is
+   what the band does to everything sitting on it, so every foreground colour
+   in the topbar is re-derived below. Measured against #990000:
+
+     --ink-dim   #A1A1A6   3.47:1   fails body text, was the topnav colour
+     --accent-lit #E83F48  2.22:1   effectively invisible, was the focus ring
+     white @ 80%           5.96:1   passes, and reads as secondary
+     white                 8.92:1   passes
+   ========================================================================== */
+
+.topbar {
+  background: var(--accent);
+  backdrop-filter: none;
+  border-bottom: 1px solid #7A0000;
+}
+
+.mark__logo {
+  display: block;
+  height: 40px;
+  width: auto;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* The badge was a red fill with white text. On a red band that is a red
+   square on red, so it inverts to an outlined chip instead. The course
+   number is the spine of the parody and does not get dropped for the logo. */
+.mark__badge {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: #fff;
+}
+
+.mark__dept { color: rgba(255, 255, 255, 0.80); }   /* 5.96:1 */
+
+.topnav a {
+  color: rgba(255, 255, 255, 0.80);                  /* 5.96:1 */
+  border-bottom-color: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  /* --accent-lit is 2.22:1 here, so the hover underline would not be seen. */
+  .topnav a:hover { color: #fff; border-bottom-color: #fff; }
+}
+
+.langswitch { border-color: rgba(255, 255, 255, 0.40); }
+.langswitch button { color: rgba(255, 255, 255, 0.80); }
+/* The pressed state was accent on accent. It inverts to white. */
+.langswitch button[aria-pressed="true"] { background: #fff; color: var(--accent); }
+@media (hover: hover) and (pointer: fine) {
+  .langswitch button:not([aria-pressed="true"]):hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.14);
+  }
+}
+
+/* Keyboard focus must survive the band. The global ring is --accent-lit,
+   which is 2.22:1 on red and would strand keyboard users in the one region
+   of the page they navigate first. */
+.topbar :focus-visible { outline-color: #fff; }
+
+/* The skip link lands on top of the band when focused, and it is also
+   --accent-lit, so it needs an edge that holds against any background. */
+.skip-link { box-shadow: 0 0 0 2px #fff; }
+
+@media (max-width: 900px) {
+  .topnav__key { color: #fff; }
+}
+
+@media (max-width: 420px) {
+  .mark__logo { height: 32px; }
+}
+
+/* Pre-existing defect, surfaced by the band rather than caused by it: three
+   topnav items ("Course information", "Learning objectives", "Building
+   access") wrapped to two lines at desktop, which the design contract
+   forbids. Verified in a browser that this is unchanged with the logo
+   removed, so it predates this block. nowrap alone overflows the 1080px
+   wrap, so the gap tightens by one step to absorb it. Bar height stays 65px. */
+.topnav a { white-space: nowrap; }
+.topnav { gap: var(--s-4); }
