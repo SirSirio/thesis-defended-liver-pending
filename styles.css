@@ -232,10 +232,9 @@ a { color: inherit; }
   .langswitch button { min-height: 44px; min-width: 44px; }
   .mark { min-height: 44px; }
   .facts__row--egg { min-height: 44px; }
-  /* A cold thumb outdoors needs more than the inherited 48. */
-  .copybtn { min-height: 52px; }
-  /* The two handoffs are the primary outdoor actions and run taller still. */
-  .dirs .btn:not(.copybtn) { min-height: 56px; }
+  /* The location buttons are sized in their own block further down the file,
+     not here. This block sits above .btn, and a class level rule in it loses
+     to .btn's own min-height on source order. See the note by .dirs. */
 }
 
 /* --------------------------------------------------------------------------
@@ -585,6 +584,17 @@ a { color: inherit; }
 /* Apple's 44pt floor assumes an indoor two handed tap. These two are the real
    actions in the section and are pressed outdoors, one handed, in October. */
 .dirs .btn:not(.copybtn) { min-height: 52px; }
+
+/* Deliberately here rather than in the shared coarse pointer block near the top
+   of the file. That block sits above .btn, media queries carry no specificity
+   of their own, and a class level rule there therefore loses to .btn's own
+   48px on source order alone. Both minimums below would silently do nothing.
+   Do not "tidy" these back up into the shared block. */
+@media (pointer: coarse) {
+  .dirs .btn:not(.copybtn) { min-height: 56px; }
+  /* A cold thumb outdoors needs more than the inherited 48. */
+  .dirs .copybtn { min-height: 52px; }
+}
 
 /* Same stack as .hero__actions: equal width, full bleed, thumb sized. Ragged
    auto widths read as an accident. */
