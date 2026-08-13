@@ -33,11 +33,23 @@ the page looks deliberate rather than unfinished.
 
 **Goal:** The core value delivered. A guest outside the building can find the door.
 
+**Requirements:** LOC-01, LOC-02, LOC-03, LOC-04, LOC-05, ACC-01, ACC-02, ACC-03, ACC-04, ACC-05, DEL-02, DEL-03
+
 - Location section: copyable address, keyless maps embed, native map app links (LOC-01 to LOC-05)
-- Door video section: inline playback, poster frame, written fallback directions (ACC-01 to ACC-05)
+- Door video section: inline playback, poster frame, written directions (ACC-01 to ACC-05).
+  Note that CONTEXT.md D-12 promotes the written directions from a fallback to always visible
+  above the video, which supersedes the earlier wording here deliberately.
 - Placeholder handling for both, so the sections read as intentional while details are pending
 - Jump link from the top of the page straight to door access (ACC-02)
 - Mobile and iOS Safari verification (DEL-02, DEL-03)
+
+**Plans:** 4 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Location tracer: real address, copy cascade, Google and Apple handoffs
+- [ ] 02-02-PLAN.md — Keyless map embed, lazy mount on approach, three slot states
+- [ ] 02-03-PLAN.md — Access section: written directions in three shapes, practical notes
+- [ ] 02-04-PLAN.md — Door video slot, pending and error states, jump path, device pass
 
 **Done when:** the address and door instructions are findable in seconds on a phone, at
 night, on a bad connection.
