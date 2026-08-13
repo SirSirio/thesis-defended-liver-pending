@@ -325,9 +325,11 @@
     hideNudge(bar);
   }
 
+  // Both halves are needed. A key with no project URL reaches nothing, so the
+  // nudge stays down rather than pointing at a form that cannot submit.
   function enrollmentReady() {
     var p = CFG.photos || {};
-    return Boolean(p.supabaseUrl && p.supabaseAnonKey);
+    return Boolean(p.supabaseUrl && (p.supabaseKey || p.supabaseAnonKey));
   }
 
   function showNudge(bar) {

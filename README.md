@@ -109,19 +109,40 @@ anyone who opens the page source can find the link, and that is fine.
 ### Photos
 
 Needs a free [Supabase](https://supabase.com) account, which takes a few
-minutes. Create a project, then copy two values from **Project Settings > API**:
+minutes.
+
+**Note:** signing into Supabase with GitHub is only how you log in, and the
+Supabase GitHub repo integration is for CLI migrations. Neither one delivers
+credentials to this site. GitHub Pages serves static files with no build step,
+so the two values below are pasted into `config.js` by hand. That is fine here:
+the anon key is designed to be public, and access is controlled by the row level
+rules in [`supabase/schema.sql`](supabase/schema.sql).
+
+**Setup, once:**
+
+1. Create a project at supabase.com
+2. Open **SQL Editor**, paste the whole of [`supabase/schema.sql`](supabase/schema.sql), run it.
+   That creates the tables, the storage bucket, the access rules, and a database
+   level five photo limit.
+3. Copy two values from **Project Settings > API** into `config.js`:
 
 ```js
 photos: {
   supabaseUrl: 'https://yourproject.supabase.co',
-  supabaseAnonKey: 'eyJhbGci...',
+  supabaseKey: 'sb_publishable_...',
   maxPerGuest: 5,
 },
 ```
 
-Both values are safe to publish. The anon key is designed to live in public
-JavaScript, and access is controlled by row level rules rather than by keeping
-the key hidden.
+`supabaseKey` is the client side key. Newer projects call it **publishable** and
+it starts `sb_publishable_`. Older projects call it **anon public** and it is a
+long JWT. Either works.
+
+Both values are safe to publish. That is what the publishable key is for, and
+access is controlled by the rules in `supabase/schema.sql` rather than by
+keeping the key hidden.
+
+A key starting `sb_secret_` is the opposite and must never go in this file.
 
 ---
 

@@ -120,21 +120,28 @@ window.PARTY_CONFIG = {
      ---------------------------------------------------------------------
      Guests upload into a shared album. Built in phase 3.
 
-     Needs a free Supabase account (supabase.com). Create a project, then
-     copy the project URL and the anon public key from
-     Project Settings > API. Both are safe to publish: the anon key is
-     designed to sit in public JavaScript, and access is controlled by
-     row level rules rather than by hiding the key.
+     Needs a free Supabase account (supabase.com). Run supabase/schema.sql
+     once in the SQL editor, then copy two values from Project Settings > API.
 
-     Until these are filled in, the photo section says uploads open later.
+     The key below is the client side one. Newer projects call it the
+     "publishable" key and it starts sb_publishable_. Older projects call it
+     the "anon public" key and it is a long JWT. Either works here.
+
+     It is safe to publish. That is what it is for, and access is controlled
+     by the row level rules in supabase/schema.sql rather than by keeping the
+     key hidden. A key starting sb_secret_ is the opposite: it must never go
+     in this file.
+
+     Until both are filled in, enrollment and photos show a waiting message
+     instead of failing.
      --------------------------------------------------------------------- */
 
   photos: {
-    supabaseUrl: null,     // e.g. 'https://abcdefgh.supabase.co'
-    supabaseAnonKey: null, // the long "anon public" key
+    supabaseUrl: null,   // REQUIRED, still missing: 'https://<project>.supabase.co'
+    supabaseKey: 'sb_publishable_Z6Cq5vFRqyUhXueQGevrYQ__j0pNRrc',
     bucket: 'party-photos',
     table: 'photos',
-    maxPerGuest: 5,        // soft limit. Clearing browser data resets it.
+    maxPerGuest: 5,      // also enforced in the database, see supabase/schema.sql
     maxFileSizeMb: 12,
   },
 
