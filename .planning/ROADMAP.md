@@ -39,6 +39,7 @@ the page looks deliberate rather than unfinished.
 - Door video section: inline playback, poster frame, written directions (ACC-01 to ACC-05).
   Note that CONTEXT.md D-12 promotes the written directions from a fallback to always visible
   above the video, which supersedes the earlier wording here deliberately.
+
 - Placeholder handling for both, so the sections read as intentional while details are pending
 - Jump link from the top of the page straight to door access (ACC-02)
 - Mobile and iOS Safari verification (DEL-02, DEL-03)
@@ -46,9 +47,20 @@ the page looks deliberate rather than unfinished.
 **Plans:** 4 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 02-01-PLAN.md — Location tracer: real address, copy cascade, Google and Apple handoffs
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 02-02-PLAN.md — Keyless map embed, lazy mount on approach, three slot states
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 02-03-PLAN.md — Access section: written directions in three shapes, practical notes
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 02-04-PLAN.md — Door video slot, pending and error states, jump path, device pass
 
 **Done when:** the address and door instructions are findable in seconds on a phone, at
@@ -113,9 +125,10 @@ These unblock as inputs arrive. None of them gate a phase.
 
 | Input | Unblocks | Until then |
 |---|---|---|
-| Venue address | LOC-01 to LOC-03 | Placeholder, section states it is pending |
-| Door video file | ACC-01 to ACC-03 | Placeholder player, written directions carry the section |
+| ~~Venue address~~ | ~~LOC-01 to LOC-03~~ | **Resolved 2026-08-13.** Trongårdsvej 46, 2800 Kongens Lyngby, confirmed by the owner and recorded as D-01. Phase 2 ships the location section live rather than as a placeholder. |
+| ~~Supabase credentials~~ | ~~ENR-03, PH-03~~ | **Resolved.** In `config.js` and verified, and the schema has since been applied. |
+| Door video file | ACC-01 to ACC-03 | Placeholder player, written directions carry the section. Phase 2 builds the whole slot against `videoSrc: null`, so one config line turns it on with no code change. Film it landscape if you can; if you film it portrait, set `door.aspect` and the slot adapts. |
+| Entrance, floor, buzzer, parking | Nothing, but it is the highest value input left | `venue.notes` in `config.js`. Every line optional, whole block absent when empty. For a 76 unit kollegium these are what actually get a guest to the right door, more than the video does. |
 | Kahoot link | KAH-02, KAH-03 | Unlock mechanism built and testable against a dummy link |
 | Confirmed date and time | CD-01 | Currently 2026-10-03 16:00, one line to change |
-| Supabase credentials | ENR-03, PH-03 | Forms built, show "opens shortly" state |
 | WhatsApp group invite link | WA-01 to WA-05 | Handoff built, section hidden until the link exists |

@@ -130,7 +130,29 @@ irritating enough that they close the tab.
 - [ ] **DSG-06**: Zero em dashes anywhere on the page
 - [ ] **DSG-07**: Countdown, address, and video never gated behind an animation
 - [ ] **DSG-08**: Passes the full pre-flight matrix in the design-taste skill
-- [ ] **DSG-09**: No DTU logo reproduced, and a footer line stating no affiliation, in both languages
+- [ ] **DSG-09**: DTU logo displayed in the masthead, loaded from `assets/dtu-logo.png` behind a
+  single `brand.logoSrc` config value, so it can be removed in one line if it ever needs to come
+  down. The footer line stating no affiliation stays, in all three languages, and becomes more
+  load-bearing rather than less: it is the thing that keeps this parody rather than impersonation.
+
+  **Asset provenance:** the official White RGB lockup, downloaded unaltered from DTU's own design
+  guide at `media.adm.dtu.dk/designguide/.../White/White_RGB/White_RGB.png`, then downscaled from
+  1951x2846 to 219x320 (66 KB to 6.6 KB) with no recolouring. DTU publishes only monochrome
+  lockups: the White variant is entirely white and the Corporate Red variant is entirely `#990000`.
+  The two-tone grey-and-red mark in wide circulation is not in DTU's current download set.
+  `#990000` on `#0B0B0C` is unreadable, so the white lockup is the only usable variant, and it is
+  also the one DTU itself specifies for dark backgrounds. The mark ships **unmodified**, which is
+  both DTU's stated requirement and the more defensible position: an altered mark is harder to
+  read as parody, not easier.
+
+  **Masthead treatment:** white lockup on a solid `#990000` band. This is DTU's own house pattern,
+  it restores the red the monochrome lockup gives up, and it is what turns the page from "dark
+  site with a logo on it" into something that reads as CourseBase.
+
+  **Owner decision, 2026-08-13, reversing the earlier "no logo reproduced" position.** The owner
+  supplied the mark and accepted the trademark tradeoff knowingly, on the reasoning that the page
+  is small, unlisted, and live for roughly two months. Recorded here so the reversal is a visible
+  choice rather than drift. Claude did not source or recreate the mark; the owner supplies the file.
 
 ### Delivery
 
