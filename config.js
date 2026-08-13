@@ -137,7 +137,7 @@ window.PARTY_CONFIG = {
      --------------------------------------------------------------------- */
 
   photos: {
-    supabaseUrl: null,   // REQUIRED, still missing: 'https://<project>.supabase.co'
+    supabaseUrl: 'https://aplaxdplwnnlezffatal.supabase.co',
     supabaseKey: 'sb_publishable_Z6Cq5vFRqyUhXueQGevrYQ__j0pNRrc',
     bucket: 'party-photos',
     table: 'photos',
