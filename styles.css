@@ -12,7 +12,7 @@
   --surface:    #141416;
   --surface-2:  #1B1B1E;
   --ink:        #F4F4F5;   /* 17.9:1 on --bg */
-  --ink-dim:    #A1A1A6;   /* 8.9:1 on --bg */
+  --ink-dim:    #A1A1A6;   /* 7.65:1 on --bg, recomputed. The old 8.9:1 here was wrong. */
   --ink-faint:  #6E6E73;
   --accent:     #990000;   /* DTU corporate red. Fills and large display only, 2.2:1 */
   --accent-lit: #E83F48;   /* DTU secondary red. All red TEXT uses this, 4.9:1 */
@@ -521,6 +521,45 @@ a { color: inherit; }
 }
 
 .pending__b { color: var(--ink-dim); }
+
+/* --------------------------------------------------------------------------
+   Location. The address is a labelled data field in mono, exactly like every
+   other data value on this page, because a fixed width string is faster to
+   parse at a glance in bad light than a prose line is.
+   -------------------------------------------------------------------------- */
+
+/* Same treatment as a .facts__row dt, on purpose. It is a field label, and
+   making it an uppercase mono eyebrow would give the page a second one. */
+.addr__label {
+  color: var(--ink-dim);
+  font-size: 14.5px;
+  margin-bottom: var(--s-2);
+}
+
+.addr__value {
+  font-family: var(--font-mono);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink);
+  overflow-wrap: break-word;    /* a long Danish street name wraps, never scrolls the page */
+}
+
+/* JS splits the address on its first comma and hands each half its own span.
+   Blocks, so the street and the postcode never share a line at some width
+   where both happen to fit. */
+.addr__value span { display: block; }
+
+.addr__note {
+  color: var(--ink-dim);
+  margin-top: var(--s-3);
+}
+
+/* Below 420px the two lines start competing with the viewport, and 18px still
+   clears the address by a wide margin over body text. */
+@media (max-width: 420px) {
+  .addr__value { font-size: 18px; }
+}
 
 /* --------------------------------------------------------------------------
    Footer

@@ -95,8 +95,10 @@ window.PARTY_COPY = {
     'wa.cta': 'Join the WhatsApp group',
 
     'loc.heading': 'Location',
+    'loc.lede': 'Course sessions are held at the address below. Directions open in your own map application.',
     'loc.pending.title': 'Venue under confirmation',
     'loc.pending.body': 'The room booking is still being negotiated. The address appears here as soon as it is fixed, and this page updates itself.',
+    'loc.address': 'Address',
     'loc.copy': 'Copy address',
     'loc.copied': 'Copied',
     'loc.google': 'Open in Google Maps',
@@ -207,8 +209,10 @@ window.PARTY_COPY = {
     'wa.cta': 'Entra nel gruppo WhatsApp',
 
     'loc.heading': 'Sede',
+    'loc.lede': 'Le lezioni si tengono all’indirizzo qui sotto. Le indicazioni si aprono nella tua applicazione di mappe.',
     'loc.pending.title': 'Sede in via di conferma',
     'loc.pending.body': 'La prenotazione dell’aula è ancora in trattativa. L’indirizzo compare qui appena è confermato, e la pagina si aggiorna da sola.',
+    'loc.address': 'Indirizzo',
     'loc.copy': 'Copia indirizzo',
     'loc.copied': 'Copiato',
     'loc.google': 'Apri in Google Maps',
@@ -323,8 +327,10 @@ window.PARTY_COPY = {
     'wa.cta': 'Kom med i WhatsApp gruppen',
 
     'loc.heading': 'Sted',
+    'loc.lede': 'Undervisningen finder sted på adressen nedenfor. Ruten åbner i din egen kortapp.',
     'loc.pending.title': 'Lokale afventer bekræftelse',
     'loc.pending.body': 'Lokalebookingen forhandles stadig. Adressen vises her, så snart den ligger fast, og siden opdaterer sig selv.',
+    'loc.address': 'Adresse',
     'loc.copy': 'Kopiér adresse',
     'loc.copied': 'Kopieret',
     'loc.google': 'Åbn i Google Maps',

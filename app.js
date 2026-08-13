@@ -81,6 +81,7 @@
     renderCountdown();
     renderDeadline();
     renderNudge();
+    renderLocation();
   }
 
   function setLanguage(next) {
@@ -228,6 +229,105 @@
         loc.textContent = t('facts.location.tbd');
       }
     }
+  }
+
+  /* ======================================================================
+     LOCATION AND ACCESS
+     The core value of the whole site. A guest standing outside a 76 unit
+     kollegium at night needs the address readable in two seconds and one tap
+     from a route. Everything here is optimised for that guest, not for this
+     page being looked at on a desk.
+     ====================================================================== */
+
+  /* Rebuilds the .pending block that index.html ships as static markup. The
+     first render replaces the container's contents, so the static one is gone
+     and every later pending state has to be built here instead.
+
+     createElement plus textContent, never a markup string: config values flow
+     through these nodes and that discipline is what keeps config.js from
+     becoming an injection vector. */
+  function pendingBlock(titleKey, bodyKey) {
+    var box = document.createElement('div');
+    box.className = 'pending';
+
+    var head = document.createElement('p');
+    head.className = 'pending__t';
+    head.textContent = t(titleKey);
+
+    var body = document.createElement('p');
+    body.className = 'pending__b';
+    body.textContent = t(bodyKey);
+
+    box.appendChild(head);
+    box.appendChild(body);
+    return box;
+  }
+
+  function renderLocation() {
+    var host = $('#location-body');
+    if (!host) return;
+
+    var venue = CFG.venue || {};
+
+    /* #location-body owns two separate children. #loc-data is cleared and
+       rebuilt on every language switch. The map slot that arrives later is a
+       sibling, created once, because rebuilding it would tear down a mounted
+       iframe and make the guest pay Google a second time on mobile data. */
+    var data = $('#loc-data', host);
+    if (!data) {
+      host.textContent = '';          // discards the static pending markup
+      data = document.createElement('div');
+      data.id = 'loc-data';
+      host.appendChild(data);
+    } else {
+      data.textContent = '';
+    }
+
+    var address = typeof venue.address === 'string' ? venue.address : '';
+    if (!address) {
+      data.appendChild(pendingBlock('loc.pending.title', 'loc.pending.body'));
+      return;
+    }
+
+    var box = document.createElement('div');
+    box.className = 'addr';
+
+    var label = document.createElement('p');
+    label.className = 'addr__label';
+    label.textContent = t('loc.address');
+    box.appendChild(label);
+
+    var value = document.createElement('p');
+    value.className = 'addr__value';
+
+    /* Split on the first comma only: street on one line, postcode and city and
+       country on the second. Two short lines are read in one glance outdoors,
+       a single line wrapping wherever a 340px screen decides is not. This is
+       presentation only. venue.address stays intact for the copy action and
+       the map URLs, which must never be rebuilt out of the rendered lines. */
+    var lines = [];
+    var cut = address.indexOf(',');
+    if (cut === -1) {
+      lines.push(address);
+    } else {
+      lines.push(address.slice(0, cut));
+      lines.push(address.slice(cut + 1).replace(/^\s+/, ''));
+    }
+    for (var i = 0; i < lines.length; i++) {
+      var line = document.createElement('span');
+      line.textContent = lines[i];
+      value.appendChild(line);
+    }
+    box.appendChild(value);
+
+    if (venue.note) {
+      var note = document.createElement('p');
+      note.className = 'addr__note';
+      note.textContent = venue.note;
+      box.appendChild(note);
+    }
+
+    data.appendChild(box);
   }
 
   /* ======================================================================
