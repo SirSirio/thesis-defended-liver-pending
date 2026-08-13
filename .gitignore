@@ -33,3 +33,6 @@ desktop.ini
 
 # Claude Code tooling (GSD + skills) — reinstallable, not part of the site
 .claude/
+
+# Playwright scratch output
+.playwright-mcp/
