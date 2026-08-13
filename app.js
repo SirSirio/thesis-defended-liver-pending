@@ -263,6 +263,61 @@
     return box;
   }
 
+  /* Directions URLs, not place URLs, per D-05. A place URL drops the guest on a
+     pin and asks them to press one more thing in the cold. Both of these open
+     the native app when it is installed, on both platforms. The address is
+     encoded once, which is what keeps the a-ring and the spaces from
+     truncating the query. */
+  function directionsUrls(address) {
+    var q = encodeURIComponent(address);
+    return {
+      google: 'https://www.google.com/maps/dir/?api=1&destination=' + q,
+      apple: 'https://maps.apple.com/?daddr=' + q + '&dirflg=d'
+    };
+  }
+
+  /* D-06, evaluated in order, any positive signal wins.
+
+     Handing a Danish guest on Android an Apple Maps button gives them a web
+     page they cannot act on, so it is withheld there. The failure mode is the
+     part worth stating: when every signal is absent or unreadable this returns
+     true, because a button that does nothing on one platform is a smaller harm
+     than hiding the right button from someone standing outside who needed it.
+
+     Never inferred from screen width, from touch support, or by opening the URL
+     and measuring what happens. Those all guess, and this only reads. */
+  function isApplePlatform() {
+    var seen = false;
+
+    try {
+      var uad = navigator.userAgentData;
+      if (uad && typeof uad.platform === 'string' && uad.platform) {
+        seen = true;
+        if (/mac|ios|iphone|ipad/i.test(uad.platform)) return true;
+      }
+    } catch (e) { /* unreadable signal counts as absent, not as non Apple */ }
+
+    try {
+      if (typeof navigator.platform === 'string' && navigator.platform) {
+        seen = true;
+        // iPadOS 13 and later report MacIntel, and on a desktop Mac the link
+        // does open the Maps app, so the Mac prefix is deliberate.
+        if (/^(iPhone|iPad|iPod|Mac)/.test(navigator.platform)) return true;
+      }
+    } catch (e) { /* same */ }
+
+    try {
+      if (typeof navigator.userAgent === 'string' && navigator.userAgent) {
+        seen = true;
+        if (/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)) return true;
+      }
+    } catch (e) { /* same */ }
+
+    // A signal was present and clearly non Apple, so hide it. No signal at all
+    // is inconclusive, and inconclusive shows both.
+    return !seen;
+  }
+
   function renderLocation() {
     var host = $('#location-body');
     if (!host) return;
@@ -335,6 +390,37 @@
     var dirs = document.createElement('div');
     dirs.className = 'dirs';
 
+    var urls = directionsUrls(address);
+
+    /* Google is the filled accent button because it works on every platform and
+       is the universal answer. That also keeps exactly one filled accent button
+       in this section, matching the hero and the nudge bar. */
+    var google = document.createElement('a');
+    google.className = 'btn btn--primary';
+    google.textContent = t('loc.google');
+    google.setAttribute('href', urls.google);
+    google.setAttribute('target', '_blank');
+    google.setAttribute('rel', 'noopener');
+    dirs.appendChild(google);
+
+    // Apple only where it can act, and absent from the DOM rather than hidden.
+    if (isApplePlatform()) {
+      var apple = document.createElement('a');
+      apple.className = 'btn btn--ghost';
+      apple.textContent = t('loc.apple');
+      apple.setAttribute('href', urls.apple);
+      apple.setAttribute('target', '_blank');
+      apple.setAttribute('rel', 'noopener');
+      dirs.appendChild(apple);
+    }
+
+    /* Copy goes last. Both handoffs belong under the thumb, and copying an
+       address is the least urgent of the three things a guest does here.
+
+       No loading state and no error state on either handoff: this is a
+       navigation handoff, the OS owns the transition, and every heuristic for
+       whether a native app opened produces false negatives on slow devices.
+       That refusal is deliberate, and recorded so nobody adds one later. */
     var copy = document.createElement('button');
     copy.type = 'button';
     copy.className = 'btn btn--ghost copybtn';

@@ -234,6 +234,8 @@ a { color: inherit; }
   .facts__row--egg { min-height: 44px; }
   /* A cold thumb outdoors needs more than the inherited 48. */
   .copybtn { min-height: 52px; }
+  /* The two handoffs are the primary outdoor actions and run taller still. */
+  .dirs .btn:not(.copybtn) { min-height: 56px; }
 }
 
 /* --------------------------------------------------------------------------
@@ -578,6 +580,17 @@ a { color: inherit; }
 .copybtn[data-state="failed"] {
   border-color: var(--accent-lit);
   color: var(--accent-lit);
+}
+
+/* Apple's 44pt floor assumes an indoor two handed tap. These two are the real
+   actions in the section and are pressed outdoors, one handed, in October. */
+.dirs .btn:not(.copybtn) { min-height: 52px; }
+
+/* Same stack as .hero__actions: equal width, full bleed, thumb sized. Ragged
+   auto widths read as an accident. */
+@media (max-width: 480px) {
+  .dirs { flex-direction: column; align-items: stretch; }
+  .dirs .btn { width: 100%; }
 }
 
 /* --------------------------------------------------------------------------
