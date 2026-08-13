@@ -146,14 +146,28 @@ A key starting `sb_secret_` is the opposite and must never go in this file.
 
 ---
 
+## Shortcuts in this folder
+
+| File | Opens |
+|---|---|
+| `Open party site.url` | The live site on GitHub Pages |
+| `Open repo on GitHub.url` | This repository |
+| `Preview locally.cmd` | Runs the site on your own machine and opens a browser |
+
 ## Running it locally
 
-Opening `index.html` directly mostly works, but a real server avoids surprises.
+Double click **`Preview locally.cmd`**. It serves the folder at
+http://127.0.0.1:4173 and opens a browser. Edit any file, refresh, and the
+change is there. Press Ctrl+C in the black window to stop.
+
+Equivalent by hand:
 
 ```bash
-python -m http.server 4173
-# then open http://127.0.0.1:4173
+node tools/preview.js
 ```
+
+Opening `index.html` directly by double clicking mostly works too, but a real
+server avoids surprises with paths and video playback.
 
 ---
 
