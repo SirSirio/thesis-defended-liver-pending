@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 2
-current_phase_name: Practical information
+current_phase: 02
+current_phase_name: practical-information
 status: executing
 stopped_at: Phase 1 complete, pushed, and verified on the live URL. Ready to plan phase 2.
-last_updated: "2026-08-13T21:14:42.643Z"
+last_updated: "2026-08-13T21:17:58.517Z"
 last_activity: 2026-08-13
 last_activity_desc: Phase 1 complete, deployed, and verified live.
 progress:
   total_phases: 1
-  completed_phases: 1
+  completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 0
 ---
 
 # Project State
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-13)
 
 **Core value:** A guest standing outside the building in the dark finds the right door in under ten seconds.
-**Current focus:** Phase 2 — Practical information
+**Current focus:** Phase 02 — practical-information
 
 ## Current Position
 
-Phase: 2 of 5 (Practical information)
-Plan: 0 of 0 in current phase
-Status: Ready to execute
-Last activity: 2026-08-13 — Phase 1 complete, deployed, and verified live.
+Phase: 02 (practical-information) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 02
+Last activity: 2026-08-13 — Phase 02 execution started
 
 Progress: [██░░░░░░░░] 20%
 
