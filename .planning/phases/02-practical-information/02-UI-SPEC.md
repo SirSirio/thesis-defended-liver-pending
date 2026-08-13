@@ -1,7 +1,7 @@
 ---
 phase: 2
 slug: 02-practical-information
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-08-13
@@ -176,10 +176,15 @@ a deliberate exception rather than smuggled in.
 |------|--------|------|--------|-------------|-------|---------------|
 | **Address value** | IBM Plex Mono | **19px** (18px below 420px viewport) | 500 | 1.4 | `--ink` | The second most important string on the page after the countdown. Mono because every data value in the parody is mono (`#fact-schedule`, `#fact-number`, `#fact-deadline`), and because fixed-width forms are faster to parse at a glance in bad light. |
 | **Written directions** | IBM Plex Sans | **17px** | 400 | 1.5 | `--ink` | Read outdoors, standing, at night. One notch above the 16px body, deliberately. `max-width: 60ch`. |
-| **Sub-heading (`h3.sub-h`)** | Saira | **17px** | 600 | 1.2 | `--ink` | Three of these inside the access section. Sits below `h2` in the scale with a clear 1.4x+ gap at the mobile `h2` size. |
+| **Sub-heading (`h3.sub-h`)** | Saira | **20px** | 600 | 1.2 | `--ink` | Three of these inside the access section. At 17px it tied the 17px written directions it sits directly above, leaving family and weight as the only hierarchy signal and a size ratio of exactly 1.0. 20px restores a real step: 1.28x down from the mobile `h2` floor (25.6px) and 1.18x up from the directions body. 1.18 is under the 1.25 guideline, and it is accepted here because three axes separate the two (Saira vs IBM Plex Sans, 600 vs 400, 20 vs 17), where the guideline assumes one. Corrected after UI-checker review. |
 | Map waiting line | IBM Plex Mono | 13px | 400 | 1.5 | `--ink-dim` | Existing size (footer, hero deadline). Not a new step. |
 
-**Not used:** no `text-transform: uppercase` micro-label is added anywhere in this phase.
+**Not used:** no NEW `text-transform: uppercase` micro-label is added by this phase. One inherited
+exception is rendered rather than authored: `.pending__t` carries `text-transform: uppercase` with
+`letter-spacing: 0.08em`, and this phase renders `.pending` in up to three places (address absent,
+directions absent, video absent). D-18 requires reusing that component, so the uppercase treatment
+comes with it. Recorded with the same honesty as the side-stripe deviation rather than left implied,
+because "adds none" and "renders none" are different claims and only the first is true.
 Page-wide eyebrow count stays at 1 (the hero), against a budget of `ceil(7 sections / 3) = 2`.
 The address label uses the existing `.facts__row dt` treatment (14.5px, sentence case,
 `--ink-dim`) precisely so it does not become a second eyebrow.
@@ -226,9 +231,9 @@ Inherited from `:root`. **This phase introduces no new color value.**
 |---|---|---|---|---|
 | `--ink` `#F4F4F5` address 19px | `--bg` `#0B0B0C` | 17.9:1 | 4.5:1 | Pass |
 | `--ink` directions 17px | `--bg` | 17.9:1 | 4.5:1 | Pass |
-| `--ink-dim` `#A1A1A6` address label | `--bg` | 8.9:1 | 4.5:1 | Pass |
-| `--ink-dim` map waiting line 13px | `--surface` `#141416` | 7.9:1 | 4.5:1 | Pass |
-| `--ink-dim` notes `dt` | `--bg` | 8.9:1 | 4.5:1 | Pass |
+| `--ink-dim` `#A1A1A6` address label | `--bg` | 7.65:1 | 4.5:1 | Pass |
+| `--ink-dim` map waiting line 13px | `--surface` `#141416` | 7.15:1 | 4.5:1 | Pass |
+| `--ink-dim` notes `dt` | `--bg` | 7.65:1 | 4.5:1 | Pass |
 | `#fff` button label | `--accent` `#990000` | 8.9:1 | 4.5:1 | Pass |
 | `--accent-lit` `#E83F48` `.pending__t` 12.5px | `--surface` | 4.58:1 | 4.5:1 | Pass, tight. Do not darken the surface or lighten the text off this pair. |
 | `--accent-lit` focus ring | `--bg` | 4.90:1 | 3:1 (non-text) | Pass |
@@ -807,11 +812,36 @@ Concrete, verifiable, derived from everything above.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS: zero em dashes and zero en dashes confirmed by codepoint scan (U+2014 and U+2013 both absent) across 20 new keys in 3 languages
+- [x] Dimension 2 Visuals: PASS: focal order declared per section, both category reflexes refused with a stated alternative, zero icons
+- [x] Dimension 3 Color: PASS: accent reserved-for list exhaustive and closed; contrast recomputed independently by the checker and again by the orchestrator
+- [x] Dimension 4 Typography: FLAG (accepted): page-wide size and weight counts exceed the ceiling. Inherited from phase 1, declared as an exception, phase 5 pre-flight owns it. The one NEW hierarchy weakness the checker found (`h3.sub-h` tying the body at 17px) was corrected to 20px before planning.
+- [x] Dimension 5 Spacing: PASS: every value an existing `--s-*` token on a 4px base; touch minimums 44/48/52/56 all multiples of 4
+- [x] Dimension 6 Registry Safety: PASS: no shadcn, no third-party UI registry; the Google keyless embed disclosed with mitigations
 
-**Approval:** pending
+**Approval:** approved
+
+### Post-approval corrections applied by the orchestrator
+
+The checker returned three non-blocking recommendations. All three were applied before the
+planner ran, so the planner reads a corrected contract rather than inheriting known defects.
+
+1. **`h3.sub-h` 17px to 20px.** At 17px it tied the 17px written directions directly beneath it,
+   leaving zero size delta and resting the whole hierarchy on family and weight.
+2. **Three propagated contrast figures corrected.** `--ink-dim` on `--bg` is **7.65:1**, not 8.9:1;
+   on `--surface` it is **7.15:1**, not 7.9:1. Both still clear 4.5:1 comfortably, so no verdict
+   changed. The error originates in the `styles.css` comment on line 15 and had been copied
+   forward into this document. Correcting the source comment is a planned task, so it is not
+   quoted wrongly a third time.
+3. **The uppercase claim narrowed to what is true.** This phase adds no uppercase micro-label, but
+   it renders `.pending__t`, which is uppercase, in up to three places. "Adds none" and "renders
+   none" are different claims and only the first held.
+
+### Fourth finding, added by orchestrator verification
+
+`--ink-faint` `#6E6E73` on `--bg` is **3.88:1**, which is **below the 4.5:1 body-text floor**. It
+clears the 3:1 large-text and non-text-UI floor only. Neither the checker nor the spec surfaced
+this. It is carried into planning as a hard constraint: **no new element in this phase may put
+body-size text on `--ink-faint`.** Where the spec calls for dimmed text, it correctly specifies
+`--ink-dim` (7.65:1) throughout, so nothing in the contract needs to change; the constraint exists
+to stop an executor reaching for `--ink-faint` when a string needs to recede.
