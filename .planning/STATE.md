@@ -23,9 +23,45 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 Phase: 2 of 5 (Practical information)
 Plan: 0 of 0 in current phase
 Status: Ready to plan
-Last activity: 2026-08-13 — Phase 1 complete. Scaffold, design system, countdown, both languages, Danish easter egg, link preview image. Scope grew mid-phase to include enrollment, the WhatsApp handoff, and the nudge bar; roadmap restructured to 5 phases.
+Last activity: 2026-08-13 — Phase 1 complete, deployed, and verified live.
 
 Progress: [██░░░░░░░░] 20%
+
+## Live status
+
+**The site is deployed and public.** Read this before assuming anything is hypothetical.
+
+| Thing | State |
+|---|---|
+| Live URL | https://sirsirio.github.io/thesis-defended-liver-pending/ verified serving over HTTPS, all assets 200 |
+| GitHub Pages | Active, deploying from `main` at repo root. `.nojekyll` committed. |
+| Repo | `SirSirio/thesis-defended-liver-pending`, all work pushed, working tree clean |
+| Supabase | Project `aplaxdplwnnlezffatal` wired into config.js and verified reachable. **Schema NOT yet applied**, so `public.enrollments`, `public.photos` and `public.attendees` do not exist. Running `supabase/schema.sql` is the owner's job and blocks phase 3. |
+| Supabase key | `sb_publishable_` key, verified active by differential test. The old service_role key was exposed in chat and the owner has since disabled it. |
+| Local preview | `Preview locally.cmd`, or `node tools/preview.js`, serves at 127.0.0.1:4173 |
+
+## What phase 1 actually shipped
+
+Files at repo root: `index.html`, `styles.css`, `app.js`, `config.js`, `copy.js`,
+plus `assets/`, `supabase/schema.sql`, `tools/preview.js`.
+
+- Mock DTU CourseBase structure: topbar with the 03102 badge, hero, course fact table, learning objectives, and placeholder sections for enrollment, location, access and photos
+- Countdown with three automatic states, fixed timezone offset, tab-visibility resync
+- Three complete languages (EN default, IT, DA), 93 keys each, verified at parity, English fallback for any gap
+- Enrollment section shell, registration deadline, and the two-state nudge bar
+- Link preview image, favicon, Open Graph tags
+
+**Conventions a new session must follow:** every volatile value goes in `config.js`
+and nowhere else. All copy goes in `copy.js`, in all three tables. Zero em dashes
+in anything the guest sees. Placeholders must read as deliberate, never as broken.
+Read `.planning/DESIGN-BRIEF.md` before writing any UI.
+
+## Gotcha worth knowing
+
+`enrollmentReady()` in app.js gates the nudge bar on `#enrol-form` existing in the
+page, not on Supabase credentials being present. Credentials alone caused the live
+site to nudge guests toward a placeholder. Phase 3 renders that form and the bar
+activates itself. Do not replace this with a config flag.
 
 ## Performance Metrics
 
@@ -79,8 +115,10 @@ None blocking. Five owner inputs are outstanding, each with a graceful placehold
 | Door video file | Access section | Placeholder |
 | Kahoot link | Easter egg unlock | Placeholder |
 | Confirmed date and time | Countdown target | Provisional 2026-10-03 16:00 |
-| Supabase URL and anon key | Enrollment and photo upload | Placeholder, requires free signup |
 | WhatsApp group invite link | Group handoff after enrollment | Placeholder, section hidden until set |
+
+Supabase credentials are no longer outstanding. They are in `config.js` and verified.
+What remains is the owner running `supabase/schema.sql` in the SQL editor.
 
 Concern: the DTU CourseBase joke lands hardest with classmates and may read as plain institutional design to relatives. Accepted deliberately. The practical information is legible regardless of whether the joke registers.
 
@@ -93,5 +131,10 @@ Concern: the DTU CourseBase joke lands hardest with classmates and may read as p
 ## Session Continuity
 
 Last session: 2026-08-13
-Stopped at: Project initialization complete. Planning documents written, GSD config set to yolo with auto-advance.
+Stopped at: Phase 1 complete, pushed, and verified on the live URL. Ready to plan phase 2.
 Resume file: None
+
+**To resume in a fresh session:** read this file, then PROJECT.md, ROADMAP.md and
+DESIGN-BRIEF.md, then run `/gsd-plan-phase 2`. Phase 2 is location and door video,
+and it is fully unblocked: both are built against placeholders in `config.js`, so
+neither the venue address nor the video file is needed to complete the work.
