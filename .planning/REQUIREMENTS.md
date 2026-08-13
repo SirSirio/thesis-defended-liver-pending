@@ -103,11 +103,14 @@ irritating enough that they close the tab.
 
 ### Language
 
-- [ ] **LNG-01**: Italian and English toggle, switching all copy without a page reload
+- [ ] **LNG-01**: English, Italian and Danish toggle, switching all copy without a page reload
 - [ ] **LNG-02**: Choice persists across visits
-- [ ] **LNG-03**: Initial language guessed from browser locale, then overridable
+- [ ] **LNG-03**: English is the default landing language, with `auto` browser detection available as a one line config change
 - [ ] **LNG-04**: Jokes written natively per language, never machine-translated
-- [ ] **LNG-05**: Danish easter egg option that translates a few strings then gives up, as a joke
+- [ ] **LNG-05**: Danish is a complete translation, not a token one. DTU classmates are the audience the parody targets most directly, and CourseBase vocabulary is what they recognise.
+- [ ] **LNG-06**: All three languages hold identical key sets, verified rather than assumed
+- [ ] **LNG-07**: Any key missing from a translation falls back to English, so a gap degrades to readable rather than to blank
+- [ ] **LNG-08**: Dates format per locale, using each language's own conventions
 
 ### Kahoot
 

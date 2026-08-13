@@ -89,10 +89,13 @@ clamp max `6rem`.
 
 ## Copy rules
 
-- **Italian and English, via toggle.** Jokes written natively in each, never translated
-  word for word. A pun that dies in translation gets replaced with a different joke.
-- Danish appears as an **easter egg** third option, because DTU is Danish and the guest
-  list is not. It translates roughly three strings before giving up. That is the joke.
+- **English, Italian and Danish, via toggle**, English primary. Jokes written natively in
+  each, never translated word for word. A pun that dies in translation gets replaced with
+  a different joke.
+- Danish is a **complete translation**, not a gag. The classmates this parody targets
+  hardest are Danish, and the CourseBase vocabulary (`skemaplacering`, `læringsmål`,
+  `kursusansvarlig`) is the part they will actually recognise.
+- All three tables hold identical key sets. Missing keys fall back to English.
 - Register: deadpan institutional. The site never admits it is joking.
 - **Zero em dashes anywhere on the page.** Non-negotiable.
 - No buzzwords, no fake-perfect numbers, no generic placeholder names.

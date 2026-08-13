@@ -52,7 +52,7 @@ window.PARTY_COPY = {
     'facts.type': 'Course type',
     'facts.type.value': 'MSc, mandatory',
     'facts.language': 'Language of instruction',
-    'facts.language.value': 'Italian and English',
+    'facts.language.value': 'Italian, English and Danish',
     'facts.duration': 'Duration',
     'facts.duration.value': 'One evening (minimum)',
     'facts.schedule': 'Scheduled',
@@ -120,7 +120,6 @@ window.PARTY_COPY = {
     'lang.it': 'Italiano',
     'lang.en': 'English',
     'lang.da': 'Dansk',
-    'lang.da.found': 'Danish located. Enjoy.',
   },
 
   /* ======================================================================
@@ -165,7 +164,7 @@ window.PARTY_COPY = {
     'facts.type': 'Tipo di corso',
     'facts.type.value': 'Magistrale, obbligatorio',
     'facts.language': 'Lingua di insegnamento',
-    'facts.language.value': 'Italiano e inglese',
+    'facts.language.value': 'Italiano, inglese e danese',
     'facts.duration': 'Durata',
     'facts.duration.value': 'Una serata (minimo)',
     'facts.schedule': 'Orario',
@@ -233,21 +232,122 @@ window.PARTY_COPY = {
     'lang.it': 'Italiano',
     'lang.en': 'English',
     'lang.da': 'Dansk',
-    'lang.da.found': 'Danese trovato. Buon divertimento.',
   },
 
   /* ======================================================================
      DANSK
      ----------------------------------------------------------------------
-     The easter egg. It commits to three strings, then gives up and falls
-     back to English, which is exactly what happens to most people who move
-     to Denmark for a two year master's.
+     A full language, not a joke. The classmates this parody is aimed at
+     are Danish, and the CourseBase vocabulary (skemaplacering, læringsmål,
+     kursusansvarlig) is the part they will actually recognise.
      ====================================================================== */
   da: {
+    'meta.title': 'Kursus 03102: Thesis Defended, Liver Pending',
+    'meta.description': 'Kursus 03102, 5 ECTS. Varighed én aften minimum. Fremmøde er ikke obligatorisk, men forventes.',
+
+    'nav.skip': 'Gå til hovedindhold',
+    'nav.info': 'Kursusinformation',
+    'nav.objectives': 'Læringsmål',
+    'nav.enrol': 'Tilmelding',
+    'nav.location': 'Sted',
+    'nav.access': 'Adgang',   // short on purpose: this is the one nav item kept on phones
+    'nav.photos': 'Dokumentation',
+    'nav.dept': 'Institut for Kandidatstudier',
+
     'hero.eyebrow': 'Kursus 03102 · 5 ECTS · Efterår 2026',
-    'nav.access': 'Adgang til bygningen',
+    'hero.title': 'Thesis Defended, Liver Pending',
+    'hero.cta.enrol': 'Tilmeld dig kurset',
+    'hero.cta.location': 'Find stedet',
+    'hero.cta.access': 'Hvilken dør',
+    'hero.deadline': 'Tilmelding lukker {date}',
+
     'countdown.label': 'Tid til første undervisningsgang',
-    'footer.built': 'Undskyld, resten er på engelsk.',
+    'countdown.days': 'dage',
+    'countdown.hours': 'timer',
+    'countdown.minutes': 'minutter',
+    'countdown.seconds': 'sekunder',
+    'countdown.live.label': 'Undervisningsstatus',
+    'countdown.live.title': 'Undervisningen er i gang',
+    'countdown.live.note': 'Forsinkelse tolereres. Udeblivelse noteres.',
+    'countdown.over.label': 'Undervisningsstatus',
+    'countdown.over.title': 'Kurset er afsluttet',
+    'countdown.over.note': 'Aflever venligst din fotodokumentation nedenfor.',
+
+    'facts.heading': 'Kursusinformation',
+    'facts.number': 'Kursusnummer',
+    'facts.ects': 'Point (ECTS)',
+    'facts.ects.value': '5 (kan ikke overføres)',
+    'facts.type': 'Kursustype',
+    'facts.type.value': 'Kandidat, obligatorisk',
+    'facts.language': 'Undervisningssprog',
+    'facts.language.value': 'Italiensk, engelsk og dansk',
+    'facts.duration': 'Varighed',
+    'facts.duration.value': 'Én aften (minimum)',
+    'facts.schedule': 'Skemaplacering',
+    'facts.location': 'Sted',
+    'facts.location.tbd': 'Oplyses senere',
+    'facts.prereq': 'Forudsætninger',
+    'facts.prereq.value': 'Ingen. Fremmøde ved selve forsvaret var heller ikke påkrævet.',
+    'facts.exam': 'Eksamensform',
+    'facts.exam.value': 'Løbende evaluering, gennemført uformelt',
+    'facts.responsible': 'Kursusansvarlig',
+    'facts.registration': 'Tilmelding',
+    'facts.registration.value': 'Påkrævet. Antallet af pladser er begrænset af lokalets størrelse.',
+    'facts.registration.link': 'Tilmeld dig her',
+    'facts.deadline': 'Tilmeldingsfrist',
+
+    'obj.heading': 'Læringsmål',
+    'obj.intro': 'En studerende, der har opfyldt kursets mål, vil kunne:',
+    'obj.1': 'Finde den rigtige indgang til bygningen i første forsøg',
+    'obj.2': 'Lykønske værten uden at spørge, hvad specialet handlede om',
+    'obj.3': 'Identificere mindst tre personer, som vedkommende aldrig har mødt før',
+    'obj.4': 'Betjene en quiz under ikke ideelle forhold',
+    'obj.5': 'Dokumentere aftenen fotografisk inden for den angivne grænse',
+    'obj.6': 'Vurdere sin egen kapacitet korrekt og handle derefter',
+
+    'enrol.heading': 'Tilmelding til kurset',
+    'enrol.lede': 'Tilmelding er påkrævet. Ikke af bureaukratiske årsager, men fordi værten skal vide, hvor meget mad der skal købes.',
+    'enrol.pending.title': 'Tilmelding åbner snart',
+    'enrol.pending.body': 'Tilmeldingssystemet er ved at blive sat op. Kom tilbage om et par dage, eller sig det direkte til værten i mellemtiden.',
+
+    'nudge.enrol.text': 'Du har ikke tilmeldt dig endnu.',
+    'nudge.enrol.cta': 'Tilmeld dig',
+    'nudge.enrol.soon': 'Tilmelding lukker om {n} dage.',
+    'nudge.enrol.last': 'Tilmelding lukker i morgen.',
+    'nudge.enrol.today': 'Tilmelding lukker i dag.',
+    'nudge.group.text': 'Du er tilmeldt. Én ting mangler.',
+    'nudge.group.cta': 'Kom med i gruppen',
+
+    'wa.heading': 'Kursusmeddelelser',
+    'wa.body': 'Praktiske opdateringer sendes i gruppechatten. Adresseændringer, forsinkelser og et enkelt billede i ny og næ.',
+    'wa.cta': 'Kom med i WhatsApp gruppen',
+
+    'loc.heading': 'Sted',
+    'loc.pending.title': 'Lokale afventer bekræftelse',
+    'loc.pending.body': 'Lokalebookingen forhandles stadig. Adressen vises her, så snart den ligger fast, og siden opdaterer sig selv.',
+    'loc.copy': 'Kopiér adresse',
+    'loc.copied': 'Kopieret',
+    'loc.google': 'Åbn i Google Maps',
+    'loc.apple': 'Åbn i Apple Maps',
+    'loc.maptitle': 'Kort der viser festens placering',
+
+    'access.heading': 'Adgang til bygningen',
+    'access.lede': 'Den mest nyttige sektion på denne side. Se den, før du ankommer, eller mens du står udenfor og tænker over, hvilken dør der er den rigtige.',
+    'access.pending.title': 'Adgangsdokumentation undervejs',
+    'access.pending.body': 'Et kort klip, der viser den rigtige dør, er under produktion. Indtil da kan du spørge den, der inviterede dig, eller følge lyden.',
+
+    'photos.heading': 'Dokumentation',
+    'photos.lede': 'Studerende bedes aflevere fotografisk dokumentation af aftenen. Maksimalt fem per person, en grænse valgt for at beskytte alle.',
+    'photos.pending.title': 'Afleveringsportalen åbner senere',
+    'photos.pending.body': 'Upload åbner tættere på datoen. Du skal ikke gøre noget nu.',
+
+    'footer.disclaimer': 'En personlig invitation i den grafiske stil fra et universitet, som værten faktisk har gået på. Ikke tilknyttet, ikke godkendt af og på ingen måde det pågældende universitets ansvar.',
+    'footer.built': 'Lavet til én aften i oktober.',
+    'footer.lang': 'Sprog',
+
+    'lang.it': 'Italiano',
+    'lang.en': 'English',
+    'lang.da': 'Dansk',
   },
 
 };

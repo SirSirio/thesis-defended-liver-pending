@@ -167,11 +167,19 @@ sized exactly 1200 by 630 and save a screenshot over the existing PNG.
 | `assets/` | Favicon, link preview image, and the door video once it exists. |
 | `.planning/` | Project and design documents. Not part of the site. |
 
-## Two hidden things
+## Languages
 
-Clicking the **language of instruction** row in the course table three times
-reveals a Danish option. It translates four strings and then gives up, which is
-also what happened to the host.
+English, Italian and Danish, all complete. English is what a new visitor lands
+on. Their own choice is remembered afterwards.
+
+To detect from the browser instead, set `defaultLanguage: 'auto'` in
+`config.js`. That sends Italian phones to Italian and Danish phones to Danish.
+
+All copy lives in `copy.js`, three tables with identical keys. If you add a
+string, add it to all three. Anything missing falls back to English rather than
+rendering blank.
+
+## One hidden thing
 
 The course number, **03102**, is the date.
 

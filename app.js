@@ -43,13 +43,15 @@
     var configured = CFG.defaultLanguage;
     if (configured && configured !== 'auto' && SUPPORTED.indexOf(configured) !== -1) return configured;
 
-    // Guess from the browser, then let the guest override.
-    var nav = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
-    return nav.toLowerCase().indexOf('it') === 0 ? 'it' : 'en';
+    // 'auto' only: guess from the browser, then let the guest override.
+    var nav = ((navigator.languages && navigator.languages[0]) || navigator.language || 'en').toLowerCase();
+    if (nav.indexOf('it') === 0) return 'it';
+    if (nav.indexOf('da') === 0) return 'da';
+    return 'en';
   }
 
-  // Danish only ever covers a handful of strings. Everything else falls
-  // through to English, which is the joke and also the correct behaviour.
+  // English is the fallback for any key a translation has not filled in yet,
+  // so a missing string degrades to readable rather than to blank.
   function t(key) {
     var table = COPY[lang] || {};
     if (table[key] != null) return table[key];
@@ -384,34 +386,6 @@
   }
 
   /* ======================================================================
-     EASTER EGG: Danish
-     Three clicks on the language of instruction row. Deliberately findable
-     by anyone who pokes at things, invisible to anyone who does not.
-     ====================================================================== */
-
-  function wireDanishEgg() {
-    var row = $('#lang-egg');
-    var btn = $('.langswitch__egg');
-    if (!row || !btn) return;
-
-    if (store.get('da_found') === '1') { btn.hidden = false; return; }
-
-    var hits = 0;
-    function bump() {
-      hits += 1;
-      if (hits < 3) return;
-      btn.hidden = false;
-      store.set('da_found', '1');
-      toast(t('lang.da.found'));
-    }
-
-    row.addEventListener('click', bump);
-    row.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(); }
-    });
-  }
-
-  /* ======================================================================
      INIT
      ====================================================================== */
 
@@ -420,7 +394,6 @@
     wireNudge();
     applyLanguage();
     startClock();
-    wireDanishEgg();
 
     $$('[data-set-lang]').forEach(function (btn) {
       btn.addEventListener('click', function () {

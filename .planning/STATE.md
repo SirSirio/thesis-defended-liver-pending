@@ -55,7 +55,8 @@ Progress: [██░░░░░░░░] 20%
 - Design: **DTU CourseBase parody** chosen by the owner over four proposed aesthetics. The party is presented as DTU course 03102.
 - Design: **Dark theme locked page-wide**, DTU red `#990000` as the single accent, `#E83F48` for red text where contrast requires it.
 - Design: **Degradation arc** from institutional to unhinged down the page. Resolves the tension between "crazy animation" and "guests must find the address".
-- Design: **Italian and English toggle**, jokes written natively per language. Danish as an easter egg.
+- Design: **English, Italian and Danish toggle**, English primary, jokes written natively per language.
+- Phase 1: **Danish promoted from easter egg to full language** at the owner's request. The classmates the parody targets hardest are Danish, so shipping them four strings and a shrug wasted the best part of the joke. All three tables verified at identical key sets.
 - Design: **No DTU logo, no implied affiliation.** Footer states it is a personal invitation, in both languages.
 - Phase 1: **Enrollment added to scope** at the owner's request, replacing the "Registration: not required" joke with a real form. Framed as course registration, which the parody was already pretending to be.
 - Phase 1: **Enrollment and identity are one feature.** The form captures the name, so no separate "what is your name" prompt exists anywhere on the site, and photo attribution comes free.

@@ -155,10 +155,14 @@ window.PARTY_CONFIG = {
   /* ---------------------------------------------------------------------
      LANGUAGE
      ---------------------------------------------------------------------
-     'auto' guesses from the browser and lets the guest override.
-     Force a language by setting 'it' or 'en' instead.
+     English, Italian and Danish are all complete. English is primary, so
+     every new visitor lands on it and can switch from the header.
+
+     Set this to 'auto' instead if you would rather guess from the browser,
+     which sends Italian phones to Italian and Danish phones to Danish. A
+     guest's own choice always wins over both, and is remembered.
      --------------------------------------------------------------------- */
 
-  defaultLanguage: 'auto',
+  defaultLanguage: 'en',
 
 };
