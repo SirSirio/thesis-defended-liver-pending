@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<title data-i18n="meta.title">Course 03102: Thesis Defended, Liver Pending</title>
+<meta name="description" data-i18n="meta.description" data-i18n-attr="content"
+      content="Course 03102, 5 ECTS. One evening minimum. Attendance is not mandatory but is strongly expected.">
+<meta name="theme-color" content="#0B0B0C">
+<meta name="color-scheme" content="dark">
+
+<!-- Link preview, for when this gets pasted into a chat -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Course 03102">
+<meta property="og:title" data-i18n="meta.title" data-i18n-attr="content"
+      content="Course 03102: Thesis Defended, Liver Pending">
+<meta property="og:description" data-i18n="meta.description" data-i18n-attr="content"
+      content="Course 03102, 5 ECTS. One evening minimum. Attendance is not mandatory but is strongly expected.">
+<meta property="og:url" content="https://sirsirio.github.io/thesis-defended-liver-pending/">
+<meta property="og:image" content="https://sirsirio.github.io/thesis-defended-liver-pending/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/favicon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Saira:wght@500;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<a class="skip-link" href="#main" data-i18n="nav.skip">Skip to main content</a>
+
+<!-- =====================================================================
+     ZONE: SOBER
+     Institutional. Restrained. This is where the practical information
+     lives, so nothing here is allowed to misbehave.
+     ===================================================================== -->
+
+<header class="topbar" data-zone="sober">
+  <div class="topbar__inner">
+
+    <a class="mark" href="#top" aria-label="Course 03102, back to top">
+      <span class="mark__badge" id="course-mark" aria-hidden="true">03102</span>
+      <span class="mark__dept" data-i18n="nav.dept">Department of Graduation Studies</span>
+    </a>
+
+    <nav class="topnav" aria-label="Sections">
+      <a href="#info" data-i18n="nav.info">Course information</a>
+      <a href="#objectives" data-i18n="nav.objectives">Learning objectives</a>
+      <a href="#enrol" data-i18n="nav.enrol">Registration</a>
+      <a href="#location" data-i18n="nav.location">Location</a>
+      <a href="#access" class="topnav__key" data-i18n="nav.access">Building access</a>
+      <a href="#photos" data-i18n="nav.photos">Documentation</a>
+    </nav>
+
+    <div class="langswitch" role="group" aria-label="Language">
+      <button type="button" data-set-lang="it">IT</button>
+      <button type="button" data-set-lang="en">EN</button>
+      <button type="button" data-set-lang="da" class="langswitch__egg" hidden>DA</button>
+    </div>
+
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ---------------------------------------------------------------
+       HERO
+       Eyebrow, headline, countdown, actions. Four elements, no more.
+       --------------------------------------------------------------- -->
+  <section class="hero" id="top" data-zone="sober">
+    <div class="wrap">
+
+      <p class="eyebrow" data-i18n="hero.eyebrow">Course 03102 · 5 ECTS · Autumn 2026</p>
+
+      <h1 class="hero__title" data-i18n="hero.title">Thesis Defended, Liver Pending</h1>
+
+      <!-- Countdown. Three states, switched automatically by the clock. -->
+      <div class="countdown" id="countdown" data-state="before">
+
+        <p class="countdown__label" data-i18n="countdown.label">Time until first session</p>
+
+        <div class="countdown__clock" role="timer" aria-live="off">
+          <div class="unit"><span class="unit__n" id="cd-d">00</span><span class="unit__l" data-i18n="countdown.days">days</span></div>
+          <span class="unit__sep" aria-hidden="true">:</span>
+          <div class="unit"><span class="unit__n" id="cd-h">00</span><span class="unit__l" data-i18n="countdown.hours">hours</span></div>
+          <span class="unit__sep" aria-hidden="true">:</span>
+          <div class="unit"><span class="unit__n" id="cd-m">00</span><span class="unit__l" data-i18n="countdown.minutes">minutes</span></div>
+          <span class="unit__sep" aria-hidden="true">:</span>
+          <div class="unit"><span class="unit__n" id="cd-s">00</span><span class="unit__l" data-i18n="countdown.seconds">seconds</span></div>
+        </div>
+
+        <p class="countdown__status" id="cd-status" hidden></p>
+        <p class="countdown__note" id="cd-note" hidden></p>
+
+        <!-- Screen readers get a calm summary instead of a per second barrage -->
+        <p class="sr-only" id="cd-sr" aria-live="polite"></p>
+      </div>
+
+      <!-- Enrolling is the primary action. Finding the door is the one people
+           come back for, so it stays visible next to it. -->
+      <div class="hero__actions">
+        <a class="btn btn--primary" href="#enrol" data-i18n="hero.cta.enrol">Register for the course</a>
+        <a class="btn btn--ghost" href="#access" data-i18n="hero.cta.access">Which door</a>
+      </div>
+
+      <p class="hero__deadline" id="hero-deadline" hidden></p>
+
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------
+       COURSE FACTS
+       The centrepiece of the parody. Straight face, absurd content.
+       --------------------------------------------------------------- -->
+  <section class="section" id="info" data-zone="sober">
+    <div class="wrap">
+      <h2 class="section__h" data-i18n="facts.heading">Course information</h2>
+
+      <dl class="facts">
+        <div class="facts__row">
+          <dt data-i18n="facts.number">Course number</dt>
+          <dd class="mono" id="fact-number">03102</dd>
+        </div>
+        <div class="facts__row">
+          <dt data-i18n="facts.ects">Points (ECTS)</dt>
+          <dd data-i18n="facts.ects.value">5 (not transferable)</dd>
+        </div>
+        <div class="facts__row">
+          <dt data-i18n="facts.type">Course type</dt>
+          <dd data-i18n="facts.type.value">MSc, mandatory</dd>
+        </div>
+        <!-- Clicking this row three times reveals the Danish option -->
+        <div class="facts__row facts__row--egg" id="lang-egg" tabindex="0" role="button">
+          <dt data-i18n="facts.language">Language of instruction</dt>
+          <dd data-i18n="facts.language.value">Italian and English</dd>
+        </div>
+        <div class="facts__row">
+          <dt data-i18n="facts.duration">Duration</dt>
+          <dd data-i18n="facts.duration.value">One evening (minimum)</dd>
+        </div>
+        <div class="facts__row">
+          <dt data-i18n="facts.schedule">Scheduled</dt>
+          <dd class="mono" id="fact-schedule">3 October 2026, 16:00</dd>
+        </div>
+        <div class="facts__row">
+          <dt data-i18n="facts.location">Location</dt>
+          <dd id="fact-location" data-i18n="facts.location.tbd">To be announced</dd>
+        </div>
+        <div class="facts__row">
+          <dt data-i18n="facts.prereq">Prerequisites</dt>
+          <dd data-i18n="facts.prereq.value">None. Attendance at the actual defence was not required either.</dd>
+        </div>
+        <div class="facts__row">
+          <dt data-i18n="facts.exam">Form of examination</dt>
+          <dd data-i18n="facts.exam.value">Continuous assessment, conducted informally</dd>
+        </div>
+        <div class="facts__row">
+          <dt data-i18n="facts.responsible">Responsible</dt>
+          <dd id="fact-host">Sirio</dd>
+        </div>
+        <div class="facts__row">
+          <dt data-i18n="facts.registration">Registration</dt>
+          <dd>
+            <span data-i18n="facts.registration.value">Required. Places are limited by the size of the room.</span>
+            <a class="inline-link" href="#enrol" data-i18n="facts.registration.link">Register here</a>
+          </dd>
+        </div>
+        <div class="facts__row">
+          <dt data-i18n="facts.deadline">Registration deadline</dt>
+          <dd class="mono" id="fact-deadline">26 September 2026</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       ZONE: SLIPPING
+       Still institutional, but the composure starts to go.
+       ================================================================= -->
+
+  <section class="section" id="objectives" data-zone="slipping">
+    <div class="wrap">
+      <h2 class="section__h" data-i18n="obj.heading">Learning objectives</h2>
+      <p class="section__lede" data-i18n="obj.intro">A student who has met the objectives of the course will be able to:</p>
+
+      <ul class="objectives">
+        <li data-i18n="obj.1">Locate the correct entrance to the building on the first attempt</li>
+        <li data-i18n="obj.2">Congratulate the host without asking what the thesis was about</li>
+        <li data-i18n="obj.3">Identify at least three people they have never met before</li>
+        <li data-i18n="obj.4">Operate a quiz interface under non ideal conditions</li>
+        <li data-i18n="obj.5">Document the evening photographically, within the stated upload limit</li>
+        <li data-i18n="obj.6">Assess their own capacity accurately, and act on that assessment</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       ZONE: UNHINGED
+       Phase 2 fills location and access. Phase 3 fills documentation.
+       Placeholders here read as deliberate, not as unfinished work.
+       ================================================================= -->
+
+  <section class="section" id="enrol" data-zone="slipping">
+    <div class="wrap">
+      <h2 class="section__h" data-i18n="enrol.heading">Course registration</h2>
+      <p class="section__lede" data-i18n="enrol.lede">Registration is required. Not for bureaucratic reasons, but because the host needs to know how much food to buy.</p>
+      <div id="enrol-body">
+        <div class="pending">
+          <p class="pending__t" data-i18n="enrol.pending.title">Registration opens shortly</p>
+          <p class="pending__b" data-i18n="enrol.pending.body">The registration system is being set up. Come back in a few days, or tell the host directly in the meantime.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="location" data-zone="unhinged">
+    <div class="wrap">
+      <h2 class="section__h" data-i18n="loc.heading">Location</h2>
+      <div id="location-body">
+        <div class="pending">
+          <p class="pending__t" data-i18n="loc.pending.title">Venue under confirmation</p>
+          <p class="pending__b" data-i18n="loc.pending.body">The room booking is still being negotiated. The address appears here as soon as it is fixed, and this page updates itself.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="access" data-zone="unhinged">
+    <div class="wrap">
+      <h2 class="section__h" data-i18n="access.heading">Building access</h2>
+      <p class="section__lede" data-i18n="access.lede">The single most useful section on this page. Watch this before you arrive, or while standing outside wondering which door is the right one.</p>
+      <div id="access-body">
+        <div class="pending">
+          <p class="pending__t" data-i18n="access.pending.title">Access documentation pending</p>
+          <p class="pending__b" data-i18n="access.pending.body">A short clip showing the correct door is being produced. Until then, ask the person who invited you, or follow the noise.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="photos" data-zone="unhinged">
+    <div class="wrap">
+      <h2 class="section__h" data-i18n="photos.heading">Documentation</h2>
+      <p class="section__lede" data-i18n="photos.lede">Students are asked to submit photographic evidence of the evening. Maximum five per person, which is a limit chosen to protect everyone.</p>
+      <div id="photos-body">
+        <div class="pending">
+          <p class="pending__t" data-i18n="photos.pending.title">Submission portal opens later</p>
+          <p class="pending__b" data-i18n="photos.pending.body">Uploads open closer to the date. Nothing is required from you now.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- =====================================================================
+     ZONE: COLLAPSED
+     ===================================================================== -->
+
+<footer class="footer" data-zone="collapsed">
+  <div class="wrap">
+    <p class="footer__built" data-i18n="footer.built">Built for one evening in October.</p>
+    <p class="footer__disclaimer" data-i18n="footer.disclaimer">A personal invitation, in the visual style of a university the host actually attended. Not affiliated with, endorsed by, or in any way the responsibility of that university.</p>
+  </div>
+</footer>
+
+<!-- Nudge bar. Two states: not enrolled shows enroll, enrolled shows the group.
+     Wired up in phase 3. Hidden until then. -->
+<div class="nudge" id="nudge" data-state="none" hidden>
+  <div class="nudge__inner">
+    <p class="nudge__text" id="nudge-text"></p>
+    <a class="btn btn--primary nudge__cta" id="nudge-cta" href="#enrol"></a>
+    <button class="nudge__close" id="nudge-close" type="button" aria-label="Dismiss">&times;</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="config.js"></script>
+<script src="copy.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

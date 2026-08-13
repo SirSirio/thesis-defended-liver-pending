@@ -2,11 +2,11 @@
 gsd_state_version: '1.0'
 status: planning
 progress:
-  total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 5
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 20
 ---
 
 # Project State
@@ -16,16 +16,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-13)
 
 **Core value:** A guest standing outside the building in the dark finds the right door in under ten seconds.
-**Current focus:** Phase 1 — Skeleton and countdown
+**Current focus:** Phase 2 — Practical information
 
 ## Current Position
 
-Phase: 1 of 4 (Skeleton and countdown)
+Phase: 2 of 5 (Practical information)
 Plan: 0 of 0 in current phase
 Status: Ready to plan
-Last activity: 2026-08-13 — Project initialized. PROJECT.md, REQUIREMENTS.md, ROADMAP.md, and DESIGN-BRIEF.md created from the design interview.
+Last activity: 2026-08-13 — Phase 1 complete. Scaffold, design system, countdown, both languages, Danish easter egg, link preview image. Scope grew mid-phase to include enrollment, the WhatsApp handoff, and the nudge bar; roadmap restructured to 5 phases.
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
@@ -57,6 +57,12 @@ Progress: [░░░░░░░░░░] 0%
 - Design: **Degradation arc** from institutional to unhinged down the page. Resolves the tension between "crazy animation" and "guests must find the address".
 - Design: **Italian and English toggle**, jokes written natively per language. Danish as an easter egg.
 - Design: **No DTU logo, no implied affiliation.** Footer states it is a personal invitation, in both languages.
+- Phase 1: **Enrollment added to scope** at the owner's request, replacing the "Registration: not required" joke with a real form. Framed as course registration, which the parody was already pretending to be.
+- Phase 1: **Enrollment and identity are one feature.** The form captures the name, so no separate "what is your name" prompt exists anywhere on the site, and photo attribution comes free.
+- Phase 1: **Enrollment moved ahead of photos** in the roadmap. Headcount is time sensitive, photos are not.
+- Phase 1: **WhatsApp handoff fires on enrollment success**, the moment a guest is most willing to tap one more thing. One config value, one tap, no QR code.
+- Phase 1: **Nudge bar has exactly two states**, and stops permanently once a guest is enrolled. Escalation happens in the copy as the deadline nears, never in the frequency.
+- Phase 1: **Countdown breaks the display size ceiling** from the design skill, deliberately. The brief asked for huge, and it is the reason people open the page.
 
 ### Pending Todos
 
@@ -72,7 +78,8 @@ None blocking. Five owner inputs are outstanding, each with a graceful placehold
 | Door video file | Access section | Placeholder |
 | Kahoot link | Easter egg unlock | Placeholder |
 | Confirmed date and time | Countdown target | Provisional 2026-10-03 16:00 |
-| Supabase URL and anon key | Photo upload | Placeholder, requires free signup |
+| Supabase URL and anon key | Enrollment and photo upload | Placeholder, requires free signup |
+| WhatsApp group invite link | Group handoff after enrollment | Placeholder, section hidden until set |
 
 Concern: the DTU CourseBase joke lands hardest with classmates and may read as plain institutional design to relatives. Accepted deliberately. The practical information is legible regardless of whether the joke registers.
 

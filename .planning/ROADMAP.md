@@ -2,7 +2,7 @@
 
 **Granularity:** coarse
 **Mode:** yolo, auto-advance
-**Phases:** 4
+**Phases:** 5
 
 Ordered so the site is shareable as early as possible. Phase 1 alone produces something
 that can go in a chat message. Everything after that raises the ceiling.
@@ -44,23 +44,40 @@ night, on a bad connection.
 
 ---
 
-## Phase 3 — Photos and identity
+## Phase 3 — Enrollment, identity, and the group
 
-**Goal:** Guests can upload to a shared album without an account.
+**Goal:** The host knows who is coming. Moved ahead of photos because headcount is
+time sensitive and photos are not.
 
-- `localStorage` identity: name prompt, UUID, persistence, reset, private-browsing fallback (ID-01 to ID-06)
-- Supabase project setup, storage bucket, index table, row-level rules
+- Supabase project setup, tables, row level rules (shared with phase 4)
+- Enrollment form: name, guest count, optional note, validation on blur (ENR-01 to ENR-03, ENR-09, ENR-10)
+- Enrollment doubles as identity capture, so no separate name prompt exists anywhere (ENR-04, ID-01 to ID-06)
+- Returning guest sees their own registration, and can edit or withdraw it (ENR-05, ENR-06)
+- Confirmed count as social proof, optional first-name attendee list (ENR-07, ENR-08)
+- WhatsApp group handoff, presented the instant enrollment succeeds (WA-01 to WA-06)
+- Nudge bar with its two states, plus the deadline framing (NDG-01 to NDG-08)
+- Graceful unconfigured state, so this ships before credentials exist (ENR-12)
+
+**Done when:** a guest on a phone enrolls in under thirty seconds, lands in the WhatsApp
+group with one more tap, and is never nudged again.
+
+---
+
+## Phase 4 — Photos
+
+**Goal:** Guests can upload to a shared album, using the identity enrollment already gave them.
+
 - Upload flow: client-side downscale, validation, progress, success and failure states (PH-01 to PH-08)
-- 5-photo limit with remaining count
+- 5-photo limit with remaining count, keyed to the enrolled identity
 - Shared album view with uploader names
-- Graceful unconfigured state, so this ships before credentials exist
+- Graceful unconfigured state
 
 **Done when:** a phone can upload five photos and see them in the album, and the sixth is
 refused with a joke rather than an error.
 
 ---
 
-## Phase 4 — Spectacle and polish
+## Phase 5 — Spectacle and polish
 
 **Goal:** The degradation arc, the easter egg, and the pass that makes it good rather than done.
 
@@ -88,4 +105,5 @@ These unblock as inputs arrive. None of them gate a phase.
 | Door video file | ACC-01 to ACC-03 | Placeholder player, written directions carry the section |
 | Kahoot link | KAH-02, KAH-03 | Unlock mechanism built and testable against a dummy link |
 | Confirmed date and time | CD-01 | Currently 2026-10-03 16:00, one line to change |
-| Supabase credentials | PH-03, PH-04 | Upload UI built, shows "opens later" state |
+| Supabase credentials | ENR-03, PH-03 | Forms built, show "opens shortly" state |
+| WhatsApp group invite link | WA-01 to WA-05 | Handoff built, section hidden until the link exists |

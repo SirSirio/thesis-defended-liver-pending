@@ -48,9 +48,53 @@
 - [ ] **PH-07**: File type and size validated before upload starts
 - [ ] **PH-08**: With Supabase not yet configured, the section explains that uploads open later instead of erroring
 
+### Enrollment
+
+The host needs to know who is coming. Framed as course registration, which is
+what the parody was already pretending to be.
+
+- [ ] **ENR-01**: Enrollment form collects name, plus how many people they are bringing
+- [ ] **ENR-02**: Optional free text field, for dietary notes or a message
+- [ ] **ENR-03**: Submission writes to a Supabase table, no login required
+- [ ] **ENR-04**: Enrollment doubles as identity capture, so no separate name prompt exists anywhere on the site
+- [ ] **ENR-05**: Returning enrolled guest sees their own registration, not an empty form
+- [ ] **ENR-06**: Guest can edit or withdraw their enrollment
+- [ ] **ENR-07**: Confirmed count is visible on the page, since a filling course is more persuasive than an empty one
+- [ ] **ENR-08**: Optional attendee list, showing first names only, controlled by a config flag
+- [ ] **ENR-09**: Validation on blur, errors below the field, wired with `aria-describedby`
+- [ ] **ENR-10**: Submitting states: idle, submitting, success, failure, with no silent failure
+- [ ] **ENR-11**: Host can read the guest list straight from the Supabase table dashboard, with no admin UI to build
+- [ ] **ENR-12**: With Supabase not configured, the form explains that enrollment opens shortly rather than erroring
+- [ ] **ENR-13**: Rate limited well enough that a bored guest cannot enroll four hundred people
+
+### WhatsApp group
+
+Minimum effort for the guest, and one config value for the host.
+
+- [ ] **WA-01**: Group invite link lives in `config.js` as a single value
+- [ ] **WA-02**: Presented immediately on successful enrollment, as a large one tap button, at the moment the guest is most willing
+- [ ] **WA-03**: Joining is one tap, never a QR code, an instruction, or a number to save
+- [ ] **WA-04**: Link stays reachable afterwards for anyone who tapped past it
+- [ ] **WA-05**: Framed in the parody as the course announcement channel
+- [ ] **WA-06**: Section is absent, not broken, when no link is configured
+
+### Enrollment nudge
+
+The site should push an attending guest to actually enroll, without becoming
+irritating enough that they close the tab.
+
+- [ ] **NDG-01**: Persistent bar, pinned bottom on mobile, with two states: "not enrolled" shows enroll, "enrolled" shows join the group
+- [ ] **NDG-02**: Bar never covers the countdown, the address, or the door video
+- [ ] **NDG-03**: Enroll is one of the two hero actions, not buried down the page
+- [ ] **NDG-04**: Registration deadline shown, and the parody makes the urgency feel institutional rather than pushy
+- [ ] **NDG-05**: Confirmed count acts as social proof, and only appears once the number is not embarrassing
+- [ ] **NDG-06**: Once enrolled, every nudge stops permanently. Nagging an enrolled guest is the fastest way to lose them.
+- [ ] **NDG-07**: Nudge escalates as the date approaches, and it is the copy that escalates, not the frequency
+- [ ] **NDG-08**: Bar is dismissible for the session, and it respects that choice
+
 ### Identity
 
-- [ ] **ID-01**: First visit asks for a first name, once, in a way that fits the parody
+- [ ] **ID-01**: Identity is captured by the enrollment form, not by a separate prompt
 - [ ] **ID-02**: Name and a generated UUID persist in `localStorage`
 - [ ] **ID-03**: Return visits greet the guest by name with no prompt
 - [ ] **ID-04**: Guest can change or clear their name
@@ -98,7 +142,7 @@
 
 - **V2-01**: Photo moderation or delete-my-photo control
 - **V2-02**: Album download as a zip after the party
-- **V2-03**: RSVP with headcount
+- **V2-03**: Export the guest list as a printable sheet for the door
 - **V2-04**: Spotify collaborative playlist embed
 - **V2-05**: Guestbook messages
 - **V2-06**: Photo gallery lightbox with swipe
@@ -108,9 +152,10 @@
 | Feature | Reason |
 |---|---|
 | Real authentication | Explicitly ruled out. A party does not need accounts. |
+| Admin UI for the guest list | The Supabase table dashboard already is one. Building a second is wasted work. |
+| Email or SMS reminders | The WhatsApp group is the reminder channel. |
 | Server-side logic | GitHub Pages is static. A backend is another thing to break party week. |
 | Hard 5-photo enforcement | Soft limit is correct for the audience. Clearing storage resets it, and that is fine. |
 | True Kahoot secrecy | Page source is public. "Fun to find" is the real goal. |
 | Google Maps JavaScript API | Keyless embed does the job with no API key and no billing account. |
-| RSVP tracking | Not requested. Guest list lives in chat. |
 | DTU logo or branding claims | Personal invitation, not a DTU communication. |

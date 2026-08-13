@@ -23,6 +23,7 @@ seconds.** Everything else on the site is decoration around that.
 
 ### Active
 
+- [ ] Enrollment form, so the host knows who is actually coming
 - [ ] Huge countdown to 3 October 2026, 16:00, with automatic before / during / after states
 - [ ] Address as copyable text, keyless Google Maps embed, and native map app links
 - [ ] Door access video, playing inline on iOS Safari
@@ -36,7 +37,6 @@ seconds.** Everything else on the site is decoration around that.
 ### Out of Scope
 
 - Real authentication — a party does not need accounts, and the owner explicitly ruled it out
-- RSVP tracking or headcount — not requested; guest list is handled in chat
 - Server-side anything — GitHub Pages is static, and adding a backend adds a thing that can break the week of the party
 - Cryptographically hiding the Kahoot link — page source is public, and "fun to find" is the actual goal
 - Hard enforcement of the 5-photo limit — soft limits are correct for this audience
