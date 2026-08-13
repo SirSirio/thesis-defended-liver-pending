@@ -328,6 +328,118 @@
     }
 
     data.appendChild(box);
+
+    /* Actions sit in their own row below the address. This block is only ever
+       reached with an address in hand, so there is no disabled button and no
+       dead affordance anywhere in the section. Absent beats greyed out. */
+    var dirs = document.createElement('div');
+    dirs.className = 'dirs';
+
+    var copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'btn btn--ghost copybtn';
+    copy.textContent = t('loc.copy');
+    dirs.appendChild(copy);
+
+    data.appendChild(dirs);
+  }
+
+  var copyRevert = null;
+
+  /* Two confirmation channels for one action, on purpose. On a phone the button
+     is under the guest's thumb at the moment its label changes, so they may
+     never see it. The toast is bottom centre, carries the full sentence, and
+     #toast already owns the polite live region, so assistive tech is served
+     without putting aria-live on the control itself. */
+  function copyFeedback(btn, state, labelKey, toastKey, ms) {
+    btn.setAttribute('data-state', state);
+    btn.textContent = t(labelKey);
+    toast(t(toastKey));
+
+    // One timer, cleared first, so repeated taps do not stack reverts.
+    if (copyRevert) clearTimeout(copyRevert);
+    copyRevert = setTimeout(function () {
+      btn.removeAttribute('data-state');
+      btn.textContent = t('loc.copy');
+    }, ms);
+  }
+
+  /* Tier one of D-10. The copied string is always CFG.venue.address, never text
+     read back out of the DOM, so the a-ring and the o-slash survive byte for
+     byte with no normalisation on the way through. */
+  function copyAddress(btn) {
+    var venue = CFG.venue || {};
+    var address = typeof venue.address === 'string' ? venue.address : '';
+    if (!address) return;
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(address).then(function () {
+          copyFeedback(btn, 'copied', 'loc.copied', 'loc.copied.toast', 2000);
+        }, function () {
+          copyByHand(btn, address);
+        });
+        return;
+      }
+    } catch (e) { /* no async clipboard here, fall through to tier two */ }
+
+    copyByHand(btn, address);
+  }
+
+  /* Tiers two and three. Older iOS Safari and some in app browsers have no
+     async clipboard but still honour execCommand. When that refuses too, the
+     address is selected on the page instead, which puts the guest one long
+     press from their own copy menu. Never a silent failure, and never a console
+     message as the guest facing outcome. */
+  function copyByHand(btn, address) {
+    var ok = false;
+    try {
+      var pad = document.createElement('textarea');
+      pad.value = address;
+      pad.setAttribute('readonly', 'readonly');   // stops iOS raising the keyboard
+      pad.style.position = 'fixed';
+      pad.style.top = '-1000px';
+      pad.style.opacity = '0';
+      document.body.appendChild(pad);
+      pad.select();
+      if (pad.setSelectionRange) pad.setSelectionRange(0, address.length);
+      ok = document.execCommand('copy') === true;
+      document.body.removeChild(pad);
+    } catch (e) { ok = false; }
+
+    if (ok) {
+      copyFeedback(btn, 'copied', 'loc.copied', 'loc.copied.toast', 2000);
+      return;
+    }
+
+    try {
+      var value = $('.addr__value');
+      if (value && window.getSelection && document.createRange) {
+        var range = document.createRange();
+        range.selectNodeContents(value);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    } catch (e) { /* the selection is a courtesy, losing it changes nothing */ }
+
+    copyFeedback(btn, 'failed', 'loc.copy.failed', 'loc.copy.failed.toast', 4000);
+  }
+
+  /* Delegated from the stable container and wired once from init(), because
+     renderLocation() re-runs on every language switch and a listener attached
+     in there would stack a duplicate handler per switch. */
+  function wireLocation() {
+    var host = $('#location-body');
+    if (!host) return;
+
+    host.addEventListener('click', function (ev) {
+      var node = ev.target;
+      var btn = (node && node.closest) ? node.closest('.copybtn') : null;
+      if (!btn && node && node.classList && node.classList.contains('copybtn')) btn = node;
+      if (!btn) return;
+      copyAddress(btn);
+    });
   }
 
   /* ======================================================================
@@ -500,6 +612,7 @@
   function init() {
     lang = resolveInitialLang();
     wireNudge();
+    wireLocation();
     applyLanguage();
     startClock();
 

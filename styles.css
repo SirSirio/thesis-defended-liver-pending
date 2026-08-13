@@ -232,6 +232,8 @@ a { color: inherit; }
   .langswitch button { min-height: 44px; min-width: 44px; }
   .mark { min-height: 44px; }
   .facts__row--egg { min-height: 44px; }
+  /* A cold thumb outdoors needs more than the inherited 48. */
+  .copybtn { min-height: 52px; }
 }
 
 /* --------------------------------------------------------------------------
@@ -559,6 +561,23 @@ a { color: inherit; }
    clears the address by a wide margin over body text. */
 @media (max-width: 420px) {
   .addr__value { font-size: 18px; }
+}
+
+/* The actions sit below the address rather than beside it, so a thumb aiming
+   at a button never lands on the selectable text above it. */
+.dirs {
+  display: flex; flex-wrap: wrap; gap: var(--s-3);
+  justify-content: flex-start;
+  margin-top: var(--s-5);
+}
+
+/* Both outcomes speak in the text safe red. No error icon and no red box: that
+   reads as form validation, which is the wrong register for a browser refusing
+   an API call. The recovery is the design, and the copy points at it. */
+.copybtn[data-state="copied"],
+.copybtn[data-state="failed"] {
+  border-color: var(--accent-lit);
+  color: var(--accent-lit);
 }
 
 /* --------------------------------------------------------------------------
