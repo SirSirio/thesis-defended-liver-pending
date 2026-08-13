@@ -2,7 +2,7 @@
 
 **Granularity:** coarse
 **Mode:** yolo, auto-advance
-**Phases:** 5
+**Phases:** 6
 
 Ordered so the site is shareable as early as possible. Phase 1 alone produces something
 that can go in a chat message. Everything after that raises the ceiling.
@@ -65,6 +65,37 @@ Plans:
 
 **Done when:** the address and door instructions are findable in seconds on a phone, at
 night, on a bad connection.
+
+---
+
+## Phase 2.5: Save the date
+
+**Goal:** A guest who opens the page in August still knows about the party in October,
+because it is in their calendar rather than in a tab they closed.
+
+**Requirements:** CAL-01, CAL-02, CAL-03, CAL-04, CAL-05, CAL-06, CAL-07, CAL-08, CAL-09
+
+- The date shown large and readable in the hero, alongside the countdown rather than
+  competing with it (CAL-01)
+- Highlighted "Save the date" action, second only to registering (CAL-02)
+- Calendar handoff with no backend: a client-generated `.ics` built from `config.js`, plus a
+  Google Calendar template link, chosen per platform (CAL-03, CAL-04, CAL-06)
+- Explicit timezone and a stable UID, so the entry is the same instant everywhere and a
+  re-save after a date change updates rather than duplicates (CAL-07, CAL-08)
+- Event carries the venue and a link back to the page, so the calendar entry alone gets a
+  guest to the door (CAL-05)
+
+**Open design tension to resolve at discuss time:** CD-01 makes the countdown "the dominant
+element of the hero". CAL-01 wants the date large too. Two dominant elements is one too many,
+so the phase must decide which leads and demote the other deliberately rather than letting
+them fight. The countdown is why people open the page; the date is why they come back.
+
+**Sequencing note:** this is placed after phase 2 because phase 2 is already executing, and
+its verification gates assert exact `copy.js` key counts. Any new copy key added before phase 2
+finishes breaks those gates and fails the running execution.
+
+**Done when:** a guest on a phone taps once, sees their calendar app open with the event
+filled in, and the entry survives a change of date without becoming a duplicate.
 
 ---
 
