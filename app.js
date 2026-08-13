@@ -325,11 +325,17 @@
     hideNudge(bar);
   }
 
-  // Both halves are needed. A key with no project URL reaches nothing, so the
-  // nudge stays down rather than pointing at a form that cannot submit.
+  /* Credentials alone are not enough to justify a nudge. Having a database
+     does not mean there is a form to submit, and a bar that pushes someone
+     toward a placeholder is worse than no bar at all.
+
+     So this gates on the form actually existing in the page. Phase 3 renders
+     #enrol-form, and the nudge switches itself on the moment it does, with no
+     flag to remember to flip. */
   function enrollmentReady() {
     var p = CFG.photos || {};
-    return Boolean(p.supabaseUrl && (p.supabaseKey || p.supabaseAnonKey));
+    var configured = Boolean(p.supabaseUrl && (p.supabaseKey || p.supabaseAnonKey));
+    return configured && Boolean($('#enrol-form'));
   }
 
   function showNudge(bar) {
