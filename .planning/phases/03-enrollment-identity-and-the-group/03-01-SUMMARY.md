@@ -244,6 +244,14 @@ None for enrollment itself, which works against the live project today. Plan 03 
 
 **Not touched, deliberately:** `STATE.md`, `ROADMAP.md` and `REQUIREMENTS.md`. This plan ran in a worktree as a parallel executor; the orchestrator owns those writes after the wave merges. `requirements-completed` above lists the IDs this plan satisfies, but several of them (ENR-05 edit paths, ENR-13's full surface) are only completed in combination with plans 03 to 05, so the orchestrator should mark them at phase close rather than per plan.
 
+## Self-Check: PASSED
+
+- `FOUND: .planning/phases/03-enrollment-identity-and-the-group/03-01-SUMMARY.md`
+- `FOUND: a4e5e9d` (Task 1)
+- `FOUND: 1872f8a` (Task 2)
+- `FOUND: 93dc3bb` (plan metadata)
+- Working tree clean, no untracked files, no deletions in either task commit.
+
 ---
 *Phase: 03-enrollment-identity-and-the-group*
 *Completed: 2026-08-14*
