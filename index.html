@@ -286,12 +286,18 @@
 </footer>
 
 <!-- Nudge bar. Two states: not enrolled shows enroll, enrolled shows the group.
-     Wired up in phase 3. Hidden until then. -->
+     Live from phase 3, because the enrollment form it points at now exists.
+
+     The close button's accessible name is set as an attribute from the copy
+     tables, not written here. A screen reader label frozen in one language on a
+     trilingual site is unreadable to the guests the other two languages exist
+     for, and the glyph itself says nothing. -->
 <div class="nudge" id="nudge" data-state="none" hidden>
   <div class="nudge__inner">
     <p class="nudge__text" id="nudge-text"></p>
     <a class="btn btn--primary nudge__cta" id="nudge-cta" href="#enrol"></a>
-    <button class="nudge__close" id="nudge-close" type="button" aria-label="Dismiss">&times;</button>
+    <button class="nudge__close" id="nudge-close" type="button"
+            data-i18n="nudge.dismiss" data-i18n-attr="aria-label">&times;</button>
   </div>
 </div>
 

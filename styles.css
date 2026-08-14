@@ -62,6 +62,12 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--topbar-h) + var(--s-4));
+  /* The bottom half of the same idea: the top bar is fixed and so is the nudge
+     bar, so an in-page jump has to clear both or it lands its target underneath
+     one of them. The height is written from JS on every event that can change
+     it, and falls back to zero rather than to a guess, because a hidden bar
+     must reserve nothing. */
+  scroll-padding-bottom: calc(var(--nudge-h, 0px) + var(--s-4));
   -webkit-text-size-adjust: 100%;
 }
 
@@ -1061,9 +1067,12 @@ a { color: inherit; }
 
 .nudge__cta { flex-shrink: 0; min-height: 44px; padding-inline: var(--s-5); }
 
+/* R4. Raised one step, from 3.62:1 to 7.15:1 against the bar. The lower value
+   is the bare floor for a non-text graphic, and a dismiss control read on a
+   phone at night by someone walking is not the place to sit on a floor. */
 .nudge__close {
   appearance: none; border: 0; background: transparent;
-  color: var(--ink-faint);
+  color: var(--ink-dim);
   font-size: 22px; line-height: 1;
   width: 44px; height: 44px;
   flex-shrink: 0;
@@ -1075,8 +1084,14 @@ a { color: inherit; }
   .nudge__close:hover { color: var(--ink); }
 }
 
-/* Reserve room so the bar never sits on top of the footer text. */
-body[data-nudge="1"] { padding-bottom: 76px; }
+/* Reserve room so the bar never sits on top of the footer text.
+
+   Measured rather than guessed. The 76px stays as the fallback, and only as
+   the fallback: it is the value in force before the first measurement lands
+   and on any browser where no measurement is possible. It survives as one of
+   the three literal pixel values this phase allows because it is a measured
+   element height rather than a spacing decision. */
+body[data-nudge="1"] { padding-bottom: calc(var(--nudge-h, 76px) + var(--s-2)); }
 
 @media (max-width: 560px) {
   .nudge__inner { padding: var(--s-3) var(--s-4); gap: var(--s-3); }
@@ -1120,6 +1135,12 @@ body[data-nudge="1"] { padding-bottom: 76px; }
               transform var(--t-base) var(--ease-out);
 }
 .toast[data-show="1"] { opacity: 1; transform: translate(-50%, 0); }
+
+/* The toast outranks the nudge bar in the stacking order, so with the bar up a
+   toast lands on top of it and covers the thing it is confirming. Unobservable
+   before this phase because the bar had never rendered, and reachable now
+   because this phase is the first to fire toasts with the bar showing. */
+body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
 
 /* --------------------------------------------------------------------------
    Zones. Phase 4 amplifies these. For now they carry a light tonal shift so

@@ -123,6 +123,7 @@ window.PARTY_COPY = {
     'nudge.enrol.today': 'Registration closes today.',
     'nudge.group.text': 'You are registered. One thing left.',
     'nudge.group.cta': 'Join the group',
+    'nudge.dismiss': 'Dismiss',
 
     'wa.heading': 'Course announcements',
     'wa.body': 'Practical updates go out in the group chat. Address changes, delays, and the occasional photograph.',
@@ -290,6 +291,7 @@ window.PARTY_COPY = {
     'nudge.enrol.today': 'Le iscrizioni chiudono oggi.',
     'nudge.group.text': 'Sei iscritto. Manca una cosa sola.',
     'nudge.group.cta': 'Entra nel gruppo',
+    'nudge.dismiss': 'Chiudi',
 
     'wa.heading': 'Comunicazioni del corso',
     'wa.body': 'Gli aggiornamenti pratici passano dal gruppo. Cambi di indirizzo, ritardi, e qualche fotografia.',
@@ -459,6 +461,7 @@ window.PARTY_COPY = {
     'nudge.enrol.today': 'Tilmelding lukker i dag.',
     'nudge.group.text': 'Du er tilmeldt. Én ting mangler.',
     'nudge.group.cta': 'Kom med i gruppen',
+    'nudge.dismiss': 'Luk',
 
     'wa.heading': 'Kursusmeddelelser',
     'wa.body': 'Praktiske opdateringer sendes i gruppechatten. Adresseændringer, forsinkelser og et enkelt billede i ny og næ.',

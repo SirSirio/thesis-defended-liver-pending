@@ -131,6 +131,12 @@
     renderNudge();
     renderLocation();
     renderAccess();
+
+    /* Last, and after the sweep above has rewritten every string in the bar.
+       Danish wraps the nudge copy onto a second line, which makes the bar
+       taller, and a reserve measured before the rewrite would be a reserve for
+       the previous language. */
+    measureNudge();
   }
 
   function setLanguage(next) {
@@ -2219,16 +2225,86 @@
     return configured && Boolean($('#enrol-form'));
   }
 
+  /* ----------------------------------------------------------------------
+     The reserve is measured, never guessed.
+
+     The shipped 76px was a guess, and it is wrong on the devices this site is
+     actually read on: the bar is 12 + max(44, text) + 12 + a 1px border +
+     env(safe-area-inset-bottom), which is 69px on a flat bottomed phone and up
+     to 103px on a notched iPhone in portrait. Short by 27px is the footer's
+     last line, or the address, sitting underneath a bar nobody can move.
+
+     offsetHeight already includes the bar's own bottom padding for the safe
+     area, so one read covers every device with the same arithmetic. A hidden
+     bar reads 0, which is the right answer: the scroll padding below is
+     unconditional and must not reserve room for a bar that is not there.
+     ---------------------------------------------------------------------- */
+  function measureNudge() {
+    var bar = $('#nudge');
+    if (!bar) return;
+    document.documentElement.style.setProperty('--nudge-h', bar.offsetHeight + 'px');
+  }
+
+  function onNudgeViewportChange() { measureNudge(); }
+
+  var nudgeObserver = null;
+
+  /* Guarded the same way the map observer is: a missing capability degrades to
+     the event list, never to absent. Held at module scope and disconnected
+     before it is re-created.
+
+     The event list is attached in both branches rather than only in the
+     fallback, and the visual viewport entry is the reason. iOS Safari's
+     collapsing toolbar changes the visual viewport without resizing the bar's
+     own box and without firing a normal window resize, so neither the observer
+     nor the plain resize event sees it. That is precisely the scroll where the
+     reserve goes wrong, so it gets its own listener. */
+  function observeNudge() {
+    var bar = $('#nudge');
+    if (!bar) return;
+
+    if (typeof ResizeObserver === 'function') {
+      if (nudgeObserver) { nudgeObserver.disconnect(); nudgeObserver = null; }
+      nudgeObserver = new ResizeObserver(function () { measureNudge(); });
+      nudgeObserver.observe(bar);
+    }
+
+    window.addEventListener('resize', onNudgeViewportChange);
+    window.addEventListener('orientationchange', onNudgeViewportChange);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', onNudgeViewportChange);
+    }
+
+    measureNudge();
+  }
+
+  /* The teardown timer is held rather than fired and forgotten. A hide followed
+     by a show inside the 240ms slide out would otherwise let the stale timer
+     hide a bar that had just been brought back, which is reachable the moment
+     the bar starts yielding to the keyboard. */
+  var nudgeHideTimer = null;
+
   function showNudge(bar) {
+    if (nudgeHideTimer) { clearTimeout(nudgeHideTimer); nudgeHideTimer = null; }
     bar.hidden = false;
+    measureNudge();
     document.body.setAttribute('data-nudge', '1');
     requestAnimationFrame(function () { bar.setAttribute('data-show', '1'); });
   }
 
+  /* R3. The reserve is released inside the timeout, after the bar has finished
+     sliding out. Dropping it at the instant of the tap pulls the page up by the
+     bar's whole height while the bar is still animating away, under the thumb
+     that just tapped dismiss. */
   function hideNudge(bar) {
     bar.removeAttribute('data-show');
-    document.body.removeAttribute('data-nudge');
-    setTimeout(function () { bar.hidden = true; }, 240);
+    if (nudgeHideTimer) clearTimeout(nudgeHideTimer);
+    nudgeHideTimer = setTimeout(function () {
+      nudgeHideTimer = null;
+      bar.hidden = true;
+      document.body.removeAttribute('data-nudge');
+      measureNudge();
+    }, 240);
   }
 
   var sessionDismissed = false;
@@ -2281,6 +2357,7 @@
   function init() {
     lang = resolveInitialLang();
     wireNudge();
+    observeNudge();
     wireLocation();
     wireEnrollment();
     applyLanguage();
