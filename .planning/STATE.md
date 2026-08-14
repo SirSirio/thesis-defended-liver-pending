@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 03
-current_phase_name: Enrollment, identity, and the group
+current_phase_name: enrollment-identity-and-the-group
 status: executing
 stopped_at: Phase 3 UI-SPEC approved
-last_updated: "2026-08-14T18:09:59.895Z"
+last_updated: "2026-08-14T18:14:27.836Z"
 last_activity: 2026-08-14
 last_activity_desc: Phase 02 fully executed. Location data core, lazy map slot, written directions and practical notes, and the door video slot with its unconfigured state, its jump path and the phase closing sweep.
 progress:
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-13)
 
 **Core value:** A guest standing outside the building in the dark finds the right door in under ten seconds.
-**Current focus:** Phase 02 — practical-information
+**Current focus:** Phase 03 — enrollment-identity-and-the-group
 
 ## Current Position
 
-Phase: 03 — Enrollment, identity, and the group
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-08-14 — Phase 02 complete, transitioned to Phase 03
+Phase: 03 (enrollment-identity-and-the-group) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 03
+Last activity: 2026-08-14 — Phase 03 execution started
 
 Progress: [██████████] 100%
 

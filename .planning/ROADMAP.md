@@ -95,12 +95,12 @@ time sensitive and photos are not.
 ENR-11, ENR-12, ENR-13, ID-01, ID-02, ID-03, ID-04, ID-05, ID-06, WA-01, WA-02, WA-03, WA-04,
 WA-05, WA-06, NDG-01, NDG-02, NDG-03, NDG-04, NDG-05, NDG-06, NDG-07, NDG-08
 
-**Plans:** 6 plans
+**Plans:** 1/6 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — Tracer: a typed name becomes a row, a receipt and a returning greeting
+- [x] 03-01-PLAN.md — Tracer: a typed name becomes a row, a receipt and a returning greeting
 
 **Wave 2** *(blocked on Wave 1 completion, the two plans below run in parallel)*
 
