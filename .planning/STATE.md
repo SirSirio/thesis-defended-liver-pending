@@ -4,15 +4,15 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 02
 current_phase_name: practical-information
-status: verifying
+status: executing
 stopped_at: Completed 02-04-PLAN.md, the door video slot and the phase closing sweep. All four plans of phase 02 are executed; the D-23 device pass on real iOS Safari and real Android Chrome is the outstanding item.
-last_updated: "2026-08-14T06:22:25.345Z"
+last_updated: "2026-08-14T08:37:12.942Z"
 last_activity: 2026-08-14
 last_activity_desc: Phase 02 fully executed. Location data core, lazy map slot, written directions and practical notes, and the door video slot with its unconfigured state, its jump path and the phase closing sweep.
 progress:
   total_phases: 1
   completed_phases: 1
-  total_plans: 4
+  total_plans: 5
   completed_plans: 4
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 
 Phase: 02 (practical-information) — READY FOR VERIFICATION
 Plan: 4 of 4
-Status: Phase complete — ready for verification
+Status: Ready to execute
 Last activity: 2026-08-14 — All four plans executed (02-01 location data core, 02-02 map slot, 02-03 directions and notes, 02-04 door video slot and jump path). The D-23 real device pass is the one item still owed.
 
 Progress: [██████████] 100%
