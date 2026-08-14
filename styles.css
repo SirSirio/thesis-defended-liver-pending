@@ -43,6 +43,11 @@
   --wrap: 1080px;
   --topbar-h: 64px;
 
+  /* The label-and-value grid, shared by the course fact table and by the
+     enrollment form. One token because the form IS the fact table with
+     editable cells, and two literal copies of one template drift apart. */
+  --grid-record: minmax(180px, 260px) 1fr;
+
   /* Z scale, semantic, never 9999 --------------------------------------- */
   --z-sticky: 100;
   --z-toast:  400;
@@ -82,6 +87,12 @@ h1, h2, h3 {
 p { text-wrap: pretty; margin: 0; }
 
 a { color: inherit; }
+
+/* Three separate elements now depend on the hidden attribute (#nudge, #toast,
+   and the enrollment failure banner), and a single display declaration on any
+   of their own selectors would silently defeat it. Declared once, here, rather
+   than defended one selector at a time. */
+[hidden] { display: none !important; }
 
 .wrap {
   width: 100%;
@@ -456,7 +467,7 @@ a { color: inherit; }
 
 .facts__row {
   display: grid;
-  grid-template-columns: minmax(180px, 260px) 1fr;
+  grid-template-columns: var(--grid-record);
   gap: var(--s-5);
   padding: var(--s-4) 0;
   border-bottom: 1px solid var(--rule);
@@ -690,10 +701,14 @@ a { color: inherit; }
      Constant indeterminate motion must not accelerate, because acceleration
      reads as progress and there is no progress here to report. Transform
      only, so this never touches layout. */
-  animation: map-sweep 1100ms linear infinite;
+  animation: sweep-x 1100ms linear infinite;
 }
 
-@keyframes map-sweep {
+/* Named for what it does, not for where it was born. The enrollment form's
+   submitting bar reuses this identical animation, and a keyframe named after
+   the map while driving a form bar is a naming lie, while two identical
+   keyframes is worse than one shared one. */
+@keyframes sweep-x {
   from { transform: translateX(-100%); }
   to   { transform: translateX(400%); }
 }
@@ -1114,6 +1129,374 @@ body[data-nudge="1"] { padding-bottom: 76px; }
 [data-zone="slipping"]  { background: linear-gradient(180deg, transparent, rgba(153, 0, 0, 0.03)); }
 [data-zone="unhinged"]  { background: linear-gradient(180deg, rgba(153, 0, 0, 0.03), rgba(153, 0, 0, 0.06)); }
 [data-zone="collapsed"] { background: rgba(153, 0, 0, 0.06); }
+
+/* --------------------------------------------------------------------------
+   THE ENROLLMENT FORM
+   The site's first form, and it is deliberately not a form: it is the course
+   fact table with editable cells. Same grid token, same 16px rhythm, same
+   hairline, so a guest who read the facts at the top of the page meets the same
+   object again with their own record in it, and has no new grammar to learn.
+
+   This block is written HERE, near the foot of the file, and not up beside
+   .facts__row or .btn where it belongs by subject. Every rule below that
+   overrides one of those two would lose silently on source order, which is the
+   trap recorded three times already in this file (.dirs touch minimums,
+   .facts--notes collapse, .inline-link--back). Do not tidy it upwards.
+
+   Zero new colour values, zero new type sizes, zero new weights, zero new
+   spacing tokens. A form is exactly where an ad hoc design system gets
+   invented, so none is.
+   -------------------------------------------------------------------------- */
+
+/* The top hairline .facts draws for itself, for the same reason: the table has
+   to start somewhere and a first row with no rule above it floats. */
+.enrol-form {
+  margin: 0;
+  border-top: 1px solid var(--rule);
+}
+
+/* .facts__row's geometry, reached through the shared token rather than copied. */
+.field {
+  display: grid;
+  grid-template-columns: var(--grid-record);
+  gap: var(--s-5);
+  padding: var(--s-4) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Same treatment as a .facts__row dt. It is a field label, and an uppercase
+   mono eyebrow here would give the page a second one. */
+.field__label {
+  display: block;
+  color: var(--ink-dim);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+.field__control { min-width: 0; }
+
+.field__hint {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  margin-top: var(--s-2);
+  overflow-wrap: break-word;
+}
+
+/* The error box holds its 24px in every state, valid included, so a message
+   appearing never moves the submit button out from under a thumb. Same
+   no-reflow guarantee the map slot and the map caption already give. */
+.field__err {
+  min-height: var(--s-5);
+  margin-top: var(--s-1);
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--accent-lit);
+  overflow-wrap: break-word;
+}
+
+/* Single column below 640px, exactly as .facts__row collapses, which yields the
+   label-above-control layout every accessibility guideline asks for. One rule,
+   two correct answers. 8px between label and control is tight enough that the
+   pair reads as one object, which is what stops a guest at 320px reading the
+   hint of the row above as this row's label. */
+@media (max-width: 640px) {
+  .field { grid-template-columns: 1fr; gap: var(--s-2); }
+}
+
+/* --rule means structure, --ink-faint means editable. Every hairline separating
+   read-only information stays --rule; every boundary around something a guest
+   can type in or choose is --ink-faint.
+
+   This is not decoration. --rule is 1.37:1 on --bg, far below the 3:1 that
+   SC 1.4.11 requires of a control boundary, and a field outlined in it has no
+   perceivable edge at night. --ink-faint is 3.88:1 on --bg and 3.62:1 on
+   --surface. It remains banned for body text at 3.88:1; it is used here as a
+   boundary and never as a glyph. --rule-lit was the next thing to try and is
+   1.74:1, so it fails too. Recorded so neither is re-attempted. */
+.field__input,
+.field__textarea,
+.field__select {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--ink-faint);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-family: var(--font-body);
+  /* Exactly 16px, and it is a hard constraint rather than a preference. Any
+     control below it makes iOS Safari zoom the viewport on focus and never zoom
+     back out, which would cost more than every other decision in this file. */
+  font-size: 16px;
+  line-height: 1.5;
+  transition: background var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out),
+              color var(--t-fast) var(--ease-out);
+}
+
+.field__input,
+.field__select {
+  min-height: 48px;
+  padding: 0 var(--s-4);
+}
+
+/* Three rows at 16px on 1.5, plus padding. resize is vertical and never none:
+   taking away the handle on the one field somebody might write a paragraph into
+   is a cost with no matching benefit. */
+.field__textarea {
+  min-height: 96px;
+  padding: var(--s-3) var(--s-4);
+  resize: vertical;
+}
+
+/* So a 1080px viewport does not produce an 800px wide name field. */
+.field__input    { max-width: 32ch; }
+.field__textarea { max-width: 54ch; }
+.field__select   { max-width: 12ch; }
+
+/* The native picker keeps its own appearance: no appearance reset, no drawn
+   caret, no option restyling. Same reasoning phase 2 applied to the native
+   video controls. Fighting a platform picker is pure failure surface, and a
+   caret would mean a hand rolled SVG or a border triangle, both refused. */
+
+@media (hover: hover) and (pointer: fine) {
+  .field__input:hover,
+  .field__textarea:hover,
+  .field__select:hover { border-color: var(--ink-dim); }
+}
+
+/* Focus is the global ring and nothing else. No bespoke focus styling and no
+   border colour change: an offset 2px ring on a 52px box is unmissable, and a
+   second focus signal is the first place a bespoke form language starts.
+   Recorded as a refusal rather than an omission.
+
+   There is deliberately no "filled" treatment either. The typed value is the
+   signal, and a border change on has-content produces a form that looks half
+   broken while it is being filled in.
+
+   And no "active" treatment on a text control: pressing a text field is
+   focusing it, and the caret is the feedback. */
+
+/* No opacity anywhere in the disabled state. Compositing the 14.5px label down
+   by 0.55 lands it at 3.04:1 on --bg, which fails the body text floor at the
+   exact moment the guest is reading their own answers back mid-submit. Explicit
+   token swaps keep them at 7.65:1. The border dropping from --ink-faint to
+   --rule is the visual sentence "this is information again, not a field". */
+.field__input:disabled,
+.field__textarea:disabled,
+.field__select:disabled {
+  background: var(--bg);
+  border-color: var(--rule);
+  color: var(--ink-dim);
+}
+
+@media (pointer: fine) {
+  .field__input:disabled,
+  .field__textarea:disabled,
+  .field__select:disabled { cursor: not-allowed; }
+}
+
+/* Styled off the wrapper attribute, never the :invalid pseudo class, which
+   matches a required empty field before the guest has typed one character.
+   Colour is never the only signal: the message in the reserved box below the
+   control carries it in words. No red fill, no icon, no shake. */
+.field[data-invalid="true"] .field__input,
+.field[data-invalid="true"] .field__textarea,
+.field[data-invalid="true"] .field__select { border-color: var(--accent-lit); }
+
+/* The guest-count segmented control. One tap for a three value choice, all
+   options visible, nothing to open or close, and it reuses the exact selected
+   segment grammar .langswitch already ships.
+
+   Auto columns rather than repeat(N, 1fr), so the number of segments is a
+   property of config.js and never has to be written into CSS. */
+.segset {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  max-width: 22ch;
+}
+
+/* The .sr-only radio is absolutely positioned, so it needs a containing block. */
+.seg { position: relative; display: block; }
+
+/* Collapses the doubled 1px borders of two adjacent segments into one. A
+   border-doubling technique rather than a spacing value, which is why it is a
+   literal and not a token. It is not licence for arbitrary pixel margins. */
+.seg + .seg { margin-left: -1px; }
+
+.seg > span {
+  display: flex; align-items: center; justify-content: center;
+  /* Positioned so the selected and focused states can lift their shared border
+     above the neighbour's, which the negative margin has collapsed underneath. */
+  position: relative;
+  z-index: 0;
+  min-height: 48px;
+  background: var(--surface);
+  border: 1px solid var(--ink-faint);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  /* Mono with tabular figures for the same reason the countdown is: three
+     segments of equal width whose glyphs do not shift when selection moves. */
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: transform var(--t-fast) var(--ease-out),
+              background var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out),
+              color var(--t-fast) var(--ease-out);
+}
+
+/* The adjacent sibling on the checked input, and deliberately NOT the
+   relational pseudo class on the label. That selector did not ship until
+   Safari 15.4, which is precisely the browser population that also needs the
+   uuid fallback, and the control would silently lose its selected state on
+   exactly the devices already known about.
+
+   Three signals carry the state, because the --accent fill alone is 2.06:1
+   against --surface and below the 3:1 floor for a state change: the label flips
+   to #fff (8.92:1 on its own fill), the weight goes 400 to 600, and the border
+   goes --accent-lit (4.58:1). The fill corroborates, it does not indicate.
+   Native :checked carries the state to assistive tech independently of all of
+   it. Width cannot change, because the grid columns are 1fr. */
+.seg input:checked + span {
+  z-index: 1;
+  background: var(--accent);
+  border-color: var(--accent-lit);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Mandatory, not decorative. The radio itself is .sr-only, so a ring painted on
+   it is a 1px clipped rectangle nobody can see. Drawn on the adjacent span
+   instead, restating the global ring values. Omitting this ships a control that
+   is completely invisible to keyboard users. */
+.seg input:focus-visible + span {
+  outline: 2px solid var(--accent-lit);
+  outline-offset: 3px;
+  border-radius: var(--r-sm);
+  z-index: 2;
+}
+
+.seg:active > span { transform: scale(0.97); }
+
+@media (hover: hover) and (pointer: fine) {
+  .seg input:not(:checked) + span:hover { border-color: var(--ink-dim); }
+}
+
+/* The selected segment keeps its fill while the request is in flight, so the
+   guest can still see what they chose. */
+.seg input:disabled + span {
+  background: var(--bg);
+  border-color: var(--rule);
+  color: var(--ink-dim);
+  cursor: default;
+}
+.seg input:disabled:checked + span {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* The action row. 24px plus the 8px of clearance the sweep bar needs is the
+   32px the spacing contract asks for between the last field and the submit,
+   which is enough that the button reads as an action rather than a fourth
+   field. Relative, because the bar is pinned to its top edge. */
+.enrol-actions {
+  position: relative;
+  display: flex;
+  margin-top: var(--s-5);
+  padding-top: var(--s-2);
+}
+
+/* The single most important control in the phase, and it is pressed one handed,
+   at night, possibly outdoors. 44px is the legal floor, not the target. */
+#enrol-submit { min-height: 52px; }
+
+@media (pointer: coarse) {
+  #enrol-submit { min-height: 56px; }
+}
+
+/* Same stack as .hero__actions and .dirs: full bleed and thumb sized, because
+   a ragged auto width reads as an accident. */
+@media (max-width: 480px) {
+  .enrol-actions { display: block; }
+  #enrol-submit { width: 100%; }
+}
+
+/* --------------------------------------------------------------------------
+   The success panel, the returning view, and the registration receipt they
+   share. A region, not a card: no border, no fill, no radius. The only boxes in
+   this section are the input controls, and a panel wrapping a fact table that
+   already draws its own hairlines would be a nested card, which this project
+   has refused twice.
+
+   Opacity only on the swap, 220ms, transform and opacity being the only two
+   properties the brief permits motion on. Height is neither, so the section
+   growing when the form is replaced is never animated: focus moves to the panel
+   heading instead, which takes the guest's eye there deliberately.
+   -------------------------------------------------------------------------- */
+
+.panel {
+  max-width: 68ch;
+  opacity: 0;
+  transition: opacity var(--t-base) var(--ease-out);
+}
+
+.panel[data-show="1"] { opacity: 1; }
+
+/* .sub-h carries 48px above it for the access section's sub-blocks. At the top
+   of a panel that is a gap standing over nothing. */
+.panel .sub-h { margin-top: 0; margin-bottom: var(--s-3); }
+
+/* The heading takes focus programmatically when the panel mounts, which is what
+   announces success to a screen reader user whose focus was on a button that no
+   longer exists. Painting a ring around it for someone who arrived by tapping
+   is noise, so it is suppressed for that case alone. :focus-visible is
+   untouched, so a keyboard guest still sees exactly where they landed. Same
+   treatment, same reason, as the two focusable sections. */
+.panel .sub-h[tabindex="-1"]:focus:not(:focus-visible) { outline: none; }
+
+.panel__lede {
+  color: var(--ink-dim);
+  margin-top: 0;
+  margin-bottom: var(--s-5);
+}
+
+/* One dim line where a button would be. Not a .pending panel, which would be a
+   nested card carrying an uppercase micro-label this phase committed to not
+   adding, and not a disabled button, because absent beats broken. */
+.panel__pending {
+  color: var(--ink-dim);
+  margin-top: var(--s-6);
+  max-width: 62ch;
+}
+
+/* The receipt. Narrower label column than the course facts, for the same reason
+   .facts--notes narrows: "Name" and "Note" are words where a course fact label
+   is a phrase, and the column that fits the phrase leaves a trench beside the
+   word. Everything else is inherited untouched. */
+.facts--record .facts__row { grid-template-columns: minmax(140px, 200px) 1fr; }
+
+/* Not duplication. The shared collapse is written as .facts__row inside a media
+   query, media queries carry no specificity of their own, and the two class
+   selector above therefore beats it at every width. Without this line the
+   receipt would be the one table on the page refusing to collapse on a phone.
+   Same cascade trap as .facts--notes. */
+@media (max-width: 640px) {
+  .facts--record .facts__row { grid-template-columns: 1fr; }
+}
+
+/* pre-wrap so a note reads back exactly as it was typed, line breaks included,
+   which is the only confirmation a guest will ever get that it arrived: the
+   database is structurally incapable of showing it to them. break-word so a 60
+   character unbroken name does not push the page sideways at 320px. */
+.facts--record dd {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
 
 /* --------------------------------------------------------------------------
    Reduced motion. Mandatory. The arc becomes tonal rather than kinetic.

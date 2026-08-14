@@ -82,6 +82,40 @@ window.PARTY_COPY = {
     'enrol.pending.title': 'Registration opens shortly',
     'enrol.pending.body': 'The registration system is being set up. Come back in a few days, or tell the host directly in the meantime.',
 
+    'enrol.form.name.label': 'Full name',
+    'enrol.form.name.hint': 'As it should appear on the participant list.',
+    'enrol.form.guests.label': 'People you are bringing',
+    'enrol.form.guests.hint': 'You are already counted.',
+    'enrol.form.note.label': 'Note to the host (optional)',
+    'enrol.form.note.hint': 'Allergies, arrival time, anything else. Only the host reads this, and you can change it later.',
+
+    /* Every one of these is 36 characters or fewer in every language. Not a
+       style preference: at 320px a two line error would defeat the reserved
+       error box and move the submit button out from under a thumb. */
+    'enrol.err.nameRequired': 'Enter your name.',
+    'enrol.err.nameLong': 'Use 60 characters or fewer.',
+    'enrol.err.noteLong': 'Use 500 characters or fewer.',
+    'enrol.err.guestsRange': 'Choose a number from the list.',
+
+    'enrol.submit': 'Submit registration',
+    'enrol.submitting': 'Submitting',
+    'enrol.retry': 'Submit again',
+    'enrol.fail.title': 'The registration was not recorded.',
+    'enrol.fail.body': 'Your answers are still here. Check your connection and submit again.',
+
+    'enrol.success.title': 'Registration confirmed',
+    'enrol.success.lede': 'You are on the participant list. The host has the numbers.',
+    'enrol.success.group.pending': 'The course group chat is not set up yet. The link appears here when it is.',
+
+    'enrol.record.name': 'Name',
+    'enrol.record.guests': 'Additional guests',
+    'enrol.record.guests.none': 'None',
+    'enrol.record.note': 'Note',
+
+    'enrol.return.title': 'Your registration',
+    'enrol.return.lede': 'Registered in the name of {name}. Nothing further is required.',
+    'enrol.amend.pending': 'Changes cannot be recorded yet. Tell the host directly. Your registration stays as it is.',
+
     'nudge.enrol.text': 'You have not registered yet.',
     'nudge.enrol.cta': 'Register',
     'nudge.enrol.soon': 'Registration closes in {n} days.',
@@ -217,6 +251,37 @@ window.PARTY_COPY = {
     'enrol.lede': 'L’iscrizione è obbligatoria. Non per motivi burocratici, ma perché il festeggiato deve sapere quanto cibo comprare.',
     'enrol.pending.title': 'Le iscrizioni aprono a breve',
     'enrol.pending.body': 'Il sistema di iscrizione è in fase di configurazione. Torna tra qualche giorno, oppure dillo direttamente al festeggiato.',
+
+    'enrol.form.name.label': 'Nome e cognome',
+    'enrol.form.name.hint': 'Come deve comparire nell’elenco dei partecipanti.',
+    'enrol.form.guests.label': 'Persone che porti con te',
+    'enrol.form.guests.hint': 'Tu sei già incluso nel conteggio.',
+    'enrol.form.note.label': 'Nota per il festeggiato (facoltativa)',
+    'enrol.form.note.hint': 'Allergie, orario di arrivo, qualsiasi altra cosa. La legge solo il festeggiato, e puoi modificarla più tardi.',
+
+    'enrol.err.nameRequired': 'Inserisci il tuo nome.',
+    'enrol.err.nameLong': 'Usa al massimo 60 caratteri.',
+    'enrol.err.noteLong': 'Usa al massimo 500 caratteri.',
+    'enrol.err.guestsRange': 'Scegli un numero dall’elenco.',
+
+    'enrol.submit': 'Invia l’iscrizione',
+    'enrol.submitting': 'Invio in corso',
+    'enrol.retry': 'Invia di nuovo',
+    'enrol.fail.title': 'L’iscrizione non è stata registrata.',
+    'enrol.fail.body': 'Le tue risposte sono ancora qui. Controlla la connessione e invia di nuovo.',
+
+    'enrol.success.title': 'Iscrizione confermata',
+    'enrol.success.lede': 'Sei nell’elenco dei partecipanti. Il festeggiato ha i numeri.',
+    'enrol.success.group.pending': 'Il gruppo del corso non è ancora attivo. Il link comparirà qui quando lo sarà.',
+
+    'enrol.record.name': 'Nome',
+    'enrol.record.guests': 'Ospiti aggiuntivi',
+    'enrol.record.guests.none': 'Nessuno',
+    'enrol.record.note': 'Nota',
+
+    'enrol.return.title': 'La tua iscrizione',
+    'enrol.return.lede': 'Iscrizione a nome di {name}. Non serve altro.',
+    'enrol.amend.pending': 'Le modifiche non possono ancora essere registrate. Dillo direttamente al festeggiato. La tua iscrizione resta com’è.',
 
     'nudge.enrol.text': 'Non ti sei ancora iscritto.',
     'nudge.enrol.cta': 'Iscriviti',
@@ -355,6 +420,37 @@ window.PARTY_COPY = {
     'enrol.lede': 'Tilmelding er påkrævet. Ikke af bureaukratiske årsager, men fordi værten skal vide, hvor meget mad der skal købes.',
     'enrol.pending.title': 'Tilmelding åbner snart',
     'enrol.pending.body': 'Tilmeldingssystemet er ved at blive sat op. Kom tilbage om et par dage, eller sig det direkte til værten i mellemtiden.',
+
+    'enrol.form.name.label': 'Fulde navn',
+    'enrol.form.name.hint': 'Som det skal stå på deltagerlisten.',
+    'enrol.form.guests.label': 'Personer du tager med',
+    'enrol.form.guests.hint': 'Du selv tæller allerede med.',
+    'enrol.form.note.label': 'Besked til værten (valgfri)',
+    'enrol.form.note.hint': 'Allergier, ankomsttidspunkt eller andet. Kun værten læser den, og du kan ændre den senere.',
+
+    'enrol.err.nameRequired': 'Skriv dit navn.',
+    'enrol.err.nameLong': 'Brug højst 60 tegn.',
+    'enrol.err.noteLong': 'Brug højst 500 tegn.',
+    'enrol.err.guestsRange': 'Vælg et tal fra listen.',
+
+    'enrol.submit': 'Send tilmelding',
+    'enrol.submitting': 'Sender',
+    'enrol.retry': 'Send igen',
+    'enrol.fail.title': 'Tilmeldingen blev ikke registreret.',
+    'enrol.fail.body': 'Dine svar står der stadig. Tjek din forbindelse, og send igen.',
+
+    'enrol.success.title': 'Tilmelding bekræftet',
+    'enrol.success.lede': 'Du står på deltagerlisten. Værten har tallene.',
+    'enrol.success.group.pending': 'Kursets gruppechat er ikke oprettet endnu. Linket kommer her, når den er.',
+
+    'enrol.record.name': 'Navn',
+    'enrol.record.guests': 'Ekstra gæster',
+    'enrol.record.guests.none': 'Ingen',
+    'enrol.record.note': 'Besked',
+
+    'enrol.return.title': 'Din tilmelding',
+    'enrol.return.lede': 'Tilmeldt i navnet {name}. Der kræves ikke mere.',
+    'enrol.amend.pending': 'Ændringer kan ikke registreres endnu. Sig det direkte til værten. Din tilmelding står, som den er.',
 
     'nudge.enrol.text': 'Du har ikke tilmeldt dig endnu.',
     'nudge.enrol.cta': 'Tilmeld dig',
