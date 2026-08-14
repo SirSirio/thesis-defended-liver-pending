@@ -44,7 +44,7 @@ the page looks deliberate rather than unfinished.
 - Jump link from the top of the page straight to door access (ACC-02)
 - Mobile and iOS Safari verification (DEL-02, DEL-03)
 
-**Plans:** 4/4 plans executed
+**Plans:** 5 plans, 4 executed
 
 Plans:
 **Wave 1**
@@ -62,6 +62,10 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [x] 02-04-PLAN.md — Door video slot, pending and error states, jump path, device pass
+
+**Wave 5** *(gap closure, blocked on Wave 4 completion)*
+
+- [ ] 02-05-PLAN.md — Make the map fallback reachable on the fast failure network, restore the truthful requirement ledger, and give the D-23 device pass a record sheet
 
 **Done when:** the address and door instructions are findable in seconds on a phone, at
 night, on a bad connection.
