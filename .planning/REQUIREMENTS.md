@@ -62,19 +62,19 @@ moment they close the tab. This section closes that gap.
 
 ### Location
 
-- [x] **LOC-01**: Address shown as text with a copy button and a confirmation on copy
-- [x] **LOC-02**: Google Maps embedded via keyless iframe, no API key and no billing account
-- [x] **LOC-03**: Direct links open Google Maps and Apple Maps in the guest's own app
-- [x] **LOC-04**: Map iframe lazy-loads, so it never blocks first paint on mobile data
-- [x] **LOC-05**: When the address is still a placeholder, the section says so plainly instead of showing a broken map
+- [ ] **LOC-01**: Address shown as text with a copy button and a confirmation on copy
+- [ ] **LOC-02**: Google Maps embedded via keyless iframe, no API key and no billing account
+- [ ] **LOC-03**: Direct links open Google Maps and Apple Maps in the guest's own app
+- [ ] **LOC-04**: Map iframe lazy-loads, so it never blocks first paint on mobile data
+- [ ] **LOC-05**: When the address is still a placeholder, the section says so plainly instead of showing a broken map
 
 ### Door access
 
-- [x] **ACC-01**: Video plays inline on iOS Safari, with `playsinline`, `muted`, and `controls`
-- [x] **ACC-02**: Section is reachable in one tap from the top of the page, since guests open the site specifically for this
-- [x] **ACC-03**: Poster frame shows before the video loads, so the section is never a black rectangle
-- [x] **ACC-04**: Written fallback directions accompany the video, for guests on bad signal
-- [x] **ACC-05**: With no video file present, the section shows a clear placeholder rather than a broken player
+- [ ] **ACC-01**: Video plays inline on iOS Safari, with `playsinline`, `muted`, and `controls`
+- [ ] **ACC-02**: Section is reachable in one tap from the top of the page, since guests open the site specifically for this
+- [ ] **ACC-03**: Poster frame shows before the video loads, so the section is never a black rectangle
+- [ ] **ACC-04**: Written fallback directions accompany the video, for guests on bad signal
+- [ ] **ACC-05**: With no video file present, the section shows a clear placeholder rather than a broken player
 
 ### Photos
 
@@ -196,8 +196,8 @@ irritating enough that they close the tab.
 ### Delivery
 
 - [ ] **DEL-01**: Deploys to GitHub Pages from `main`, no build step
-- [x] **DEL-02**: Works on iOS Safari, Android Chrome, and desktop Chrome and Firefox
-- [x] **DEL-03**: Usable on a mid-range phone on mobile data
+- [ ] **DEL-02**: Works on iOS Safari, Android Chrome, and desktop Chrome and Firefox
+- [ ] **DEL-03**: Usable on a mid-range phone on mobile data
 - [ ] **DEL-04**: Open Graph tags, so the link preview in a chat looks intentional
 - [ ] **DEL-05**: Favicon and page title matching the joke
 - [ ] **DEL-06**: README documents how to change the date and fill in each placeholder
