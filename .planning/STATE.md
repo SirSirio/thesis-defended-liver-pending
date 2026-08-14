@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: practical-information
 status: executing
-stopped_at: Completed 02-04-PLAN.md, the door video slot and the phase closing sweep. All four plans of phase 02 are executed; the D-23 device pass on real iOS Safari and real Android Chrome is the outstanding item.
-last_updated: "2026-08-14T08:40:26.416Z"
+stopped_at: "Completed 02-05-PLAN.md, the gap closure plan. Gap 1 (the map fallback unreachable on the fast failure network) and gap 2 (the requirement ledger) are both closed. Phase 02 moves from gaps_found to human_needed: the D-23 real device pass is recorded on .planning/phases/02-practical-information/02-DEVICE-PASS.md and ACC-01, DEL-02 and DEL-03 stay unchecked until it is filled."
+last_updated: "2026-08-14T08:50:25.674Z"
 last_activity: 2026-08-14
 last_activity_desc: Phase 02 fully executed. Location data core, lazy map slot, written directions and practical notes, and the door video slot with its unconfigured state, its jump path and the phase closing sweep.
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -28,8 +28,8 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 ## Current Position
 
 Phase: 02 (practical-information) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 02
+Plan: 2 of 5
+Status: Ready to execute
 Last activity: 2026-08-14 — Phase 02 execution started
 
 Progress: [██████████] 100%
@@ -97,6 +97,7 @@ activates itself. Do not replace this with a config flag.
 | Phase 02 P02 | 17m | 3 tasks | 3 files |
 | Phase 02 P03 | 13m | 2 tasks | 4 files |
 | Phase 02 P04 | 16m | 3 tasks | 5 files |
+| Phase 02 P05 | 5m | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -129,6 +130,10 @@ activates itself. Do not replace this with a config flag.
 - Phase 2: **playsinline and muted are set as attributes and as properties in one construction path**, so neither can ship without the other. Either alone fails inline playback on iOS Safari, which is the single behaviour this phase most needed.
 - Phase 2: **Both video failure paths land on the same phase 1 pending panel**, absent file and broken path alike, and nothing is written to the console. To a guest a missing file and an unmade file are one event; the owner catches the difference in config.js.
 - Phase 2: **The two jumped-to sections are focusable and the focus ring is suppressed for the pointer case only**, so a tap does not paint a ring around a whole section while a keyboard jump still shows where it landed.
+- Phase 2: **An iframe load event proves a document arrived and nothing more.** `data-state="ready"` was redefined from 'the map is ready' to 'a document arrived', so the map guidance was promoted out of the conditional waiting layer into an always present caption, and the load handler no longer cancels the 8000ms fallback.
+- Phase 2: **The map fallback caption holds its box in every state**, hidden by visibility and never removed from flow, so the moment the map paints nothing below it moves. The reserved gap while mounting and blocked is the deliberate price of the D-09 no reflow guarantee.
+- Phase 2: **WR-04's frame.clientHeight check was rejected.** The frame is absolutely positioned at inset 0 with height 100%, so it measures the slot and is non-zero for Google's error page exactly as for a working map. It would close the gap on paper and leave it open in fact.
+- Phase 2: **Requirement checkboxes are derived per ID from the verification report**, never from the summaries or from how complete the code looks. Nine phase 02 IDs checked, three left unchecked pending the D-23 device pass recorded on 02-DEVICE-PASS.md.
 
 ### Pending Todos
 
@@ -166,8 +171,8 @@ Concern: the DTU CourseBase joke lands hardest with classmates and may read as p
 
 ## Session Continuity
 
-Last session: 2026-08-14T06:20:32.486Z
-Stopped at: Completed 02-04-PLAN.md, the door video slot and the phase closing sweep. All four plans of phase 02 are executed; the D-23 device pass on real iOS Safari and real Android Chrome is the outstanding item.
+Last session: 2026-08-14T08:50:25.662Z
+Stopped at: Completed 02-05-PLAN.md, the gap closure plan. Gap 1 (the map fallback unreachable on the fast failure network) and gap 2 (the requirement ledger) are both closed. Phase 02 moves from gaps_found to human_needed: the D-23 real device pass is recorded on .planning/phases/02-practical-information/02-DEVICE-PASS.md and ACC-01, DEL-02 and DEL-03 stay unchecked until it is filled.
 Resume file: None
 
 **To resume in a fresh session:** read this file, then PROJECT.md, ROADMAP.md and

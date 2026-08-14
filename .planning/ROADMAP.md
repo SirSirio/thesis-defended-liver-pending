@@ -44,7 +44,7 @@ the page looks deliberate rather than unfinished.
 - Jump link from the top of the page straight to door access (ACC-02)
 - Mobile and iOS Safari verification (DEL-02, DEL-03)
 
-**Plans:** 5 plans, 4 executed
+**Plans:** 5/5 plans executed, 4 executed
 
 Plans:
 **Wave 1**
@@ -65,7 +65,7 @@ Plans:
 
 **Wave 5** *(gap closure, blocked on Wave 4 completion)*
 
-- [ ] 02-05-PLAN.md — Make the map fallback reachable on the fast failure network, restore the truthful requirement ledger, and give the D-23 device pass a record sheet
+- [x] 02-05-PLAN.md — Make the map fallback reachable on the fast failure network, restore the truthful requirement ledger, and give the D-23 device pass a record sheet
 
 **Done when:** the address and door instructions are findable in seconds on a phone, at
 night, on a bad connection.
@@ -86,7 +86,7 @@ time sensitive and photos are not.
 - Nudge bar with its two states, plus the deadline framing (NDG-01 to NDG-08)
 - Graceful unconfigured state, so this ships before credentials exist (ENR-12)
 
-**Done when:** a guest on a phone enrolls in under thirty seconds, lands in the WhatsApp
+**Done when:** a guest on a phone enrolls in under 10 seconds, lands in the WhatsApp
 group with one more tap, and is never nudged again.
 
 ---
