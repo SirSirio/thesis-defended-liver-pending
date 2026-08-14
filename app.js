@@ -1358,6 +1358,136 @@
     return n > max ? max : n;
   }
 
+  /* ----------------------------------------------------------------------
+     VALIDATION
+
+     Every validator returns a copy KEY or null, never a rendered string, so a
+     message survives a language switch without being re-computed.
+
+     Two channels, two jobs, and conflating them is the usual mistake. A field
+     error is DESCRIBED through aria-describedby and is never announced. A
+     failed submit is ANNOUNCED through the alert role, which carries an
+     assertive politeness and interrupts. Assertive is right for a submit that
+     did not happen and wrong for a character the guest is still typing.
+
+     The newer ARIA error-message attribute is deliberately not used anywhere
+     here, and its absence is a decision rather than an oversight. MDN
+     recommends it, but its screen reader support is materially weaker than
+     aria-describedby, and this site's audience is on phones running VoiceOver
+     and TalkBack.
+     ---------------------------------------------------------------------- */
+
+  function validateName(v) {
+    // Trimmed first, because the database bound is computed on the trimmed
+    // value and a name of sixty spaces is not a name.
+    var s = (v || '').trim();
+    if (!s) return 'enrol.err.nameRequired';
+    if (s.length > 60) return 'enrol.err.nameLong';
+    return null;
+  }
+
+  function validateNote(v) {
+    return (v || '').length > 500 ? 'enrol.err.noteLong' : null;
+  }
+
+  function validateGuests(v) {
+    var max = maxGuests();
+    var n = parseInt(v, 10);
+    if (isNaN(n) || n < 0 || n > max) return 'enrol.err.guestsRange';
+    return null;
+  }
+
+  // The closest lookup guarded and the manual walk kept as the fallback, the
+  // same shape wireLocation() uses.
+  function fieldWrap(el) {
+    var node = (el && el.closest) ? el.closest('.field') : null;
+    if (node) return node;
+
+    node = el ? el.parentNode : null;
+    while (node && node.classList) {
+      if (node.classList.contains('field')) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  /* The sole owner of the aria wiring, so no call site can set half of it and
+     leave a control that looks invalid and reads as fine, or the reverse. The
+     copy key is stored on the control so a language switch can re-render a
+     currently visible error without re-running validation. */
+  function showFieldError(input, errKey) {
+    var wrap = fieldWrap(input);
+    var err = document.getElementById(input.id + '-err');
+
+    if (errKey) {
+      input.setAttribute('aria-invalid', 'true');
+      if (wrap) wrap.setAttribute('data-invalid', 'true');
+      if (err) err.textContent = t(errKey);
+      input.setAttribute('data-errkey', errKey);
+      return;
+    }
+
+    input.setAttribute('aria-invalid', 'false');
+    if (wrap) wrap.setAttribute('data-invalid', 'false');
+    if (err) err.textContent = '';
+    input.removeAttribute('data-errkey');
+  }
+
+  function wireField(input, validate) {
+    input.addEventListener('blur', function () {
+      /* Untouched and empty says nothing at all. The guidance is explicit: do
+         not mark an empty required control invalid until the guest attempts to
+         submit, because they may still be working on it. Scolding somebody for
+         tabbing past a field they have not reached yet is the fastest way to
+         make a short form feel hostile. */
+      if (!input.value && !input.getAttribute('data-touched')) return;
+      showFieldError(input, validate(input.value));
+    });
+
+    input.addEventListener('input', function () {
+      input.setAttribute('data-touched', '1');
+      // Only while an error is already showing, so it clears the instant it is
+      // fixed and never appears mid-word.
+      if (input.getAttribute('aria-invalid') === 'true') {
+        showFieldError(input, validate(input.value));
+      }
+    });
+  }
+
+  /* The radiogroup is absent from this list by construction: it carries a
+     checked default and cannot hold an invalid value. enrol.err.guestsRange
+     exists for the select branch and for a tampered DOM. */
+  function fieldValidators(form) {
+    var out = [];
+
+    var name = $('#enrol-name', form);
+    if (name) out.push({ input: name, validate: validateName });
+
+    var guests = $('#enrol-guests', form);
+    if (guests && guests.tagName === 'SELECT') {
+      out.push({ input: guests, validate: validateGuests });
+    }
+
+    var note = $('#enrol-note', form);
+    if (note) out.push({ input: note, validate: validateNote });
+
+    return out;
+  }
+
+  // Populates every error node and hands back the first invalid control, so the
+  // caller can move focus to it rather than leaving the guest to hunt.
+  function validateAll(form) {
+    var first = null;
+
+    fieldValidators(form).forEach(function (pair) {
+      var key = pair.validate(pair.input.value);
+      showFieldError(pair.input, key);
+      if (key && !first) first = pair.input;
+    });
+
+    return first;
+  }
+
   /* One .field row: label, control, hint, error. The error node exists from the
      first render and is empty when the field is valid, so aria-describedby is
      written once in markup and is never added or removed, which is where most
@@ -1577,6 +1707,13 @@
     actions.appendChild(submit);
 
     form.appendChild(actions);
+
+    /* Attached here rather than in a wire function, and it is the sanctioned
+       exception rather than a slip: this form is built exactly once and
+       persists for the life of the page, so these listeners cannot stack on a
+       language switch the way a listener inside a re-rendering function would. */
+    fieldValidators(form).forEach(function (pair) { wireField(pair.input, pair.validate); });
+
     return form;
   }
 
@@ -1893,6 +2030,19 @@
 
   function handleSubmit(form) {
     if (form.getAttribute('data-state') === 'submitting') return;
+
+    /* Validate everything, populate every error node, and move focus to the
+       first control that is wrong. This branch terminates in a setFormState
+       call like every other one, so there is no path out of here that leaves
+       the button locked. The state is carried through rather than reset,
+       because a form that already failed on the wire must keep reading
+       enrol.retry while the guest fixes a field. */
+    var invalid = validateAll(form);
+    if (invalid) {
+      setFormState(form, form.getAttribute('data-state') === 'failure' ? 'failure' : 'idle');
+      if (invalid.focus) invalid.focus();
+      return;
+    }
 
     hideAlert(form);
 

@@ -1400,6 +1400,69 @@ body[data-nudge="1"] { padding-bottom: 76px; }
   color: #fff;
 }
 
+/* The submit failure banner. No border, no fill, no icon: it is a paragraph in
+   the phase's destructive colour, and a bordered red box here would be the only
+   card on the page and would read as a browser error rather than as this site.
+   The precedent is .copybtn[data-state="failed"] above, which speaks in the text
+   safe red and draws no box for exactly the same reason.
+
+   It sits directly above the action row so the message and the retry button are
+   one object under the thumb, and it is in the DOM from first render rather
+   than inserted on failure, because many screen readers will not announce a
+   live region that arrives at the same moment its content does. */
+.form-alert {
+  margin-top: var(--s-5);
+  max-width: 62ch;
+}
+
+.form-alert__t {
+  color: var(--accent-lit);
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.form-alert__b {
+  color: var(--ink-dim);
+  font-size: 14.5px;
+  line-height: 1.5;
+  margin-top: var(--s-1);
+}
+
+/* Two parts, the same two the map waiting state already uses: this strip is the
+   clipping window pinned to the top edge of the action row, and the pseudo
+   element is the quarter width piece that travels across it. One vocabulary for
+   "something is happening" rather than two.
+
+   --accent-lit and never --accent: the fill red is 2.06:1 against the page and
+   was invisible when the map bar was first drawn with it. */
+.sweep {
+  display: none;
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  overflow: hidden;
+}
+
+.sweep::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 25%;
+  height: 100%;
+  background: var(--accent-lit);
+  /* linear, for the same reason the map bar is: constant indeterminate motion
+     must not accelerate, because acceleration reads as progress and there is no
+     progress here to report. Transform only, so it never touches layout. */
+  animation: sweep-x 1100ms linear infinite;
+}
+
+/* Only while a request is actually in flight. A bar that is always there is not
+   a state. There is deliberately no spinner glyph, which would be a hand drawn
+   shape this project has refused twice, and no percentage, which would be a
+   fabricated progress claim. */
+.enrol-form[data-state="submitting"] .sweep { display: block; }
+
 /* The action row. 24px plus the 8px of clearance the sweep bar needs is the
    32px the spacing contract asks for between the last field and the submit,
    which is enough that the button reads as an action rather than a fourth
@@ -1510,6 +1573,32 @@ body[data-nudge="1"] { padding-bottom: 76px; }
     transition-duration: 0.01ms !important;
   }
   .hero::before { animation: none; opacity: 0.9; }
+
+  /* Required, not redundant, and the same rule .map-wait__bar::after already
+     carries for the same reason: the clamp above collapses animations to a
+     single 0.01ms pass, which would strand this bar wherever that pass dropped
+     it. Parked at full width rather than frozen a quarter of the way across,
+     which would read as stalled progress that was never being reported. The
+     button label beside it already carries the meaning in words, so nothing is
+     lost by holding still. */
+  .sweep::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.35;
+    transform: none;
+  }
+
+  /* The form to success panel swap becomes an instant swap, which is correct
+     and honest. Written out rather than left to the clamp, because the panel
+     mounts at zero opacity and waits a frame for its attribute: a 0.01ms
+     transition and no transition are not the same thing when the state change
+     arrives after the paint.
+
+     There is no rule here for the error reveal or the withdraw confirmation,
+     because neither animates in the first place. Animating text somebody must
+     read and act on is worse than an instant change, and the error box is
+     already reserved so nothing moves. */
+  .panel { opacity: 1; transition: none; }
 }
 
 /* ==========================================================================
