@@ -459,14 +459,22 @@
     var venue = CFG.venue || {};
     var address = typeof venue.address === 'string' ? venue.address : '';
     var slot = $('#loc-map', host);
+    /* The caption below the slot. It is a sibling of the slot rather than a
+       child of it, because the CSS reveal keys on the slot's own state through
+       an adjacent sibling selector, and because a caption inside a fixed ratio
+       box would have to sit on top of the map. */
+    var note = $('#loc-map-note', host);
 
     /* No address, no map. Nothing to point at, so the section falls back to
        exactly one pending block and nothing else: no empty frame, no grey
-       rectangle standing in for a decision that has not been made. */
+       rectangle standing in for a decision that has not been made. The caption
+       goes with the slot, so a blanked address leaves no orphan sentence
+       standing under nothing. */
     if (!address) {
       if (mapObserver) { mapObserver.disconnect(); mapObserver = null; }
       if (mapTimer) { clearTimeout(mapTimer); mapTimer = null; }
       if (slot && slot.parentNode) slot.parentNode.removeChild(slot);
+      if (note && note.parentNode) note.parentNode.removeChild(note);
       return;
     }
 
@@ -482,6 +490,7 @@
       }
       var mounted = $('iframe', slot);
       if (mounted) mounted.setAttribute('title', t('loc.maptitle'));
+      if (note) note.textContent = t('loc.map.fallback');
       return;
     }
 
@@ -506,6 +515,21 @@
 
     slot.appendChild(wait);
     host.appendChild(slot);
+
+    /* Appended immediately after the slot and never between them, because the
+       stylesheet reveals this sentence through an adjacent sibling selector and
+       anything inserted in between would break the reveal silently.
+
+       It is present in every state rather than only in the failed one. A page
+       cannot read the inside of a cross origin frame, so it cannot tell a map
+       from Google's own error page, a captive portal or a rate limit notice.
+       All of those complete, and a sentence that only appears when the failure
+       is detectable is no help on the network where it is not. */
+    note = document.createElement('p');
+    note.id = 'loc-map-note';
+    note.className = 'map-note';
+    note.textContent = t('loc.map.fallback');
+    host.appendChild(note);
 
     observeMap(slot);
   }
@@ -589,11 +613,21 @@
        position, and asking would put a permission prompt between a cold guest
        and an address. */
 
-    /* Unconditional, and that is the point. A load at second twelve on a
+    /* This event proves that a document arrived. It does not prove that the
+       document is a map, and it cannot: Google's own error pages, a captive
+       portal login, a rate limit notice and a blocked network's browser error
+       page are all completed documents and all fire it. So the state it writes
+       reads as 'a document arrived' and nothing stronger, and the caption below
+       the slot carries the guidance for the guest who got one of the others.
+
+       It deliberately does not cancel the timer below. Cancelling a fallback on
+       evidence this weak is what made the blocked message unreachable on the
+       fast failure network. The timer's own guard decides instead.
+
+       Unconditional, and that is the point. A load at second twelve on a
        genuinely terrible connection still resolves to a live map, because the
        blocked state below never removed anything. */
     frame.addEventListener('load', function () {
-      if (mapTimer) { clearTimeout(mapTimer); mapTimer = null; }
       slot.setAttribute('data-state', 'ready');
     });
 
@@ -615,6 +649,17 @@
     if (mapTimer) clearTimeout(mapTimer);
     mapTimer = setTimeout(function () {
       mapTimer = null;
+      /* This guard, and not the load handler, is the one place that decides.
+         The ready state now means only that a document arrived, so leaving
+         quietly here is right on both readings of it: if that document is the
+         map, there is nothing to say, and if it is not, the guest already has
+         the caption under the slot pointing back at the address and the two
+         buttons above it. Contradicting a frame that is showing something is
+         the one outcome worth avoiding, because it sends a guest away from an
+         affordance that may well be serving them.
+
+         Nothing arriving at all is the other reading, and that one still lands
+         below: the message swaps, and the frame stays exactly where it is. */
       if (slot.getAttribute('data-state') === 'ready') return;
       slot.setAttribute('data-state', 'blocked');
       var waiting = $('.map-wait__line', slot);

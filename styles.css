@@ -741,6 +741,45 @@ a { color: inherit; }
               visibility 0s linear var(--t-base);
 }
 
+/* The caption under the slot, and the one thing a guest reads when the frame
+   completed a document that is not a map. A page cannot look inside a cross
+   origin frame, so Google's error page, a captive portal and a rate limit
+   notice all arrive looking like success. This sentence does not depend on
+   telling them apart.
+
+   Two rules, written next to each other on purpose. The reveal wins on
+   specificity, 0-3-0 against 0-1-0, never on source order: one class, one
+   attribute selector and one class, with no type selector to contribute an
+   element component. This phase has already corrected three cascades that
+   depended on order alone, so someone will eventually move these rules and the
+   result must survive it.
+
+   Hidden by visibility and never by the property that takes an element out of
+   flow. The caption holds its box in every state, so the moment the map paints
+   nothing below it moves, which is the same no reflow guarantee the fixed ratio
+   box above exists to give. The price is real and is not stray spacing: while
+   mounting and while blocked there are 12px plus one or two lines of reserved
+   space between the slot and the Access section. Closing that gap by taking the
+   caption out of flow would shift the whole section under a reading thumb at the
+   exact moment the map lands.
+
+   No transition and no animation. Motion decision 4 refuses a crossfade on a
+   word someone is about to read, and one here would owe a reduced motion block
+   this phase does not otherwise need. 13px mono on the dim ink token is the
+   existing footer and hero deadline pairing at 7.65:1 on the page background;
+   the faint token is 3.88:1 and fails the body text floor. */
+.map-note {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  margin-top: var(--s-3);
+  max-width: 60ch;
+  visibility: hidden;
+}
+
+.map-slot[data-state="ready"] + .map-note { visibility: visible; }
+
 /* Inset ring, so it draws inside the frame rather than colliding with the slot
    border. Precedent: .facts__row--egg does the same for the same reason. */
 .map-slot iframe:focus-visible { outline-offset: -3px; }
