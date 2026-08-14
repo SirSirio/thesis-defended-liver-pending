@@ -448,6 +448,8 @@
      second copy of tiles it already has, on mobile data, outdoors.
      ---------------------------------------------------------------------- */
 
+  var mapObserver = null;
+
   function renderMapSlot() {
     var host = $('#location-body');
     if (!host) return;
@@ -460,6 +462,7 @@
        exactly one pending block and nothing else: no empty frame, no grey
        rectangle standing in for a decision that has not been made. */
     if (!address) {
+      if (mapObserver) { mapObserver.disconnect(); mapObserver = null; }
       if (slot && slot.parentNode) slot.parentNode.removeChild(slot);
       return;
     }
@@ -474,6 +477,8 @@
           ? t('loc.map.blocked')
           : t('loc.map.loading');
       }
+      var mounted = $('iframe', slot);
+      if (mounted) mounted.setAttribute('title', t('loc.maptitle'));
       return;
     }
 
@@ -498,6 +503,97 @@
 
     slot.appendChild(wait);
     host.appendChild(slot);
+
+    observeMap(slot);
+  }
+
+  /* The observer, created once per slot and never on the update path, because
+     renderMapSlot() runs again on every language switch and an observer built
+     in there would stack one per switch.
+
+     rootMargin is generous on purpose: 400px above the slot means the tiles are
+     already arriving while the guest is still reading the address, so the map
+     is there when they look down rather than starting to load when they get
+     there. Nothing is requested from Google before that, so a guest who never
+     scrolls to Location never contacts Google at all. */
+  function observeMap(slot) {
+    if (!('IntersectionObserver' in window)) {
+      // A missing capability degrades to eager, never to absent. An old browser
+      // pays for the map at first paint, which is worse than lazy and far
+      // better than a permanently empty frame.
+      mountMap(slot);
+      return;
+    }
+
+    // Only reachable with a stale observer if the address was blanked and then
+    // restored, which already disconnects. Cheap to be certain.
+    if (mapObserver) { mapObserver.disconnect(); mapObserver = null; }
+
+    mapObserver = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        if (!entries[i].isIntersecting) continue;
+        mountMap(slot);
+        if (mapObserver) { mapObserver.disconnect(); mapObserver = null; }
+        return;
+      }
+    }, { rootMargin: '400px 0px' });
+
+    mapObserver.observe(slot);
+  }
+
+  /* The one place in this codebase that creates an element loading third party
+     code, so it is spelled out rather than assumed. */
+  function mountMap(slot) {
+    /* The idempotency guard, and it is first for a reason: an observer may
+       report the same target more than once, and a second pass here would
+       append a second frame and buy a second copy of tiles the guest already
+       has, on mobile data, outdoors. Idempotent by construction. */
+    if ($('iframe', slot)) return;
+
+    var venue = CFG.venue || {};
+    var address = typeof venue.address === 'string' ? venue.address : '';
+    if (!address) return;
+
+    var frame = document.createElement('iframe');
+
+    /* Keyless: q plus output=embed and nothing else. No API key, therefore no
+       billing account, no cloud console project, and nothing for the owner to
+       renew in eighteen months. The address goes through the same
+       encodeURIComponent path the directions URLs use, so one address value has
+       exactly one encoding rule and the a-ring survives all of them.
+
+       Built with setAttribute on a created element, never by assigning markup,
+       which is the discipline that keeps config.js from becoming an injection
+       vector. */
+    frame.setAttribute('src', 'https://www.google.com/maps?q=' + encodeURIComponent(address) + '&output=embed');
+    frame.setAttribute('title', t('loc.maptitle'));
+    frame.setAttribute('loading', 'lazy');
+    /* Google is told which site asked, over HTTPS only, and never over a
+       downgrade. It still sees the guest's IP and user agent, which is the
+       unavoidable cost of an embedded map and is why the frame is not created
+       until the guest actually approaches it. */
+    frame.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+
+    /* Two attributes are deliberately absent. Recorded here so nobody adds
+       them later believing they are hardening anything.
+
+       No sandbox: a sandboxed Maps embed cannot run its own scripts and renders
+       blank, so it would trade a working map for a grey box. The frame is
+       already cross origin isolated by the same origin policy and this page
+       exposes no postMessage listener.
+
+       No allow with geolocation: nothing in this section needs the guest's
+       position, and asking would put a permission prompt between a cold guest
+       and an address. */
+
+    frame.addEventListener('load', function () {
+      slot.setAttribute('data-state', 'ready');
+    });
+
+    slot.appendChild(frame);
+    // Next frame, so the fade actually runs from the hidden state. Same idiom
+    // as showNudge() and toast(), for the same reason.
+    requestAnimationFrame(function () { frame.setAttribute('data-show', '1'); });
   }
 
   var copyRevert = null;
