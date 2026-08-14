@@ -44,7 +44,7 @@ the page looks deliberate rather than unfinished.
 - Jump link from the top of the page straight to door access (ACC-02)
 - Mobile and iOS Safari verification (DEL-02, DEL-03)
 
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 **Wave 1**
@@ -57,7 +57,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-03-PLAN.md — Access section: written directions in three shapes, practical notes
+- [x] 02-03-PLAN.md — Access section: written directions in three shapes, practical notes
 
 **Wave 4** *(blocked on Wave 3 completion)*
 

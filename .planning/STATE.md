@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: practical-information
 status: executing
-stopped_at: Completed 02-02-PLAN.md, the map slot. Wave 2 done, plans 03 and 04 remain.
-last_updated: "2026-08-14T05:53:40.146Z"
+stopped_at: Completed 02-03-PLAN.md, written directions and practical notes. Wave 3 done, plan 04 (the video slot) remains.
+last_updated: "2026-08-14T06:07:08.160Z"
 last_activity: 2026-08-14
-last_activity_desc: Phase 02 waves 1-2 complete — location data core and lazy map slot.
+last_activity_desc: Phase 02 waves 1-3 complete. Location data core, lazy map slot, and the access section's written directions and practical notes.
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 ## Current Position
 
 Phase: 02 (practical-information) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
-Last activity: 2026-08-14 — Waves 1-2 complete (02-01 location data core, 02-02 map slot)
+Last activity: 2026-08-14 — Waves 1-3 complete (02-01 location data core, 02-02 map slot, 02-03 directions and notes)
 
-Progress: [█████░░░░░] 50%
+Progress: [████████░░] 75%
 
 ## Live status
 
@@ -95,6 +95,7 @@ activates itself. Do not replace this with a config flag.
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 02 P02 | 17m | 3 tasks | 3 files |
+| Phase 02 P03 | 13m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,10 @@ activates itself. Do not replace this with a config flag.
 - Phase 2: **The map slot is a persistent sibling of `#loc-data`**, so a language switch never remounts a loaded map or buys a second copy of the tiles on mobile data.
 - Phase 2: **IntersectionObserver is guarded and degrades to an eager mount.** A missing capability degrades to early, never to absent.
 - Phase 2: **The map blocked state at 8000ms is a message swap only.** The frame is never torn down, so a load at second twelve still resolves to a live map.
+- Phase 2: **Written directions are always visible, above the video, never merely its fallback** (D-12). Text is read faster than video loads on a bad signal outdoors, and it still works on the evening the video does not.
+- Phase 2: **A pending panel that titles itself gets no heading above it.** With `door.directions` null the panel carries the block, which reconciles the ACC-04 resolved edge against the UI contract instead of picking one of them.
+- Phase 2: **`renderAccess()` re-appends the access pending panel as an interim placeholder** in the video position, so the commit landing between waves 3 and 4 is deployable on its own. Plan 04 deletes that line as it adds the real video slot.
+- Phase 2: **Note labels are translated, note values are not.** Labels live in copy.js so a Danish guest never meets an English one, values stay verbatim from config.js in every language, and the config comment says so plainly.
 
 ### Pending Todos
 
@@ -154,8 +159,8 @@ Concern: the DTU CourseBase joke lands hardest with classmates and may read as p
 
 ## Session Continuity
 
-Last session: 2026-08-14T05:53:40.134Z
-Stopped at: Completed 02-02-PLAN.md, the map slot. Wave 2 done, plans 03 and 04 remain.
+Last session: 2026-08-14T06:07:08.149Z
+Stopped at: Completed 02-03-PLAN.md, written directions and practical notes. Wave 3 done, plan 04 (the video slot) remains.
 Resume file: None
 
 **To resume in a fresh session:** read this file, then PROJECT.md, ROADMAP.md and
