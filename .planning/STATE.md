@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 02
-current_phase_name: practical-information
-status: executing
-stopped_at: "Completed 02-05-PLAN.md, the gap closure plan. Gap 1 (the map fallback unreachable on the fast failure network) and gap 2 (the requirement ledger) are both closed. Phase 02 moves from gaps_found to human_needed: the D-23 real device pass is recorded on .planning/phases/02-practical-information/02-DEVICE-PASS.md and ACC-01, DEL-02 and DEL-03 stay unchecked until it is filled."
-last_updated: "2026-08-14T08:50:25.674Z"
+current_phase: 03
+current_phase_name: Enrollment, identity, and the group
+status: planning
+stopped_at: Phase 3 context gathered in auto mode
+last_updated: "2026-08-14T09:26:47.083Z"
 last_activity: 2026-08-14
 last_activity_desc: Phase 02 fully executed. Location data core, lazy map slot, written directions and practical notes, and the door video slot with its unconfigured state, its jump path and the phase closing sweep.
 progress:
-  total_phases: 1
+  total_phases: 2
   completed_phases: 1
   total_plans: 5
   completed_plans: 5
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 
 ## Current Position
 
-Phase: 02 (practical-information) — EXECUTING
-Plan: 2 of 5
-Status: Ready to execute
-Last activity: 2026-08-14 — Phase 02 execution started
+Phase: 03 — Enrollment, identity, and the group
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-08-14 — Phase 02 complete, transitioned to Phase 03
 
 Progress: [██████████] 100%
 
@@ -75,7 +75,7 @@ activates itself. Do not replace this with a config flag.
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 5
 - Average duration: n/a
 - Total execution time: 0 hours
 
@@ -83,7 +83,7 @@ activates itself. Do not replace this with a config flag.
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 02 | 5 | - | - |
 
 **Recent Trend:**
 
@@ -171,9 +171,9 @@ Concern: the DTU CourseBase joke lands hardest with classmates and may read as p
 
 ## Session Continuity
 
-Last session: 2026-08-14T08:50:25.662Z
-Stopped at: Completed 02-05-PLAN.md, the gap closure plan. Gap 1 (the map fallback unreachable on the fast failure network) and gap 2 (the requirement ledger) are both closed. Phase 02 moves from gaps_found to human_needed: the D-23 real device pass is recorded on .planning/phases/02-practical-information/02-DEVICE-PASS.md and ACC-01, DEL-02 and DEL-03 stay unchecked until it is filled.
-Resume file: None
+Last session: 2026-08-14T09:22:40.227Z
+Stopped at: Phase 3 context gathered in auto mode
+Resume file: .planning/phases/03-enrollment-identity-and-the-group/03-CONTEXT.md
 
 **To resume in a fresh session:** read this file, then PROJECT.md, ROADMAP.md and
 DESIGN-BRIEF.md, then run `/gsd-plan-phase 2`. Phase 2 is location and door video,

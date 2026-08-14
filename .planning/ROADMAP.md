@@ -44,7 +44,7 @@ the page looks deliberate rather than unfinished.
 - Jump link from the top of the page straight to door access (ACC-02)
 - Mobile and iOS Safari verification (DEL-02, DEL-03)
 
-**Plans:** 5/5 plans executed, 4 executed
+**Plans:** 5/5 plans complete
 
 Plans:
 **Wave 1**
@@ -77,6 +77,11 @@ night, on a bad connection.
 **Goal:** The host knows who is coming. Moved ahead of photos because headcount is
 time sensitive and photos are not.
 
+> **Gate re-arm:** the workflow runs lean by default (see `config.json`). Before planning this
+> phase, switch `code_review`, `security_enforcement`, and `api_coverage_gate` back to `true`.
+> This is the first phase that touches real data, row level rules, and a public anon key, so it
+> earns the checks that Phases 1, 2, and 5 do not.
+
 - Supabase project setup, tables, row level rules (shared with phase 4)
 - Enrollment form: name, guest count, optional note, validation on blur (ENR-01 to ENR-03, ENR-09, ENR-10)
 - Enrollment doubles as identity capture, so no separate name prompt exists anywhere (ENR-04, ID-01 to ID-06)
@@ -94,6 +99,10 @@ group with one more tap, and is never nudged again.
 ## Phase 4: Photos
 
 **Goal:** Guests can upload to a shared album, using the identity enrollment already gave them.
+
+> **Gate re-arm:** keep `code_review`, `security_enforcement`, and `api_coverage_gate` on for this
+> phase too. Untrusted file upload from strangers' phones into shared storage is the one genuinely
+> hard thing in this project. Slow is correct here.
 
 - Upload flow: client-side downscale, validation, progress, success and failure states (PH-01 to PH-08)
 - 5-photo limit with remaining count, keyed to the enrolled identity
