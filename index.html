@@ -225,7 +225,15 @@
     </div>
   </section>
 
-  <section class="section" id="location" data-zone="unhinged">
+  <!-- The minus one tab index below, and its twin on the access section, make
+       these two sections focusable without putting them in the tab order. A
+       jump from the hero, the top bar or the back link then moves focus onto
+       the section it lands on rather than only the viewport. Without it a
+       keyboard guest arrives looking at the right place while their next Tab
+       continues from the top of the page. The count of the attribute is a
+       gate, so do not spell it out in a comment: exactly two occurrences of it
+       may exist in this file. -->
+  <section class="section" id="location" data-zone="unhinged" tabindex="-1">
     <div class="wrap">
       <h2 class="section__h" data-i18n="loc.heading">Location</h2>
       <p class="section__lede" data-i18n="loc.lede">Course sessions are held at the address below. Directions open in your own map application.</p>
@@ -238,7 +246,7 @@
     </div>
   </section>
 
-  <section class="section" id="access" data-zone="unhinged">
+  <section class="section" id="access" data-zone="unhinged" tabindex="-1">
     <div class="wrap">
       <h2 class="section__h" data-i18n="access.heading">Building access</h2>
       <p class="section__lede" data-i18n="access.lede">The single most useful section on this page. Watch this before you arrive, or while standing outside wondering which door is the right one.</p>

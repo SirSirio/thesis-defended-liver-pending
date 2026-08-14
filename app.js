@@ -998,6 +998,21 @@
        heading stands over nothing. */
     host.appendChild(subHeading('access.video.heading'));
     host.appendChild(buildVideo());
+
+    /* A link and not a third button. This is a jump within the page rather
+       than an action, the fact table already uses this component for exactly
+       that, and a third large button under a video would compete with the two
+       directions buttons, which are the real actions on this page.
+
+       The href does the whole job. No scripted scroll is attached anywhere,
+       because the smooth behaviour in styles.css already becomes an instant
+       jump inside the reduced motion query, and a scripted scroll would drive
+       straight past a preference the guest set deliberately. */
+    var back = document.createElement('a');
+    back.className = 'inline-link inline-link--back';
+    back.setAttribute('href', '#location');
+    back.textContent = t('access.back');
+    host.appendChild(back);
   }
 
   /* ======================================================================

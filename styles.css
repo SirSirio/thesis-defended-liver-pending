@@ -108,6 +108,15 @@ a { color: inherit; }
   border-radius: var(--r-sm);
 }
 
+/* The two sections carrying tabindex="-1" receive focus when a jump link lands
+   on them, which is what makes the jump work for a keyboard or screen reader
+   guest instead of only moving the viewport. Painting a ring around an entire
+   section for someone who arrived by tapping is noise, so it is suppressed for
+   that case alone. :focus-visible is deliberately untouched, so a guest who
+   jumped with the keyboard still sees exactly where they landed. The ring is
+   never removed without the keyboard case being left standing. */
+.section[tabindex="-1"]:focus:not(:focus-visible) { outline: none; }
+
 .skip-link {
   position: absolute; top: var(--s-2); left: var(--s-2);
   z-index: calc(var(--z-toast) + 1);
@@ -936,6 +945,30 @@ a { color: inherit; }
   text-underline-offset: 3px;
   margin-left: var(--s-2);
   white-space: nowrap;
+}
+
+/* The back to map link at the foot of the access section, and it is written
+   HERE, immediately below the class it modifies, rather than up in the access
+   block where it belongs by subject. Both selectors weigh exactly the same,
+   the access block sits earlier in this file, and the cleared margin below
+   would therefore have lost silently. Do not tidy it upwards. Third time in
+   this phase: the .dirs touch minimums and the .facts--notes collapse both hit
+   the same trap.
+
+   The margin is cleared because this link starts its own line under the video
+   rather than trailing the end of a sentence, which is what the base class was
+   written for. */
+.inline-link--back {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0;
+  margin-top: var(--s-6);
+}
+
+@media (pointer: coarse) {
+  /* The floor, not the target. It is a secondary affordance, so 44 is right
+     here where the directions buttons take 56. */
+  .inline-link--back { min-height: 44px; }
 }
 
 /* --------------------------------------------------------------------------
