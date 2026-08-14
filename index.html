@@ -222,6 +222,40 @@
           <p class="pending__b" data-i18n="enrol.pending.body">The registration system is being set up. Come back in a few days, or tell the host directly in the meantime.</p>
         </div>
       </div>
+
+      <!-- The head count and the class list mount here, and the position is the
+           decision. Below the body, never above it: the block arrives after an
+           async fetch, and above the form it would push the submit button down
+           mid interaction on exactly the connection this section is written for.
+           Below it, the page grows downward into empty space and can move
+           nothing the guest is currently touching.
+
+           Empty on purpose. Below the configured threshold, or on a failed
+           fetch, nothing is ever put in here. -->
+      <div id="enrol-proof"></div>
+    </div>
+  </section>
+
+  <!-- Course announcements, and the second half of the registration act. It
+       ships with the hidden attribute set, which is the shipping state rather
+       than an edge case: the invite link in config.js is null, so the renderer
+       leaves the attribute exactly where it is and builds nothing at all.
+       Nothing flashes, nothing shifts, and the page order below here does not
+       change at all until the owner supplies a link.
+
+       The body div is empty rather than holding a pending block. Absent is not
+       the same as pending: there is nothing being prepared here, only a config
+       value that does not exist yet.
+
+       No entry is added to the bar at the top of the page for this section. That
+       bar already wraps at desktop and had to be tightened by a whole spacing
+       step to fit six items one phase ago, and a seventh would reopen a defect
+       that was closed. -->
+  <section class="section" id="wa" data-zone="slipping" hidden>
+    <div class="wrap">
+      <h2 class="section__h" data-i18n="wa.heading">Course announcements</h2>
+      <p class="section__lede" data-i18n="wa.body">Practical updates go out in the group chat. Address changes, delays, and the occasional photograph.</p>
+      <div id="wa-body"></div>
     </div>
   </section>
 

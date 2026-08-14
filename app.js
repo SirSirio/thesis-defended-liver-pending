@@ -128,9 +128,18 @@
        on first paint, which on a phone means it never appears at all until the
        guest switches language. */
     renderEnrollment();
+    /* Beside the enrollment renderer and also before the bar, so the section and
+       the bar read the same config value in the same pass and cannot disagree
+       about the link on first paint. */
+    renderWhatsApp();
     renderNudge();
     renderLocation();
     renderAccess();
+
+    /* Non blocking, so its position in this list costs nothing. A switch has to
+       re-render its two labels and re-sort the names into the new language's
+       collation, which is why it is in the chain at all. */
+    renderSocialProof();
 
     /* Last, and after the sweep above has rewritten every string in the bar.
        Danish wraps the nudge copy onto a second line, which makes the bar
@@ -1773,7 +1782,12 @@
     box.textContent = '';
   }
 
-  function recordRow(labelKey, value) {
+  /* One row of the fact table, and two components share it: the receipt in the
+     panels, and the social proof block below the registration body. The optional
+     class on the value cell is the only difference between them, and it exists
+     so the expected attendance figure can take the mono family with its tabular
+     figures without a second builder being written. */
+  function recordRow(labelKey, value, valueClass) {
     var row = document.createElement('div');
     row.className = 'facts__row';
 
@@ -1786,6 +1800,7 @@
     // is the first phase where a markup string near this value would be
     // exploitable rather than untidy.
     var dd = document.createElement('dd');
+    if (valueClass) dd.className = valueClass;
     dd.textContent = value;
     row.appendChild(dd);
 
@@ -1858,12 +1873,31 @@
       panel.appendChild(stale);
     }
 
-    /* The group position. whatsapp.inviteUrl is null and that is the shipping
-       state, so it holds one dim line naming the state and the next thing that
-       will happen. Not a pending panel, which would be a nested card, and not a
-       disabled button, because absent beats broken. Plan 04 puts the real
-       button here the day the owner supplies a link. */
-    if (!(CFG.whatsapp || {}).inviteUrl) {
+    /* The group position, and it holds exactly one of two things.
+
+       With a link it holds the framing line and then the button, at the instant
+       the write resolved and the guest is most willing to tap one more thing.
+       The framing line reuses the section's own body copy rather than a second
+       string being written for it: one message, one voice, and it already
+       carries the course announcement register this asks for.
+
+       With no link it holds one dim line naming the state and the next thing
+       that will happen. Not a pending panel, which would be a nested card, and
+       not a disabled button, because absent beats broken. That is the shipping
+       state today and it was designed first.
+
+       Nothing writes the joined flag at this site. The anchor arrives from
+       whatsappButton(), which wires markGroupJoined() itself, and a second
+       writer here is exactly the drift the single writer exists to prevent. */
+    var join = whatsappButton('wa.cta', 'btn btn--primary panel__wa');
+    if (join) {
+      var framing = document.createElement('p');
+      framing.className = 'panel__handoff';
+      framing.setAttribute('data-i18n', 'wa.body');
+      framing.textContent = t('wa.body');
+      panel.appendChild(framing);
+      panel.appendChild(join);
+    } else {
       var group = document.createElement('p');
       group.className = 'panel__pending';
       group.setAttribute('data-i18n', 'enrol.success.group.pending');
@@ -1881,7 +1915,12 @@
 
      Deliberately not the success panel with a flag: they are near identical in
      content and opposite in purpose, and one component with a flag produces a
-     withdraw button at the instant of celebration. Plan 05 adds the controls. */
+     withdraw button at the instant of celebration. Plan 05 adds the controls.
+
+     And deliberately no group button. Three affordances for that one intent
+     already exist, each with a different job, and a fourth sitting directly
+     above the section built for exactly that purpose is the duplicate intent
+     failure. Do not add one here. */
   function buildReturnPanel(rec) {
     var panel = document.createElement('div');
     panel.className = 'panel';
@@ -1986,6 +2025,88 @@
     renderEnrollment();
     renderDeadline();
     renderNudge();
+    // Registering changes the number the guest just changed, so it is re-read
+    // here rather than only on the next load.
+    renderSocialProof();
+  }
+
+  /* ======================================================================
+     SOCIAL PROOF
+
+     The one place in this project where a string one guest typed is rendered
+     into every other guest's browser. The view truncates each name to its first
+     token server side but does not sanitise, so the createElement plus
+     textContent rule that has been house style since phase 1 becomes
+     load bearing here for the first time rather than merely tidy.
+
+     Nothing splits a name in this file either. The truncation lives in the
+     view, which is what makes a full name structurally incapable of reaching
+     the page rather than merely unlikely to.
+     ====================================================================== */
+
+  function renderSocialProof() {
+    var host = $('#enrol-proof');
+    if (!host || !sbConfigured()) return;
+
+    /* 8 seconds rather than the write path's 12. This is a non blocking
+       decoration and a guest should never wait on it. The wire also offers a
+       newest first ordering, and it is deliberately not requested: that is
+       precisely the social feed reading this block rejects, and the rows are
+       sorted here into a register instead. */
+    sbRequest('GET', '/rest/v1/attendees?select=first_name,extra_guests', null, null, 8000)
+      .then(function (res) {
+        // Cleared on every outcome, so a switch to a language whose fetch fails
+        // does not leave the previous language's block standing.
+        host.textContent = '';
+
+        /* Silent. Nobody standing outside a building needs an error message
+           about a head count widget, and a guest who sees nothing here has lost
+           nothing. There is no skeleton above either: the block may legitimately
+           never appear, and a skeleton promises content that is not coming. */
+        if (!res.ok || !Array.isArray(res.body)) return;
+
+        var rows = res.body;
+        var total = rows.length;
+        var names = [];
+
+        for (var i = 0; i < rows.length; i++) {
+          var extra = parseInt(rows[i].extra_guests, 10);
+          if (!isNaN(extra) && extra > 0) total += extra;
+
+          // Duplicates are kept. Two guests called Maria are two people, and
+          // dropping one would make the list disagree with the count.
+          var first = rows[i].first_name;
+          if (typeof first === 'string' && first) names.push(first);
+        }
+
+        /* Read in exactly one place. A second literal threshold anywhere is how
+           the two halves of this feature drift apart, and below it the whole
+           block is absent: not a zero, and not an invitation to be the first,
+           which reads as an empty room. */
+        var from = parseInt((CFG.enrollment || {}).showCountFrom, 10);
+        if (isNaN(from) || from < 0) from = 0;
+        if (total < from) return;
+
+        var list = document.createElement('dl');
+        list.className = 'facts facts--proof';
+
+        // A bare figure with no unit word: the label already says what it counts.
+        list.appendChild(recordRow('enrol.proof.count.label', String(total), 'mono'));
+
+        /* The flag removes the name row only. The count row always stays.
+
+           Alphabetical through a locale aware compare in the active language,
+           which sorts the Danish extra vowels after z for free. The separator is
+           a comma and a space with no conjunction before the last name:
+           institutional lists do not use one, and localising a conjunction into
+           a joined string across three languages is churn for a worse result. */
+        if ((CFG.enrollment || {}).showAttendeeList !== false && names.length) {
+          names.sort(function (a, b) { return a.localeCompare(b, lang); });
+          list.appendChild(recordRow('enrol.proof.list.label', names.join(', ')));
+        }
+
+        host.appendChild(list);
+      });
   }
 
   function readGuests(form) {
@@ -2160,6 +2281,90 @@
       el = el.parentNode;
     }
     return false;
+  }
+
+  /* ======================================================================
+     THE GROUP HANDOFF
+
+     Exactly three places send a guest to the group, and each one has a
+     different job. The success panel is the moment, at peak willingness, and it
+     is gone on the next load. The section below registration is the permanent
+     address of the link, for the guest who tapped past that moment. The bar's
+     second state catches the guest who scrolled past both.
+
+     The returning view deliberately carries none. A fourth affordance for one
+     intent, sitting directly above the section that exists for exactly that
+     purpose, is the duplicate CTA failure, and it is written down here so it is
+     not helpfully added later.
+
+     One writer sits under all three, so the flag cannot be set on one path and
+     missed on another.
+     ====================================================================== */
+
+  /* The single writer of the joined flag, and the string it writes appears once
+     in this file. Every group CTA on the page routes through here.
+
+     Re-rendering the bar afterwards is the whole point rather than a courtesy:
+     the bar's second state is gated on this flag, so a guest who joined from
+     the panel or from the section is never asked about the group again. */
+  function markGroupJoined() {
+    store.set('wa_joined', '1');
+    renderNudge();
+  }
+
+  /* Absent, never disabled, and never rewritten.
+
+     A falsy link returns null and the caller builds nothing, which is why no
+     call site owns a greyed out button waiting for a value. The two layer read
+     is the same defensive shape every other config read in this file uses,
+     because the owner edits that file by hand.
+
+     The href is the configured value, verbatim. No parameter is appended and no
+     host is substituted anywhere in this file, so the only way to change where a
+     guest lands is to change one line of config.js. No code to save, no image to
+     scan, and no intermediate screen: one tap is the whole handoff.
+
+     The opener blocking relationship attribute matches the one the bar's anchor
+     already carries. Without it the tab this opens can navigate the one it came
+     from, which is a real attack against a link a guest was told to trust. */
+  function whatsappButton(labelKey, className) {
+    var group = CFG.whatsapp || {};
+    var url = typeof group.inviteUrl === 'string' ? group.inviteUrl : '';
+    if (!url) return null;
+
+    var a = document.createElement('a');
+    a.className = className;
+    a.setAttribute('data-i18n', labelKey);
+    a.textContent = t(labelKey);
+    a.setAttribute('href', url);
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener');
+    a.addEventListener('click', markGroupJoined);
+    return a;
+  }
+
+  /* The hidden attribute is removed only when there is a link to remove it for.
+     With none it stays exactly where index.html put it and the section is never
+     taken out of the DOM: no flash, no layout shift, nothing to tear down, and
+     the page order below registration does not change at all on the day this
+     lands. The day the owner fills the value in, one config line turns it on.
+
+     No new class is introduced for the section. It is the existing section
+     scaffolding unchanged, and its CTA is a plain primary button rather than the
+     unused legacy class further down styles.css, which carries a side stripe
+     this phase has committed to not spreading to a new usage. */
+  function renderWhatsApp() {
+    var section = $('#wa');
+    var host = $('#wa-body');
+    if (!section || !host) return;
+
+    host.textContent = '';
+
+    var cta = whatsappButton('wa.cta', 'btn btn--primary wa__cta');
+    if (!cta) return;
+
+    section.removeAttribute('hidden');
+    host.appendChild(cta);
   }
 
   /* ======================================================================
@@ -2366,12 +2571,17 @@
       hideNudge(bar);
     });
 
-    // Tapping through to WhatsApp counts as done.
+    /* Tapping through counts as done, but only from the state that actually
+       hands over a link. In the other state this anchor is an in page jump to
+       the registration form and joins nothing.
+
+       The flag is written by the shared helper and never here, so this CTA
+       cannot disagree with the other two. The helper re-renders the bar, which
+       is what takes it down: the group state is gated on the flag it just
+       wrote. */
     if (cta) cta.addEventListener('click', function () {
-      if (bar.getAttribute('data-state') === 'group') {
-        store.set('wa_joined', '1');
-        hideNudge(bar);
-      }
+      if (bar.getAttribute('data-state') !== 'group') return;
+      markGroupJoined();
     });
   }
 
