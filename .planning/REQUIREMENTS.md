@@ -30,34 +30,42 @@ moment they close the tab. This section closes that gap.
 - [ ] **CAL-01**: The party date is shown large and readable as an actual date, not only as a
   countdown. A guest must be able to read "Saturday 3 October, 16:00" and act on it without
   doing arithmetic on a timer.
+
 - [ ] **CAL-02**: A highlighted "Save the date" action sits directly with the date, and is
   visually the second most prominent action in the hero after registering
+
 - [ ] **CAL-03**: Activating it adds the event to the guest's own calendar app, with no account,
   no backend, and no third-party service
+
 - [ ] **CAL-04**: Works on iOS Safari, Android Chrome, and desktop. These platforms do not share
   one mechanism, so more than one path is expected and the guest must never be shown a path that
   cannot work on the device they are holding
+
 - [ ] **CAL-05**: The saved event carries title, start, end, location, and a link back to this
   page, so a guest who saved it in August can find the door instructions in October from the
   calendar entry alone
+
 - [ ] **CAL-06**: Generated at runtime from `config.js`, so changing the party date remains a
   one line edit (CFG-02). A hand-written static calendar file would silently break that guarantee.
+
 - [ ] **CAL-07**: The event carries an explicit timezone, so a guest in Rome and a guest in
   Copenhagen who both save it are saving the same instant, matching CD-05
+
 - [ ] **CAL-08**: The event carries a **stable UID** and an incrementing sequence number. The date
   is provisional and will likely move. With a stable UID a guest who saves it again after a change
   gets their existing entry updated; without one they get a second event and two conflicting
   reminders. This is the requirement that makes "save the date" safe to offer before the date is
   final.
+
 - [ ] **CAL-09**: The action states what it will do before it does it. A button that silently
   downloads a file is indistinguishable from a broken button on a phone.
 
 ### Location
 
 - [x] **LOC-01**: Address shown as text with a copy button and a confirmation on copy
-- [ ] **LOC-02**: Google Maps embedded via keyless iframe, no API key and no billing account
+- [x] **LOC-02**: Google Maps embedded via keyless iframe, no API key and no billing account
 - [x] **LOC-03**: Direct links open Google Maps and Apple Maps in the guest's own app
-- [ ] **LOC-04**: Map iframe lazy-loads, so it never blocks first paint on mobile data
+- [x] **LOC-04**: Map iframe lazy-loads, so it never blocks first paint on mobile data
 - [x] **LOC-05**: When the address is still a placeholder, the section says so plainly instead of showing a broken map
 
 ### Door access
@@ -189,7 +197,7 @@ irritating enough that they close the tab.
 
 - [ ] **DEL-01**: Deploys to GitHub Pages from `main`, no build step
 - [ ] **DEL-02**: Works on iOS Safari, Android Chrome, and desktop Chrome and Firefox
-- [ ] **DEL-03**: Usable on a mid-range phone on mobile data
+- [x] **DEL-03**: Usable on a mid-range phone on mobile data
 - [ ] **DEL-04**: Open Graph tags, so the link preview in a chat looks intentional
 - [ ] **DEL-05**: Favicon and page title matching the joke
 - [ ] **DEL-06**: README documents how to change the date and fill in each placeholder

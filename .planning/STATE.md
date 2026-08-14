@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: practical-information
 status: executing
-stopped_at: Phase 1 complete, pushed, and verified on the live URL. Ready to plan phase 2.
-last_updated: "2026-08-13T21:17:58.517Z"
+stopped_at: Completed 02-02-PLAN.md, the map slot. Wave 2 done, plans 03 and 04 remain.
+last_updated: "2026-08-14T05:53:40.146Z"
 last_activity: 2026-08-13
 last_activity_desc: Phase 1 complete, deployed, and verified live.
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
+  completed_plans: 2
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 ## Current Position
 
 Phase: 02 (practical-information) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 02
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-08-13 — Phase 02 execution started
 
-Progress: [██░░░░░░░░] 20%
+Progress: [█████░░░░░] 50%
 
 ## Live status
 
@@ -90,6 +90,12 @@ activates itself. Do not replace this with a config flag.
 - Last 5 plans: none yet
 - Trend: n/a
 
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 02 P02 | 17m | 3 tasks | 3 files |
+
 ## Accumulated Context
 
 ### Decisions
@@ -110,6 +116,9 @@ activates itself. Do not replace this with a config flag.
 - Phase 1: **WhatsApp handoff fires on enrollment success**, the moment a guest is most willing to tap one more thing. One config value, one tap, no QR code.
 - Phase 1: **Nudge bar has exactly two states**, and stops permanently once a guest is enrolled. Escalation happens in the copy as the deadline nears, never in the frequency.
 - Phase 1: **Countdown breaks the display size ceiling** from the design skill, deliberately. The brief asked for huge, and it is the reason people open the page.
+- Phase 2: **The map slot is a persistent sibling of `#loc-data`**, so a language switch never remounts a loaded map or buys a second copy of the tiles on mobile data.
+- Phase 2: **IntersectionObserver is guarded and degrades to an eager mount.** A missing capability degrades to early, never to absent.
+- Phase 2: **The map blocked state at 8000ms is a message swap only.** The frame is never torn down, so a load at second twelve still resolves to a live map.
 
 ### Pending Todos
 
@@ -145,8 +154,8 @@ Concern: the DTU CourseBase joke lands hardest with classmates and may read as p
 
 ## Session Continuity
 
-Last session: 2026-08-13
-Stopped at: Phase 1 complete, pushed, and verified on the live URL. Ready to plan phase 2.
+Last session: 2026-08-14T05:53:40.134Z
+Stopped at: Completed 02-02-PLAN.md, the map slot. Wave 2 done, plans 03 and 04 remain.
 Resume file: None
 
 **To resume in a fresh session:** read this file, then PROJECT.md, ROADMAP.md and

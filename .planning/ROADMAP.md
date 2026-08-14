@@ -44,7 +44,7 @@ the page looks deliberate rather than unfinished.
 - Jump link from the top of the page straight to door access (ACC-02)
 - Mobile and iOS Safari verification (DEL-02, DEL-03)
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 **Wave 1**
@@ -53,7 +53,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-02-PLAN.md — Keyless map embed, lazy mount on approach, three slot states
+- [x] 02-02-PLAN.md — Keyless map embed, lazy mount on approach, three slot states
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
