@@ -95,7 +95,7 @@ time sensitive and photos are not.
 ENR-11, ENR-12, ENR-13, ID-01, ID-02, ID-03, ID-04, ID-05, ID-06, WA-01, WA-02, WA-03, WA-04,
 WA-05, WA-06, NDG-01, NDG-02, NDG-03, NDG-04, NDG-05, NDG-06, NDG-07, NDG-08
 
-**Plans:** 1/6 plans executed
+**Plans:** 3/6 plans executed
 
 Plans:
 **Wave 1**
@@ -104,8 +104,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion, the two plans below run in parallel)*
 
-- [ ] 03-02-PLAN.md — The nudge bar's first appearance: measure the reserve, stop the three collisions
-- [ ] 03-03-PLAN.md — Schema sections 7 and 8, and the blocking owner re-run that applies them
+- [x] 03-02-PLAN.md — The nudge bar's first appearance: measure the reserve, stop the three collisions
+- [x] 03-03-PLAN.md — Schema sections 7 and 8, and the blocking owner re-run that applies them
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
