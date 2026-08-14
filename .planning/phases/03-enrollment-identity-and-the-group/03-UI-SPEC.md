@@ -164,10 +164,15 @@ Inherited from `:root`, on a 4px base. **This phase adds no token.**
 | `--s-7` | 48px | Enrollment body to the social proof block |
 | `--s-8` / `--s-9` / `--s-10` | 64 / 96 / 128px | Section block padding, inherited via `.section` |
 
-**Exceptions:** none. Every spacing value in new CSS is a token from the scale above. The only
-literal pixel values permitted are element minimum sizes, documented under Touch Target
-Geometry, and the `--nudge-h` fallback of `76px`, which is a measured element height rather
-than a spacing value.
+**Exceptions:** none. Every spacing value in new CSS is a token from the scale above. Exactly
+three literal pixel values are permitted, and this list is closed:
+
+1. Element minimum sizes, documented under Touch Target Geometry.
+2. The `--nudge-h` fallback of `76px`, which is a measured element height rather than a
+   spacing value.
+3. The `-1px` margin on adjacent `.seg > span` segments, which collapses doubled 1px borders
+   into one. This is a border-doubling technique, not spacing, and it is named here so the
+   executor does not read it as licence to reach for arbitrary pixel margins elsewhere.
 
 ### Spacing decisions specific to this phase
 
@@ -335,8 +340,10 @@ and its label names the consequence in full ("Confirm withdrawal", never "Yes" a
 - **`--rule-lit` `#3A3A40` as the input border.** 1.74:1 on `--bg`. Also fails. Noted because
   it is the next thing anyone would try.
 - **`opacity: 0.55` on `.field` for the disabled state.** It composites the 14.5px label down
-  to **3.25:1** against `--bg`, which fails the body-text floor while the guest is reading
+  to **3.04:1** against `--bg`, which fails the body-text floor while the guest is reading
   their own answers during a submit. Replaced by explicit token swaps with no opacity anywhere.
+  (Recomputed by the UI checker; the spec first wrote 3.25:1. The real figure is worse, so the
+  rejection stands on firmer ground, not weaker.)
 - **`--accent` fill alone as the selected-segment state indicator.** `#990000` against
   `#141416` is **2.06:1**, below the 3:1 SC 1.4.11 floor for a state change. The state is
   therefore carried by three signals that do pass: the label colour flips to `#fff` (8.92:1 on
@@ -640,7 +647,7 @@ reachable, that is stated with the reason rather than a style being invented for
 | **Hover** | Inherited: background to `#B00000`, fine pointers only. |
 | **Focus** | Global `:focus-visible`, unchanged. |
 | **Active** | `transform: scale(0.97)`, 140ms. Inherited. |
-| **Disabled** (during `submitting`) | `disabled` attribute set; label swaps to `t('enrol.submitting')`; `aria-busy="true"`. Fill drops to `--rule`, label to `--ink-dim` (7.65:1 on `--rule` composite is above 4.5:1). |
+| **Disabled** (during `submitting`) | `disabled` attribute set; label swaps to `t('enrol.submitting')`; `aria-busy="true"`. Fill drops to `--rule`, label to `--ink-dim` (**5.56:1** on `--rule`, above the 4.5:1 body floor). |
 | **Loading** | The **2px `.sweep` bar pinned to the top edge of `.enrol-actions`**, spanning its width, `--accent-lit`, `translateX(-100%)` to `translateX(400%)` on a 1100ms `linear` infinite loop, drawn as a pseudo-element at 25% width inside an `overflow: hidden` strip. This is the same component and the same keyframe the map waiting state already uses, so the page has one vocabulary for "something is happening" rather than two. **No spinner glyph**, which would be a hand-rolled SVG, and no percentage, which would be a fabricated progress claim. |
 | **Error** | The button itself does not carry the error. Label swaps to `t('enrol.retry')` and the `.form-alert` banner above it carries the message. |
 | **Success** | The button is removed from the DOM along with the rest of the form. |
@@ -1104,36 +1111,135 @@ which `applyLanguage()` already supports.)*
 
 ## UI Considerations
 
-Applicable state considerations resolved: **21 covered, 4 backstop, 0 unresolved.**
+> **Reconciled against the deterministic UI-consideration probe** (`ui-consideration-probe.cjs`,
+> run 2026-08-14 over nine described surfaces). The probe reported **54 applicable
+> (element × category) cells and 0 unclassified** after kind-confirmation. Element kinds were
+> authored as the union of the probe's detected kinds and Claude's own reading of each surface,
+> per the `--auto` kind-confirmation rule, because the prose classifier initially returned
+> `unclassified` for the withdraw confirmation and the unconfigured panel.
+>
+> **The probe earned its keep:** the withdraw confirmation had no rows in the first draft of
+> this table at all, and it is the one surface in the phase carrying a genuine specification
+> gap. Two cells below are **unresolved** and the planner must treat them as assumptions
+> rather than silently drop them.
 
-| Category | Element(s) | Status | Resolution / Reason |
-|----------|------------|--------|---------------------|
-| empty | enrollment section, credentials blank | ✅ covered | `pendingBlock('enrol.pending.title', 'enrol.pending.body')` (D-12). No `#enrol-form`, so `enrollmentReady()` is false and the nudge bar stays down (D-13). |
-| empty | enrollment section, `newGuestId()` returned null | ✅ covered | Same pending branch. A browser with no `crypto` at all cannot hold an identity, and the site's established answer to "this cannot work here" is the deliberate placeholder, not a broken form. |
-| empty | form, first-time guest | ✅ covered | The empty form **is** the default state. No empty-state illustration, no coaching copy. |
-| empty | social proof below `showCountFrom` | ✅ covered | The entire `dl` is absent. Not a zero, not "be the first to register" (D-20). See Copywriting Contract. |
-| empty | attendee list with `showAttendeeList: false` | ✅ covered | Second row removed, count row kept. |
-| empty | receipt Note row when the note is blank | ✅ covered | Row absent entirely. No "n/a" filler, matching phase 2's notes discipline. |
-| empty | `#wa` section, `inviteUrl` null | ✅ covered | `hidden` attribute in static markup, never removed. No flash, no CLS, nothing to tear down (WA-06). |
-| empty | success panel, `inviteUrl` null | ✅ covered | **The shipping state (D-37).** CTA replaced by one `--ink-dim` line, `enrol.success.group.pending`. Receipt is unaffected and is the panel's payload. |
-| loading | submit in flight | ✅ covered | `data-state="submitting"`: controls disabled but readable at 7.65:1, label swap, `aria-busy`, 2px `.sweep` bar, unconditional 12s abort. |
-| loading | social proof fetch | ✅ covered | Nothing rendered until resolved. **No skeleton**, because the block may legitimately never appear. 8s timeout. |
-| loading | field-level | ✅ covered | Not applicable, stated with reason rather than a style invented. |
-| error | field invalid | ✅ covered | `data-invalid`, `aria-invalid`, `--accent-lit` border, message in the reserved 24px box, `aria-describedby` wired once in markup. |
-| error | submit network or server failure | ✅ covered | `role="alert"` banner that pre-exists in the DOM, values retained, `enrol.retry` label. Never a raw PostgREST `message`. |
-| error | `409` / `23505` duplicate `guest_id` | ✅ covered | **Not an error.** Transparent switch to the amend path; the guest sees one success. |
-| error | `404` / `PGRST202` on edit or withdraw | ✅ covered | Honest pending line in place, registration explicitly stated as untouched (D-36). |
-| error | `localStorage` unavailable | ✅ covered | In-memory fallback behind the same interface. Enrollment, success state and handoff all work for the session. **The site tells the guest nothing is wrong**, because nothing they can act on is (D-17, ID-06). |
-| populated | returning guest | ✅ covered | Renders from storage only. Never a fetch, which D-02 makes structurally impossible anyway. |
-| partial | storage has name and note but `enrolled === '0'` | ✅ covered | The form, prefilled, with the normal submit label. The natural state after a withdrawal plus a reload. |
-| partial | storage has `guest_id` but no name | ✅ covered | Treated as not enrolled. Empty form. |
-| zero-one-many | `maxGuestsPerPerson === 0` | ✅ covered | The whole guest field is absent, not a one-option control. `extra_guests: 0` is sent. |
-| zero-one-many | `maxGuestsPerPerson > 4` | ✅ covered | Documented overflow branch: native `<select>` with `0..max`. |
-| overflow | 60-character name in the receipt and the returning lede | 🧪 backstop | `overflow-wrap: break-word` on `.facts--record dd` and the lede. Needs a real 320px render with a 60-character unbroken string. |
-| overflow | 500-character note with line breaks echoed in the receipt | ✅ covered | `white-space: pre-wrap; overflow-wrap: break-word` on `.facts--record dd`, so it reads back exactly as typed. |
-| overflow | attendee list at 40 names | 🧪 backstop | No cap; it wraps as a comma run. At 320px that is roughly 10 lines in a section a guest scrolls past. Needs a real render with realistic data before it is called covered. |
-| long-text | Danish error strings on one line at 320px | 🧪 backstop | Capped at 36 characters by the copy contract, which the reserved 24px error box depends on. Cheap to check, and it invalidates the no-reflow guarantee if it fails. |
-| long-text + overflow | nudge bar reserve on a notched iPhone, and iOS Safari's collapsing toolbar | 🧪 backstop | `--nudge-h` measurement plus `visualViewport` re-measure. **The highest-risk item in the phase**: the bar has never rendered on any device, and the shipped 76px reserve is short by up to 27px on the devices this site is read on. First item on `03-DEVICE-PASS.md` (D-29, D-33). |
+**Resolution:** 40 resolved explicit · 12 resolved backstop · **2 unresolved**.
+
+Lift rule for the planner: `explicit` rows become plain `must_haves.truths` strings.
+`backstop` rows become flat-scalar items `{ statement: <the check>, verification: backstop }`.
+`unresolved` rows become stated planner assumptions and must not be dropped.
+
+### E1 — Enrollment form
+
+| Category | Status | Statement |
+|---|---|---|
+| empty | explicit | The empty form is itself the first-time-guest state. No empty-state illustration and no coaching copy are rendered. |
+| loading | explicit | No field-level loading state exists. The form-level `submitting` state owns loading, and the spec says so rather than inventing a field style. |
+| error | explicit | An invalid field carries `data-invalid`, `aria-invalid="true"`, an `--accent-lit` border, and its message in the reserved 24px box referenced by an `aria-describedby` wired once in static markup. |
+| partial | explicit | Storage holding a name with `enrolled !== '1'` renders the form prefilled, carrying the normal `enrol.submit` label. |
+| overflow | backstop | A 60-character unbroken name typed into the name input does not push the field or its row outside the viewport at 320px. |
+| long-text | backstop | Danish labels and helper text render without wrapping any control off the 4px grid at 320px. |
+
+### E2 — Submit button and the four submit states
+
+| Category | Status | Statement |
+|---|---|---|
+| empty | explicit | The button label is never blank. Every label key resolves through `t()`, which falls back to English for any missing translation (LNG-07). |
+| loading | explicit | `data-state="submitting"` disables the controls while keeping them readable at 5.56:1, swaps the label, sets `aria-busy="true"`, shows the 2px `.sweep` bar, and aborts unconditionally at 12s. |
+| error | explicit | On failure the label swaps to `enrol.retry`, the pre-existing `role="alert"` `.form-alert` banner carries the message, and every value the guest typed is retained. A raw PostgREST `message` is never shown. |
+| populated | explicit | The idle button is `.btn.btn--primary` at a minimum of 44px carrying `enrol.submit`. |
+| partial | explicit | Submitting a partially filled form runs blur validation across all fields and moves focus to the first invalid one. |
+| overflow | backstop | The Danish submit and submitting labels do not wrap the button onto a second line at 320px. |
+| zero-one-many | explicit | Exactly one submit control exists at any time. The success panel removes it from the DOM rather than disabling it. |
+| long-text | backstop | The idle and submitting labels produce the same button height, so the action row does not reflow mid-submit. |
+
+### E3 — Success panel (registration receipt)
+
+| Category | Status | Statement |
+|---|---|---|
+| empty | explicit | With `whatsapp.inviteUrl` null the panel renders complete and deliberate: the CTA is replaced by one `--ink-dim` line, `enrol.success.group.pending`, and the receipt is unaffected. This is the shipping state (D-37). |
+| loading | explicit | The panel is mounted only after the write resolves. It has no loading state of its own. |
+| error | explicit | The panel is never shown for a failed write. Failure retains the form and surfaces `.form-alert`. |
+| populated | explicit | The receipt renders in `.facts--record` grammar echoing name, guest count and note, and focus is moved to the panel programmatically so the state change is announced. |
+| partial | explicit | A blank note removes the Note row entirely. No "n/a" filler, matching phase 2's notes discipline. |
+| overflow | explicit | `.facts--record dd` carries `white-space: pre-wrap; overflow-wrap: break-word`, so a 500-character note with line breaks reads back exactly as typed. |
+| zero-one-many | backstop | The guest-count row reads correctly at 0, 1 and 2 extra guests in all three languages, including each language's plural form. |
+| long-text | backstop | A 60-character unbroken name in the receipt does not overflow `.facts--record dd` at 320px. |
+
+### E4 — Returning-guest view
+
+| Category | Status | Statement |
+|---|---|---|
+| empty | explicit | Storage holding a `guest_id` but no name is treated as not enrolled and renders the empty form. |
+| loading | explicit | There is no loading state, because the view renders from storage only and never fetches. D-02 makes a read-back structurally impossible. |
+| error | explicit | A `404` / `PGRST202` on edit or withdraw replaces the tapped control's row in place with `enrol.amend.pending`, which states that the registration is untouched (D-36). |
+| partial | explicit | `enrolled === '0'` with name and note retained renders the prefilled form with the normal submit label. |
+| overflow | backstop | A 60-character stored name does not overflow the returning-guest lede at 320px. |
+| long-text | backstop | The Danish returning-guest lede renders without breaking layout at 320px. |
+
+### E5 — Withdraw confirmation
+
+| Category | Status | Statement |
+|---|---|---|
+| empty | explicit | The confirmation is reachable only from an enrolled state, so it has no no-registration case. |
+| loading | **⚠ unresolved** | **Planner must treat as assumption.** The spec defines the two-step confirmation but no in-flight state for the `amend_enrollment` call it fires. The confirm button needs a defined treatment between tap and response, and the phase's own 12s abort contract needs to apply here as it does to submit. |
+| error | **⚠ unresolved** | **Planner must treat as assumption.** The spec covers `PGRST202` (not migrated) but not a withdraw that fails on the network or returns a row count of 0. A withdrawal that silently does nothing is the exact failure mode D-35 exists to prevent, so this needs an explicit state. |
+| partial | explicit | `Escape` reverts to the un-confirmed state, and the confirmation never expires on a timer. |
+| long-text | backstop | The Danish `enrol.withdraw.confirm.q` renders on at most two lines at 320px without displacing the confirm control below the fold. |
+
+### E6 — Social proof
+
+| Category | Status | Statement |
+|---|---|---|
+| empty | explicit | Below `enrollment.showCountFrom` the entire `dl` is absent. Not a zero, and not a "be the first to register" line (D-20). |
+| loading | explicit | Nothing is rendered until the fetch resolves. No skeleton, because the block may legitimately never appear. 8s timeout. |
+| error | explicit | Fetch failure is silent and the block is simply absent (D-22). |
+| populated | explicit | `dl.facts.facts--proof` renders two rows, with the total in `.mono` tabular figures. |
+| partial | explicit | `showAttendeeList === false` removes the attendee row only; the count row stays. |
+| overflow | backstop | An attendee list of 40 names wraps as a comma run without breaking the section at 320px. |
+| zero-one-many | explicit | Duplicate first names are kept, because two guests called Maria are two people. The count includes plus-ones and the name list does not, and the two labels are worded so they already mean different things rather than reconciled in a sentence. |
+| long-text | explicit | Sorting is alphabetical via `localeCompare(lang)`, which orders `æ ø å` after `z` in Danish. The separator is `", "` with no conjunction before the last name. |
+
+### E7 — Persistent `#wa` section
+
+| Category | Status | Statement |
+|---|---|---|
+| empty | explicit | With `inviteUrl` null the section carries the `hidden` attribute in static markup and is never removed from the DOM. No flash, no layout shift, nothing to tear down (WA-06). |
+| loading | explicit | The section has no loading state. It is static markup whose visibility is decided from config at render. |
+| error | explicit | The section has no error state. The link either exists in config or the section is absent. |
+| overflow | backstop | The Danish `wa.cta` label does not wrap the button onto a second line at 320px. |
+| long-text | backstop | The Danish `wa.body` paragraph renders without breaking the section at 320px. |
+
+### E8 — Nudge bar
+
+| Category | Status | Statement |
+|---|---|---|
+| empty | explicit | With `enrollmentReady()` false the bar stays down entirely rather than pointing at a placeholder (D-13). |
+| loading | explicit | The bar has no loading state. It renders from local state only and performs no network call. |
+| error | explicit | The bar has no error state, for the same reason. |
+| populated | explicit | Both `data-state` values (`enrol`, `group`) render pinned to the bottom. |
+| partial | explicit | Once dismissed the bar stays down for the session, and restoration after `focusout` goes through `renderNudge()` rather than `showNudge()`, so `sessionDismissed` (NDG-08) and `isEnrolled()` (NDG-06) still gate it. |
+| overflow | backstop | With the bar shown at 320×568, 375×667, 390×844 and 430×932, each of the countdown clock, `.addr__value` and `.video-slot` can be scrolled clear of the bar, and the footer's last line is fully visible at maximum scroll. **Highest-risk item in the phase**: the bar has never rendered on any device, and the shipped 76px reserve is short by up to 27px on a notched iPhone. First item on `03-DEVICE-PASS.md` (D-29, D-33). |
+| long-text | backstop | Danish nudge copy wrapping to two lines changes the bar height, and the `--nudge-h` re-measure fires on language switch so the reserve stays correct. |
+
+### E9 — Unconfigured enrollment panel
+
+| Category | Status | Statement |
+|---|---|---|
+| empty | explicit | With credentials blank the section renders `pendingBlock('enrol.pending.title', 'enrol.pending.body')` (D-12). No `#enrol-form` exists, so `enrollmentReady()` is false and the nudge bar stays down (D-13). |
+| empty | explicit | The same pending branch covers `newGuestId()` returning null. A browser with no `crypto` cannot hold an identity, and the site's established answer to "this cannot work here" is the deliberate placeholder, not a broken form. |
+| overflow | backstop | The `.pending` panel copy renders without overflow at 320px. |
+| long-text | backstop | The Danish `enrol.pending.body` renders without breaking the panel at 320px. |
+
+### Cross-cutting, retained from the first draft
+
+| Category | Status | Statement |
+|---|---|---|
+| error | explicit | A `409` / `23505` duplicate `guest_id` is not an error. The client switches transparently to the amend path and the guest sees one success. |
+| error | explicit | With `localStorage` unavailable an in-memory fallback behind the same interface keeps enrollment, the success state and the handoff working for the session, and the site tells the guest nothing is wrong, because nothing they can act on is (D-17, ID-06). |
+| zero-one-many | explicit | `maxGuestsPerPerson === 0` removes the guest field entirely rather than rendering a one-option control, and sends `extra_guests: 0`. |
+| zero-one-many | explicit | `maxGuestsPerPerson > 4` takes the documented overflow branch: a native `<select>` over `0..max`. |
+| long-text | backstop | Every Danish error string fits on one line at 320px inside the reserved 24px error box. The copy contract caps them at 36 characters, and the no-reflow guarantee depends on that cap holding. |
 
 **No combination of states may render as broken.** The matrix that must hold: credentials
 present or blank × identity generatable or not × enrolled or not or withdrawn ×
