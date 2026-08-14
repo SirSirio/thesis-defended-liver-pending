@@ -6,12 +6,12 @@ current_phase: 02
 current_phase_name: practical-information
 status: executing
 stopped_at: Completed 02-04-PLAN.md, the door video slot and the phase closing sweep. All four plans of phase 02 are executed; the D-23 device pass on real iOS Safari and real Android Chrome is the outstanding item.
-last_updated: "2026-08-14T08:37:12.942Z"
+last_updated: "2026-08-14T08:40:26.416Z"
 last_activity: 2026-08-14
 last_activity_desc: Phase 02 fully executed. Location data core, lazy map slot, written directions and practical notes, and the door video slot with its unconfigured state, its jump path and the phase closing sweep.
 progress:
   total_phases: 1
-  completed_phases: 1
+  completed_phases: 0
   total_plans: 5
   completed_plans: 4
 ---
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 
 ## Current Position
 
-Phase: 02 (practical-information) — READY FOR VERIFICATION
-Plan: 4 of 4
-Status: Ready to execute
-Last activity: 2026-08-14 — All four plans executed (02-01 location data core, 02-02 map slot, 02-03 directions and notes, 02-04 door video slot and jump path). The D-23 real device pass is the one item still owed.
+Phase: 02 (practical-information) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 02
+Last activity: 2026-08-14 — Phase 02 execution started
 
 Progress: [██████████] 100%
 
@@ -136,12 +136,14 @@ None yet.
 
 ### Blockers/Concerns
 
-None blocking. Five owner inputs are outstanding, each with a graceful placeholder:
+None blocking. Six owner inputs are tracked and five are still outstanding, each with a
+graceful placeholder:
 
 | Input | Unblocks | Status |
 |---|---|---|
-| Venue address | Location section | Placeholder |
+| Venue address | Location section | Set. config.js:44, confirmed per D-01 |
 | Door video file | Access section | Placeholder |
+| Written door directions | Access section. The fast path on a weak signal, per D-12 | Placeholder. config.js:120, door.directions is null |
 | Kahoot link | Easter egg unlock | Placeholder |
 | Confirmed date and time | Countdown target | Provisional 2026-10-03 16:00 |
 | WhatsApp group invite link | Group handoff after enrollment | Placeholder, section hidden until set |
