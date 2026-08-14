@@ -118,6 +118,7 @@ window.PARTY_COPY = {
     'access.dir.pending.title': 'Door instructions pending',
     'access.dir.pending.body': 'The exact entrance is being confirmed. The address and the map above already get you to the building.',
     'access.notes.heading': 'Practical notes',
+    'access.video.heading': 'Door video',
 
     /* Labels only. The values beside them come from config.js and are shown
        exactly as the host wrote them, in every language. */
@@ -251,6 +252,7 @@ window.PARTY_COPY = {
     'access.dir.pending.title': 'Istruzioni per la porta in arrivo',
     'access.dir.pending.body': 'L’ingresso esatto è in via di conferma. L’indirizzo e la mappa qui sopra ti portano comunque all’edificio.',
     'access.notes.heading': 'Note pratiche',
+    'access.video.heading': 'Video della porta',
 
     'notes.entrance': 'Ingresso',
     'notes.floor': 'Piano',
@@ -386,6 +388,7 @@ window.PARTY_COPY = {
     'access.dir.pending.title': 'Døranvisning afventer',
     'access.dir.pending.body': 'Den præcise indgang er ved at blive bekræftet. Adressen og kortet ovenfor bringer dig alligevel hen til bygningen.',
     'access.notes.heading': 'Praktiske oplysninger',
+    'access.video.heading': 'Dørvideo',
 
     'notes.entrance': 'Indgang',
     'notes.floor': 'Etage',

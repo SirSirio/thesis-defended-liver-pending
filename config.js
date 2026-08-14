@@ -79,10 +79,15 @@ window.PARTY_CONFIG = {
      The single most useful thing on this site. A short clip showing which
      door actually gets people in.
 
-     Put the file in assets/ and set the path below. Keep it small, under
-     about 10 MB, since guests will load it outdoors on mobile data.
-     MP4 (H.264) plays everywhere. A poster frame is optional but stops the
-     player being a black rectangle while it loads.
+     TO ADD THE VIDEO: drop the file into assets/ and write its path into
+     `videoSrc` below. That is the whole job, and nothing else on the site
+     needs touching. Until you do, the section shows a panel saying the access
+     documentation is pending, in a box the exact size and shape the player
+     will be, so nothing moves on the page the day you add it.
+
+     Keep it small, under about 10 MB, since guests will load it outdoors on
+     mobile data. MP4 (H.264) plays everywhere. A poster frame is optional but
+     stops the player being a black rectangle while it loads.
 
      `directions` is the written version of the same thing, and it is always
      shown, above the video, rather than only when the video is missing.
@@ -102,6 +107,13 @@ window.PARTY_CONFIG = {
   door: {
     videoSrc: null,    // e.g. 'assets/door.mp4'
     posterSrc: null,   // e.g. 'assets/door-poster.jpg'
+
+    /* The shape of the clip, wide by tall. Almost every phone films upright,
+       so IF YOU FILMED IT UPRIGHT ON YOUR PHONE, CHANGE THIS TO '9/16' and the
+       box on the page turns tall and narrow to match it. Leave it as it is for
+       anything filmed sideways. Getting it wrong costs you grey bars down the
+       sides of the video, nothing worse. */
+    aspect: '16/9',
 
     // A list looks like this, and the numbering is added for you:
     // ['Blue gate on the left', 'Staircase C, at the back', 'Third floor, ring 46']

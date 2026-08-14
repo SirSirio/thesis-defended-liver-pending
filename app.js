@@ -833,6 +833,49 @@
     return list.children.length ? list : null;
   }
 
+  /* Returns a slot in every case, configured or not, and that is the whole
+     design (D-11). The unconfigured state is not a stopgap standing in for the
+     player: it is a panel of the player's exact size and shape, so the day the
+     owner sets one line in config.js the video appears and nothing below it
+     moves by a pixel.
+
+     The ratio is read from config rather than measured from the viewport, so
+     the box is already the right shape before a single byte of video has been
+     requested. A clip filmed upright gets an upright box instead of being
+     letterboxed into the black pillars D-14 forbids outright. */
+  function buildVideo() {
+    var door = CFG.door || {};
+
+    var slot = document.createElement('div');
+    slot.className = 'video-slot';
+
+    /* Anything unparseable falls back to landscape rather than to a collapsed
+       box. A wrong shape is a far smaller harm than no shape, which would drop
+       the section's height to zero and undo everything above. */
+    var parts = typeof door.aspect === 'string' ? door.aspect.split('/') : [];
+    var wide = parseFloat(parts[0]);
+    var tall = parseFloat(parts[1]);
+    if (!(wide > 0) || !(tall > 0)) { wide = 16; tall = 9; }
+
+    slot.style.setProperty('--video-aspect', wide + '/' + tall);
+    // The CSS cap that keeps a 9 by 16 clip from being taller than the phone
+    // it is read on. Deterministic, and it needs no viewport arithmetic.
+    if (wide < tall) slot.setAttribute('data-orient', 'portrait');
+
+    var src = typeof door.videoSrc === 'string' ? door.videoSrc : '';
+
+    /* No file yet. One panel, filling the slot, and no video element is
+       constructed at all: an empty <video> is a black rectangle wearing a
+       broken control bar. Both strings have been live in all three languages
+       since phase 1, so the deliberate state costs no copy (D-18). */
+    if (!src) {
+      slot.appendChild(pendingBlock('access.pending.title', 'access.pending.body'));
+      return slot;
+    }
+
+    return slot;
+  }
+
   function renderAccess() {
     var host = $('#access-body');
     if (!host) return;
@@ -856,18 +899,12 @@
       host.appendChild(notes);
     }
 
-    /* Interim placeholder standing in the video position, and plan 04 task 1
-       deletes this line as it adds the real .video-slot. The two must never
-       both render.
-
-       It is here because clearing #access-body above throws away the static
-       pending panel that is live on the deployed page right now, and this site
-       deploys from main with no build step: a commit landing between this plan
-       and the next is in front of guests within the minute. Both keys already
-       ship in all three languages, so this costs no copy. Keep it the last
-       statement in the function, so later blocks insert above it rather than
-       stranding it in the middle of the section. */
-    host.appendChild(pendingBlock('access.pending.title', 'access.pending.body'));
+    /* The heading and the slot are unconditional, unlike the two blocks above.
+       Nothing has to be checked first because the slot always renders
+       something at the player's ratio, so there is no path here where a
+       heading stands over nothing. */
+    host.appendChild(subHeading('access.video.heading'));
+    host.appendChild(buildVideo());
   }
 
   /* ======================================================================

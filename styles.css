@@ -839,6 +839,43 @@ a { color: inherit; }
    pushing the whole page sideways at 320px. */
 .facts--notes dd { overflow-wrap: break-word; }
 
+/* The door video sits in a fixed shape box that holds whichever of the two
+   things currently exists: the player, or the panel saying the clip is still
+   being made. They share the box, so the section is the same height the day
+   before the file arrives and the day after it.
+
+   The ratio comes from config.js through an inline custom property, which is
+   what stops an upright clip being letterboxed into the black pillars D-14
+   forbids. No top margin here on purpose: .sub-h above it already carries
+   48px, and a second gap would leave the heading floating equidistant between
+   its own box and the block above it.
+
+   No border either, in the pending case. The panel inside brings its own. */
+.video-slot {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  aspect-ratio: var(--video-aspect, 16/9);
+}
+
+/* 9 by 16 at the full 760px would be 1350px tall, which is taller than the
+   phone holding it. Upright clips get their own cap. */
+.video-slot[data-orient="portrait"] { max-width: 360px; }
+
+/* The panel fills the slot instead of floating inside it. A centred card
+   inside a bordered box is a nested card, and one box with one border is the
+   whole recipe.
+
+   min-height rather than height, deliberately: at 320px in Danish the pending
+   copy is taller than a 16 by 9 box is at that width, and a fixed height would
+   spill the sentence out of the bottom of the panel. This way the box grows to
+   hold its own words on the narrowest phone and is exactly the slot everywhere
+   else. */
+.video-slot .pending {
+  min-height: 100%;
+  max-width: none;
+}
+
 /* --------------------------------------------------------------------------
    Footer
    -------------------------------------------------------------------------- */
