@@ -66,8 +66,9 @@ phase creates), the degradation arc and spectacle motion (phase 5), the Kahoot e
   exists`, because `create table if not exists` will not add a column to the live table and
   the file's "safe to run more than once" promise must survive.
   — **Reversibility:** one-way — the owner must re-run `supabase/schema.sql` in the SQL
-  editor for withdrawal to work at all. Until they do, the UPDATE fails against a column
-  that does not exist. This is an owner action and must be surfaced as one, not buried.
+  editor for withdrawal to work at all. Until they do, the amend call fails against a column
+  that does not exist. This is an owner action and must be surfaced as one, not buried. The
+  same re-run also installs the D-35 RPC, so it is one action, not two.
 
 - **D-05:** **The host's read path is the Supabase dashboard, and this phase leaves a
   correct query behind (ENR-11).** No admin UI. `supabase/schema.sql` already ends with a
@@ -81,13 +82,17 @@ phase creates), the degradation arc and spectacle motion (phase 5), the Kahoot e
   chose a keyless map embed over the Maps JavaScript API for exactly this reason. Three
   request shapes cover the whole phase, and phase 4 reuses the same helper for storage:
   - insert: `POST {url}/rest/v1/enrollments`, `Prefer: return=minimal`
-  - amend: `PATCH {url}/rest/v1/enrollments?guest_id=eq.{uuid}`, `Prefer: return=minimal`
+  - ~~amend: `PATCH {url}/rest/v1/enrollments?guest_id=eq.{uuid}`~~ — **superseded by D-35.
+    Probe-proven impossible.** See below.
   - social proof: `GET {url}/rest/v1/attendees?select=first_name,extra_guests`
-  Every call carries the publishable key in both `apikey` and `Authorization: Bearer`.
-  **Research must confirm the exact header and `Prefer` semantics for a
-  `sb_publishable_`-style key against a table with no SELECT policy** — specifically that
-  `return=representation` fails or returns empty there, which is why `return=minimal` is
-  specified above.
+  **Amended by research (2026-08-14, `03-RESEARCH.md` §Wire Contract W1):** the key goes in
+  `apikey` only, not in `Authorization: Bearer`. A `Bearer`-only request returns 401 against
+  this project; both headers together work today but ride a documented exception clause, and
+  `apikey` alone is the only shape correct for both the publishable and legacy anon key
+  formats that `config.js` promises the owner.
+  The `return=minimal` half of this decision was **vindicated**: `return=representation` and
+  `return=headers-only` both fail with a 401 and the row is not inserted, because the implied
+  read-back has no SELECT policy to satisfy. Do not relax it.
   — **Reversibility:** costly — swapping to `supabase-js` later means rewriting every call
   site in `app.js` and adding a third-party script to a page whose whole point is loading
   fast on bad mobile data outdoors.
@@ -237,6 +242,47 @@ phase creates), the degradation arc and spectacle motion (phase 5), the Kahoot e
   recourse is the dashboard.
   — **Reversibility:** reversible — if it is ever actually abused, the fix is a policy change
   in Supabase, not a code change here.
+
+### Amendment after research (2026-08-14)
+
+- **D-35:** **Amending a registration goes through a `security definer` RPC, not a PATCH.**
+  This supersedes the amend half of D-06 and is the single most important finding of this
+  phase's research. `PATCH /rest/v1/enrollments?guest_id=eq.{uuid}` was executed against the
+  live project and returned **`204 No Content` with `Content-Range: */0`** — zero rows
+  updated, value unchanged when read back through the `attendees` view. This is not a Supabase
+  quirk, it is standard PostgreSQL: an UPDATE whose WHERE clause reads a column also requires
+  SELECT rights on that relation, and D-02 deliberately grants none. Built as D-06 originally
+  specified, the edit and withdraw buttons would have reported success and done nothing, on
+  every device, forever, with no client-side signal that anything was wrong.
+
+  The fix is `POST {url}/rest/v1/rpc/amend_enrollment`, a function that runs as its owner with
+  `set search_path = ''`, touches only the row whose `guest_id` was passed in, never returns
+  row contents, and returns an integer row count so the client can tell a real amendment from
+  a no-op. **It adds no SELECT policy of any kind**, so D-02's one-way door stays shut and
+  notes remain structurally unreadable by the publishable key. The threat model is unchanged:
+  `supabase/schema.sql:83-86` already states that anyone holding a `guest_id` can amend that
+  registration, and the RPC grants exactly that power and nothing more.
+
+  Two alternatives were considered and rejected in `03-RESEARCH.md` §THE BLOCKER: a permissive
+  SELECT policy (republishes every guest's note, which is the exact thing D-02 exists to
+  prevent) and a header-scoped SELECT policy plus column grants (two mechanisms to
+  misconfigure, and any later `grant all` silently re-opens the notes).
+  — **Reversibility:** one-way — the function ships in `supabase/schema.sql` and the owner must
+  re-run the file. It rides along with the `withdrawn` column D-04 already requires, so it
+  costs no *additional* owner action, but until the re-run happens the RPC returns a clean
+  `404 PGRST202` and edit/withdraw cannot work.
+
+- **D-36:** **Enrollment itself has no dependency on the migration, and the phase must ship
+  correct in the un-migrated state.** `POST /rest/v1/enrollments` works today, unchanged. Only
+  edit and withdraw need the schema re-run. So the edit and withdraw controls render
+  optimistically and degrade to an honest pending message on `PGRST202`, in the same register
+  the rest of the site uses for things the owner has not set up yet. A guest can always enroll.
+
+- **D-37:** **The success panel must have a defined, non-broken appearance with no WhatsApp
+  button.** `whatsapp.inviteUrl` is still `null` and will be on the day this phase lands. The
+  phase's headline "done when" sentence ends with "lands in the WhatsApp group with one more
+  tap", so it is tempting to treat the linkless state as an edge case. It is the *shipping*
+  state. Design it first, not last.
 
 ### Motion and visual register
 
