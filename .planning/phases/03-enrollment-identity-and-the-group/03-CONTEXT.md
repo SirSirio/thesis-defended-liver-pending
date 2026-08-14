@@ -36,7 +36,9 @@ phase creates), the degradation arc and spectacle motion (phase 5), the Kahoot e
 
 ### The database is already live, and its shape constrains everything
 
-- **D-01:** **The schema is applied and verified against project `aplaxdplwnnlezffatal`.**
+- **D-01 [informational]:** **The schema is applied and verified against project
+  `aplaxdplwnnlezffatal`.** Recorded state of the live database rather than a decision any
+  plan implements, so it is not gate-tracked. The plans depend on it as a precondition.
   `enrollments`, `photos` and the `attendees` view all exist and respond. This phase writes
   against a real database from the first commit, not against a placeholder. Verified
   behaviours from `.planning/STATE.md` that the plan must treat as fact: a guest can insert
