@@ -833,6 +833,20 @@
     return list.children.length ? list : null;
   }
 
+  /* The player is the first node on this page that genuinely needs the module
+     scope rule stated in the banner above. renderAccess() clears #access-body
+     on every language switch, and rebuilding a <video> mid playback stops it
+     dead in the hand of a guest who is watching it, thirty seconds after they
+     changed the language to read the heading above it. So the element is held
+     here and re-appended, exactly the way #loc-map next door is kept.
+
+     The failure flag is held beside it for the same reason. Once a source has
+     errored, re-appending it would fire the same error on every re-render and
+     flash a broken player between each one. */
+  var videoEl = null;
+  var videoMountedSrc = '';
+  var videoFailed = false;
+
   /* Returns a slot in every case, configured or not, and that is the whole
      design (D-11). The unconfigured state is not a stopgap standing in for the
      player: it is a panel of the player's exact size and shape, so the day the
@@ -873,6 +887,85 @@
       return slot;
     }
 
+    // The configured file is not the one being held, so the held element is
+    // stale. Discard it and build fresh rather than re-appending the old one.
+    if (videoMountedSrc !== src) {
+      videoEl = null;
+      videoFailed = false;
+      videoMountedSrc = src;
+    }
+
+    /* This file already failed once. The panel it resolved to is rendered
+       directly, so a language switch does not put a broken player back on the
+       page just to watch it break again. */
+    if (videoFailed) {
+      slot.appendChild(pendingBlock('access.pending.title', 'access.pending.body'));
+      return slot;
+    }
+
+    // A re-render with the same file. Re-appended, never rebuilt: playback
+    // continues untouched and the metadata is not fetched a second time.
+    if (videoEl) {
+      slot.appendChild(videoEl);
+      return slot;
+    }
+
+    var video = document.createElement('video');
+
+    /* The pair that keeps iOS Safari from taking the whole screen the instant
+       a guest presses play (D-13, ACC-01). Both are set as attributes AND as
+       properties: older WebKit honours the property where an attribute set
+       after creation is ignored, and either one alone fails inline playback.
+       They are a pair, they are asserted as a pair, and neither of them ever
+       ships without the other.
+
+       Nothing here starts by itself and nothing calls play from script. A clip
+       that begins moving on its own, in a section a guest opened to read, is
+       both a bandwidth cost they did not agree to and a noise risk. */
+    video.setAttribute('playsinline', '');
+    video.setAttribute('muted', '');
+    video.playsInline = true;
+    video.muted = true;
+
+    /* Native controls, required by ACC-01 and not restyled anywhere in this
+       codebase. A hand rolled player is pure failure surface on iOS Safari.
+
+       Metadata only, so a guest outdoors on mobile data pays for the shape of
+       the file rather than the whole of it before deciding to watch. */
+    video.setAttribute('controls', '');
+    video.setAttribute('preload', 'metadata');
+
+    /* Set only when there is something to point at. An empty poster attribute
+       makes Safari request the page itself as an image, so it is omitted
+       entirely rather than written blank. */
+    var poster = typeof door.posterSrc === 'string' ? door.posterSrc : '';
+    if (poster) video.setAttribute('poster', poster);
+
+    /* On the element itself rather than inside a child source element, so a
+       file that is missing fires its error on the node this handler is
+       attached to. A child would fire on the child, and this would never
+       hear it. */
+    video.setAttribute('src', src);
+
+    /* The sanctioned exception to the rule that listeners live in a wire
+       function. This element is created once and held at module scope, so the
+       listener is attached exactly once and cannot stack across re-renders.
+
+       Wrong path, missing file, unsupported codec: to a guest standing outside
+       these are one event and deserve one message, and it is the same message
+       an unmade clip gets. Nothing is written to the console and no browser
+       text reaches the page. The owner catches the difference in config.js,
+       which is the file they were going to open anyway. */
+    video.addEventListener('error', function () {
+      videoFailed = true;
+      var box = video.parentNode;
+      if (!box) return;
+      box.textContent = '';
+      box.appendChild(pendingBlock('access.pending.title', 'access.pending.body'));
+    });
+
+    videoEl = video;
+    slot.appendChild(video);
     return slot;
   }
 
