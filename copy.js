@@ -116,6 +116,13 @@ window.PARTY_COPY = {
     'enrol.return.lede': 'Registered in the name of {name}. Nothing further is required.',
     'enrol.amend.pending': 'Changes cannot be recorded yet. Tell the host directly. Your registration stays as it is.',
 
+    /* Two labels rather than one sentence. The total counts plus ones and the
+       name list does not, so the two figures visibly disagree; the labels are
+       worded so they already mean different things instead of a sentence being
+       written to reconcile them. A real fact table would not write one. */
+    'enrol.proof.count.label': 'Expected attendance',
+    'enrol.proof.list.label': 'Registered',
+
     'nudge.enrol.text': 'You have not registered yet.',
     'nudge.enrol.cta': 'Register',
     'nudge.enrol.soon': 'Registration closes in {n} days.',
@@ -283,6 +290,9 @@ window.PARTY_COPY = {
     'enrol.return.title': 'La tua iscrizione',
     'enrol.return.lede': 'Iscrizione a nome di {name}. Non serve altro.',
     'enrol.amend.pending': 'Le modifiche non possono ancora essere registrate. Dillo direttamente al festeggiato. La tua iscrizione resta com’è.',
+
+    'enrol.proof.count.label': 'Presenze previste',
+    'enrol.proof.list.label': 'Iscritti',
 
     'nudge.enrol.text': 'Non ti sei ancora iscritto.',
     'nudge.enrol.cta': 'Iscriviti',
@@ -453,6 +463,9 @@ window.PARTY_COPY = {
     'enrol.return.title': 'Din tilmelding',
     'enrol.return.lede': 'Tilmeldt i navnet {name}. Der kræves ikke mere.',
     'enrol.amend.pending': 'Ændringer kan ikke registreres endnu. Sig det direkte til værten. Din tilmelding står, som den er.',
+
+    'enrol.proof.count.label': 'Forventet fremmøde',
+    'enrol.proof.list.label': 'Tilmeldte',
 
     'nudge.enrol.text': 'Du har ikke tilmeldt dig endnu.',
     'nudge.enrol.cta': 'Tilmeld dig',

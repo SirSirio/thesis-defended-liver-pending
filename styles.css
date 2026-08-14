@@ -1558,19 +1558,25 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   max-width: 62ch;
 }
 
-/* The receipt. Narrower label column than the course facts, for the same reason
-   .facts--notes narrows: "Name" and "Note" are words where a course fact label
-   is a phrase, and the column that fits the phrase leaves a trench beside the
-   word. Everything else is inherited untouched. */
-.facts--record .facts__row { grid-template-columns: minmax(140px, 200px) 1fr; }
+/* The receipt and the social proof block. Narrower label column than the course
+   facts, for the same reason .facts--notes narrows: "Name", "Note" and
+   "Registered" are words where a course fact label is a phrase, and the column
+   that fits the phrase leaves a trench beside the word.
+
+   One declaration for both rather than a second literal copy of the same
+   template, which is the drift R1 was written to stop. Everything else is
+   inherited untouched. */
+.facts--record .facts__row,
+.facts--proof .facts__row { grid-template-columns: minmax(140px, 200px) 1fr; }
 
 /* Not duplication. The shared collapse is written as .facts__row inside a media
    query, media queries carry no specificity of their own, and the two class
-   selector above therefore beats it at every width. Without this line the
-   receipt would be the one table on the page refusing to collapse on a phone.
-   Same cascade trap as .facts--notes. */
+   selector above therefore beats it at every width. Without this line these
+   would be the tables on the page refusing to collapse on a phone. Same cascade
+   trap as .facts--notes. */
 @media (max-width: 640px) {
-  .facts--record .facts__row { grid-template-columns: 1fr; }
+  .facts--record .facts__row,
+  .facts--proof .facts__row { grid-template-columns: 1fr; }
 }
 
 /* pre-wrap so a note reads back exactly as it was typed, line breaks included,
@@ -1581,6 +1587,25 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
+
+/* Social proof. 48px below the registration body, matching the sub block rhythm
+   phase 2 set: these are two separate answers to two separate questions.
+
+   No heading of its own, deliberately. The table labels its own rows, the gap
+   and the component's own top rule already separate it from the body above, and
+   a sub heading would cost a spacing step and a copy key to restate what the
+   first label already says.
+
+   The margin sits on the table rather than on its host, so an absent block
+   leaves an empty host with no space reserved around it. Below the threshold,
+   and on a failed fetch, nothing here occupies a single pixel. */
+.facts--proof { margin-top: var(--s-7); }
+
+/* A forty name comma run wraps inside its cell rather than pushing the page
+   sideways at 320px, the same guarantee .facts--notes dd already carries. Not
+   pre-wrap: unlike a note read back, this string was joined here and carries no
+   line breaks of its own. */
+.facts--proof dd { overflow-wrap: break-word; }
 
 /* --------------------------------------------------------------------------
    The two group CTAs.

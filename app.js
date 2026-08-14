@@ -136,6 +136,11 @@
     renderLocation();
     renderAccess();
 
+    /* Non blocking, so its position in this list costs nothing. A switch has to
+       re-render its two labels and re-sort the names into the new language's
+       collation, which is why it is in the chain at all. */
+    renderSocialProof();
+
     /* Last, and after the sweep above has rewritten every string in the bar.
        Danish wraps the nudge copy onto a second line, which makes the bar
        taller, and a reserve measured before the rewrite would be a reserve for
@@ -1777,7 +1782,12 @@
     box.textContent = '';
   }
 
-  function recordRow(labelKey, value) {
+  /* One row of the fact table, and two components share it: the receipt in the
+     panels, and the social proof block below the registration body. The optional
+     class on the value cell is the only difference between them, and it exists
+     so the expected attendance figure can take the mono family with its tabular
+     figures without a second builder being written. */
+  function recordRow(labelKey, value, valueClass) {
     var row = document.createElement('div');
     row.className = 'facts__row';
 
@@ -1790,6 +1800,7 @@
     // is the first phase where a markup string near this value would be
     // exploitable rather than untidy.
     var dd = document.createElement('dd');
+    if (valueClass) dd.className = valueClass;
     dd.textContent = value;
     row.appendChild(dd);
 
@@ -2014,6 +2025,88 @@
     renderEnrollment();
     renderDeadline();
     renderNudge();
+    // Registering changes the number the guest just changed, so it is re-read
+    // here rather than only on the next load.
+    renderSocialProof();
+  }
+
+  /* ======================================================================
+     SOCIAL PROOF
+
+     The one place in this project where a string one guest typed is rendered
+     into every other guest's browser. The view truncates each name to its first
+     token server side but does not sanitise, so the createElement plus
+     textContent rule that has been house style since phase 1 becomes
+     load bearing here for the first time rather than merely tidy.
+
+     Nothing splits a name in this file either. The truncation lives in the
+     view, which is what makes a full name structurally incapable of reaching
+     the page rather than merely unlikely to.
+     ====================================================================== */
+
+  function renderSocialProof() {
+    var host = $('#enrol-proof');
+    if (!host || !sbConfigured()) return;
+
+    /* 8 seconds rather than the write path's 12. This is a non blocking
+       decoration and a guest should never wait on it. The wire also offers a
+       newest first ordering, and it is deliberately not requested: that is
+       precisely the social feed reading this block rejects, and the rows are
+       sorted here into a register instead. */
+    sbRequest('GET', '/rest/v1/attendees?select=first_name,extra_guests', null, null, 8000)
+      .then(function (res) {
+        // Cleared on every outcome, so a switch to a language whose fetch fails
+        // does not leave the previous language's block standing.
+        host.textContent = '';
+
+        /* Silent. Nobody standing outside a building needs an error message
+           about a head count widget, and a guest who sees nothing here has lost
+           nothing. There is no skeleton above either: the block may legitimately
+           never appear, and a skeleton promises content that is not coming. */
+        if (!res.ok || !Array.isArray(res.body)) return;
+
+        var rows = res.body;
+        var total = rows.length;
+        var names = [];
+
+        for (var i = 0; i < rows.length; i++) {
+          var extra = parseInt(rows[i].extra_guests, 10);
+          if (!isNaN(extra) && extra > 0) total += extra;
+
+          // Duplicates are kept. Two guests called Maria are two people, and
+          // dropping one would make the list disagree with the count.
+          var first = rows[i].first_name;
+          if (typeof first === 'string' && first) names.push(first);
+        }
+
+        /* Read in exactly one place. A second literal threshold anywhere is how
+           the two halves of this feature drift apart, and below it the whole
+           block is absent: not a zero, and not an invitation to be the first,
+           which reads as an empty room. */
+        var from = parseInt((CFG.enrollment || {}).showCountFrom, 10);
+        if (isNaN(from) || from < 0) from = 0;
+        if (total < from) return;
+
+        var list = document.createElement('dl');
+        list.className = 'facts facts--proof';
+
+        // A bare figure with no unit word: the label already says what it counts.
+        list.appendChild(recordRow('enrol.proof.count.label', String(total), 'mono'));
+
+        /* The flag removes the name row only. The count row always stays.
+
+           Alphabetical through a locale aware compare in the active language,
+           which sorts the Danish extra vowels after z for free. The separator is
+           a comma and a space with no conjunction before the last name:
+           institutional lists do not use one, and localising a conjunction into
+           a joined string across three languages is churn for a worse result. */
+        if ((CFG.enrollment || {}).showAttendeeList !== false && names.length) {
+          names.sort(function (a, b) { return a.localeCompare(b, lang); });
+          list.appendChild(recordRow('enrol.proof.list.label', names.join(', ')));
+        }
+
+        host.appendChild(list);
+      });
   }
 
   function readGuests(form) {
