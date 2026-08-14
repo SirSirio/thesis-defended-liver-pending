@@ -14,10 +14,16 @@
 -- Never put a key starting sb_secret_ in config.js. It bypasses every rule
 -- below.
 --
--- STATUS: applied to project aplaxdplwnnlezffatal on 2026-08-13, and verified
--- against the live database. A guest can enroll, the raw enrollments table is
--- unreadable by the public key even when it holds rows, the attendees view
--- exposes first names only, and anonymous deletes are refused.
+-- STATUS: sections 1 to 6 were applied to project aplaxdplwnnlezffatal on
+-- 2026-08-13, and verified against the live database. A guest can enroll, the
+-- raw enrollments table is unreadable by the public key even when it holds
+-- rows, the attendees view exposes first names only, and anonymous deletes are
+-- refused.
+--
+-- Sections 7 and 8 were added on 2026-08-14 and are NOT in the database yet.
+-- Until you run this file again, a guest can still register perfectly well,
+-- but nobody can edit or withdraw a registration and the site says so plainly
+-- instead of pretending otherwise. Running the whole file again installs them.
 -- ============================================================================
 
 
@@ -189,11 +195,127 @@ create policy "anyone can view party photos"
 
 
 -- ============================================================================
+-- 7. WITHDRAWAL
+-- ----------------------------------------------------------------------------
+-- A guest who can no longer come marks themselves withdrawn. There is no
+-- delete and there deliberately never will be, so this is a flag rather than a
+-- removal. Withdrawn rows stop counting toward the head count on the site, and
+-- they stay in the table, because knowing who dropped out is more useful than
+-- not knowing.
+--
+-- The column is added with an alter rather than by editing the table back in
+-- section 1, because create table if not exists will not add a column to a
+-- table that already holds rows, and the promise at the top of this file that
+-- it is safe to run more than once has to survive.
+-- ============================================================================
+
+alter table public.enrollments
+  add column if not exists withdrawn boolean not null default false;
+
+-- The same three columns as section 5, in the same order, with the same types.
+-- Only the filter is new, which is the one kind of change create or replace
+-- view accepts, and it is what keeps the grant on the next line intact.
+-- Dropping the view and building it again would take that grant with it.
+--
+-- This view reads the table with its owner's rights rather than the visitor's,
+-- and that is the only reason the site can show a head count at all. Change it
+-- to read with the visitor's rights and social proof goes permanently and
+-- silently empty, because nobody can read the table underneath.
+create or replace view public.attendees as
+  select
+    split_part(trim(name), ' ', 1) as first_name,
+    extra_guests,
+    created_at
+  from public.enrollments
+  where withdrawn = false;
+
+grant select on public.attendees to anon;
+
+
+-- ============================================================================
+-- 8. AMENDING A REGISTRATION
+-- ----------------------------------------------------------------------------
+-- Why this is a function and not just an update sent from the browser.
+--
+-- Postgres will not let anyone change a row they cannot read, because working
+-- out which rows to change means reading them first. Nobody can read this
+-- table, on purpose. So an update sent straight from the site matches nothing,
+-- changes nothing, and still reports success, which is the worst of the three
+-- outcomes available.
+--
+-- This function runs as its owner instead, so it can find the one row it was
+-- asked for. It still cannot hand anything back, so the notes stay exactly as
+-- private as they were.
+--
+-- Anyone who knows a guest_id can amend that registration. That is the same
+-- trade already described in section 3 and it is unchanged: guest ids are
+-- unguessable and never appear on the page.
+-- ============================================================================
+
+-- What this function gives back is the security boundary. It returns a count
+-- and never a row. Any change to its arguments or to what it returns is a
+-- security change and has to be treated as one: a function running with its
+-- owner's rights that handed back rows would give every guest's note to
+-- anyone who can guess a uuid, which leaks more than the open read rule this
+-- whole design exists to avoid.
+create or replace function public.amend_enrollment(
+  p_guest_id     uuid,
+  p_name         text     default null,
+  p_extra_guests smallint default null,
+  p_note         text     default null,
+  p_lang         text     default null,
+  p_withdrawn    boolean  default null
+)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  affected integer;
+begin
+  update public.enrollments
+     set name         = coalesce(p_name, name),
+         extra_guests = coalesce(p_extra_guests, extra_guests),
+         -- Leaving this out leaves the note alone. Sending an empty string
+         -- clears it, which is how a guest removes a note they regret.
+         note         = case when p_note is null then note else nullif(p_note, '') end,
+         lang         = coalesce(p_lang, lang),
+         withdrawn    = coalesce(p_withdrawn, withdrawn)
+   where guest_id = p_guest_id;
+
+  get diagnostics affected = row_count;
+  return affected;   -- 1 if the registration was found, 0 if it was not
+end $$;
+
+-- Postgres lets everybody run a new function by default. For a function that
+-- runs with its owner's rights that default is a genuine hole, so take it away
+-- first and then hand it back to anonymous visitors only. The argument list is
+-- repeated word for word in both lines on purpose: a function is identified by
+-- its arguments, and a list that does not match quietly affects nothing at all.
+revoke all on function public.amend_enrollment(uuid, text, smallint, text, text, boolean) from public;
+grant execute on function public.amend_enrollment(uuid, text, smallint, text, text, boolean) to anon;
+
+
+-- ============================================================================
 -- DONE
 -- ----------------------------------------------------------------------------
--- To read your guest list: Dashboard > Table Editor > enrollments.
--- Total head count including plus ones:
+-- Your guest list lives in Dashboard > Table Editor > enrollments.
+--
+-- The note column is where dietary requirements and messages land. Nothing on
+-- the website can read it. This table is the only place it exists.
+--
+-- Total head count including plus ones, ignoring anyone who withdrew. This is
+-- the same number the site shows:
 --
 --   select count(*) + coalesce(sum(extra_guests), 0) as total
---     from public.enrollments;
+--     from public.enrollments
+--    where withdrawn = false;
+--
+-- Who dropped out, most recent first:
+--
+--   select name, extra_guests, updated_at
+--     from public.enrollments
+--    where withdrawn = true
+--    order by updated_at desc;
 -- ============================================================================
