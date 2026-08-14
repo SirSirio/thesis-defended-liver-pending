@@ -123,9 +123,9 @@
     renderCountdown();
     renderDeadline();
     /* Before renderNudge(), and the order is load bearing. renderEnrollment()
-       is what creates #enrol-form, and enrollmentReady() gates the bar on that
-       element existing. The other way round the bar is one render behind on
-       first paint, which on a phone means it never appears at all until the
+       is what creates #enrol-form, and the bar's readiness gate below tests for
+       that element existing. The other way round the bar is one render behind
+       on first paint, which on a phone means it never appears at all until the
        guest switches language. */
     renderEnrollment();
     renderNudge();
@@ -1218,9 +1218,9 @@
     return p.supabaseKey || p.supabaseAnonKey || '';
   }
 
-  /* The identical expression enrollmentReady() uses, including its acceptance
-     of either key name, or the two functions would disagree about the same
-     configuration and the bar would nudge toward a panel. */
+  /* The identical expression the nudge bar's readiness gate uses, including its
+     acceptance of either key name, or the two functions would disagree about
+     the same configuration and the bar would nudge toward a panel. */
   function sbConfigured() {
     var p = CFG.photos || {};
     return Boolean(p.supabaseUrl && (p.supabaseKey || p.supabaseAnonKey));
@@ -1946,8 +1946,8 @@
 
     /* Either credential blank, or a browser that cannot mint an identity at
        all. Both get the inherited pending block, and neither renders
-       #enrol-form, so enrollmentReady() stays false and the nudge bar stays
-       down rather than pointing at a placeholder. */
+       #enrol-form, so the bar's readiness gate stays false and the nudge bar
+       stays down rather than pointing at a placeholder. */
     if (!sbConfigured() || !IDENTITY_OK) body = 'pending';
     else if (successShown) body = 'success';
     // A guest_id with no name is not a registration, so it renders the form.
@@ -2114,6 +2114,52 @@
       ev.preventDefault();
       handleSubmit(form);
     });
+
+    /* The bar yields to the keyboard.
+
+       A bar pinned to the bottom of the viewport with the iOS soft keyboard
+       open sits on top of the keyboard, jumps through the keyboard animation,
+       or covers the field being typed into, depending on the version. It also
+       covers the submit button of the form it is pointing at, which is the
+       whole absurdity: the bar is telling a guest to do a thing while standing
+       in front of the control that does it.
+
+       Detected here rather than with a relational CSS selector, for the same
+       Safari 15.4 reason the segmented control avoids one: on the browsers this
+       matters most for, the selector does nothing and the bar would silently
+       keep sitting on the keyboard. */
+    host.addEventListener('focusin', function (ev) {
+      if (!inEnrolForm(ev.target)) return;
+      var bar = $('#nudge');
+      if (bar) hideNudge(bar);
+    });
+
+    /* Restoration goes back through the renderer and never through the direct
+       show helper. The session dismissal flag and the enrolled check are read
+       inside renderNudge() and nowhere else, so a bar brought back any other
+       way returns after a guest dismissed it, or after they registered. Both
+       are outright requirement failures rather than cosmetic slips. */
+    host.addEventListener('focusout', function (ev) {
+      // Moving between two fields of the same form is not leaving it, and
+      // bringing the bar back for one frame between two taps would flicker it
+      // across the keyboard.
+      if (inEnrolForm(ev.relatedTarget)) return;
+      renderNudge();
+    });
+  }
+
+  /* The closest lookup with the manual walk kept as its fallback, the same
+     shape the location wiring uses. */
+  function inEnrolForm(node) {
+    if (!node) return false;
+    if (node.closest) return Boolean(node.closest('#enrol-form'));
+
+    var el = node;
+    while (el) {
+      if (el.id === 'enrol-form') return true;
+      el = el.parentNode;
+    }
+    return false;
   }
 
   /* ======================================================================
