@@ -91,6 +91,34 @@ time sensitive and photos are not.
 - Nudge bar with its two states, plus the deadline framing (NDG-01 to NDG-08)
 - Graceful unconfigured state, so this ships before credentials exist (ENR-12)
 
+**Requirements:** ENR-01, ENR-02, ENR-03, ENR-04, ENR-05, ENR-06, ENR-07, ENR-08, ENR-09, ENR-10,
+ENR-11, ENR-12, ENR-13, ID-01, ID-02, ID-03, ID-04, ID-05, ID-06, WA-01, WA-02, WA-03, WA-04,
+WA-05, WA-06, NDG-01, NDG-02, NDG-03, NDG-04, NDG-05, NDG-06, NDG-07, NDG-08
+
+**Plans:** 6 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Tracer: a typed name becomes a row, a receipt and a returning greeting
+
+**Wave 2** *(blocked on Wave 1 completion, the two plans below run in parallel)*
+
+- [ ] 03-02-PLAN.md — The nudge bar's first appearance: measure the reserve, stop the three collisions
+- [ ] 03-03-PLAN.md — Schema sections 7 and 8, and the blocking owner re-run that applies them
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-04-PLAN.md — Social proof and the group handoff, built linkless first
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 03-05-PLAN.md — Edit, withdraw with a defined in-flight and failure state, and forgetting a guest
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 03-06-PLAN.md — Closing sweep, the four nudge branches, the device sheet and the test-row cleanup
+
 **Done when:** a guest on a phone enrolls in under 10 seconds, lands in the WhatsApp
 group with one more tap, and is never nudged again.
 
