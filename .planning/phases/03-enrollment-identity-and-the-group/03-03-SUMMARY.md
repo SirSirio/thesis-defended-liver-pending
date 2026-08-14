@@ -207,5 +207,16 @@ mitigations are implemented and gated:
   correct recovery is the insert path, not an error.
 - Do not add `note` to the `attendees` view and do not add a read policy. Both are one-line
   changes with irreversible consequences.
+
+## Self-Check: PASSED
+
+- FOUND `supabase/schema.sql`
+- FOUND `config.js`
+- FOUND `.planning/phases/03-enrollment-identity-and-the-group/03-03-SUMMARY.md`
+- FOUND commit `4aac58a` (task 2)
+- FOUND commit `6cbe62e` (this summary)
+
+Note: `status: blocked`, not `complete`. Task 3 is an unmet human-action checkpoint and the
+live probe confirms the migration is not applied.
 </content>
 </invoke>
