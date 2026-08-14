@@ -449,6 +449,7 @@
      ---------------------------------------------------------------------- */
 
   var mapObserver = null;
+  var mapTimer = null;
 
   function renderMapSlot() {
     var host = $('#location-body');
@@ -463,6 +464,7 @@
        rectangle standing in for a decision that has not been made. */
     if (!address) {
       if (mapObserver) { mapObserver.disconnect(); mapObserver = null; }
+      if (mapTimer) { clearTimeout(mapTimer); mapTimer = null; }
       if (slot && slot.parentNode) slot.parentNode.removeChild(slot);
       return;
     }
@@ -586,7 +588,11 @@
        position, and asking would put a permission prompt between a cold guest
        and an address. */
 
+    /* Unconditional, and that is the point. A load at second twelve on a
+       genuinely terrible connection still resolves to a live map, because the
+       blocked state below never removed anything. */
     frame.addEventListener('load', function () {
+      if (mapTimer) { clearTimeout(mapTimer); mapTimer = null; }
       slot.setAttribute('data-state', 'ready');
     });
 
@@ -594,6 +600,25 @@
     // Next frame, so the fade actually runs from the hidden state. Same idiom
     // as showNudge() and toast(), for the same reason.
     requestAnimationFrame(function () { frame.setAttribute('data-show', '1'); });
+
+    /* One timer, held at module scope and cleared before it is set, the same
+       shape as the toast and copy revert timers above.
+
+       Eight seconds is long enough that a slow but working connection is not
+       called a failure, and short enough that nobody is left watching a bar
+       wondering whether the page is broken.
+
+       It is a message swap and nothing else. The frame is not removed, its src
+       is not cleared, and it is not stopped, because a timeout that destroys a
+       working element is worse than the wait it was meant to fix. */
+    if (mapTimer) clearTimeout(mapTimer);
+    mapTimer = setTimeout(function () {
+      mapTimer = null;
+      if (slot.getAttribute('data-state') === 'ready') return;
+      slot.setAttribute('data-state', 'blocked');
+      var waiting = $('.map-wait__line', slot);
+      if (waiting) waiting.textContent = t('loc.map.blocked');
+    }, 8000);
   }
 
   var copyRevert = null;

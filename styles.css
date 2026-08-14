@@ -689,6 +689,21 @@ a { color: inherit; }
   to   { transform: translateX(400%); }
 }
 
+/* Blocked. The waiting layer stays exactly where it is, because it is now
+   carrying the message, and only the motion stops: a bar still sweeping next
+   to a line saying the map did not load is a contradiction the guest can see.
+
+   Parked at full width rather than frozen at a quarter, which would read as
+   stalled progress. There was never any progress to report. The line keeps the
+   dim ink token at 7.15:1 on this surface. The faint token is 3.88:1 and fails
+   the body text floor, so it is not an option however much this text recedes. */
+.map-slot[data-state="blocked"] .map-wait__bar::after {
+  animation: none;
+  width: 100%;
+  opacity: 0.35;
+  transform: none;
+}
+
 /* Google owns the interior. The frame carries no border of its own, because
    the slot already draws one and two frames around one map is a nested card.
    Opacity only, no transform: a map sliding into place would be motion for its
