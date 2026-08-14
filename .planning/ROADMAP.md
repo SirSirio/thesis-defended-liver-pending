@@ -95,7 +95,7 @@ time sensitive and photos are not.
 ENR-11, ENR-12, ENR-13, ID-01, ID-02, ID-03, ID-04, ID-05, ID-06, WA-01, WA-02, WA-03, WA-04,
 WA-05, WA-06, NDG-01, NDG-02, NDG-03, NDG-04, NDG-05, NDG-06, NDG-07, NDG-08
 
-**Plans:** 3/6 plans executed
+**Plans:** 4/6 plans executed
 
 Plans:
 **Wave 1**
@@ -109,7 +109,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 03-04-PLAN.md — Social proof and the group handoff, built linkless first
+- [x] 03-04-PLAN.md — Social proof and the group handoff, built linkless first
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
