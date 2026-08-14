@@ -19,13 +19,55 @@
      ====================================================================== */
 
   var store = {
+    /* Written on every set, whether or not localStorage accepted it, and that
+       is what makes the private browsing path work: a guest there registers,
+       sees their receipt and gets the handoff for the whole session, and
+       nothing survives a reload, which is the honest outcome rather than a
+       broken page (D-17, ID-06). The site tells them nothing is wrong, because
+       nothing they can act on is.
+
+       Unconditional on purpose. A map that only filled in after a failed write
+       would go stale the moment one write succeeded, and a read after a
+       mid-session quota failure would then hand back the wrong value. */
+    mem: {},
+
+    /* Probed once, by writing and removing a key rather than by touching the
+       object, because Safari in private mode exposes localStorage and throws on
+       setItem rather than on access. */
+    ok: (function () {
+      try {
+        window.localStorage.setItem('c03102.probe', '1');
+        window.localStorage.removeItem('c03102.probe');
+        return true;
+      } catch (e) { return false; }
+    })(),
+
     get: function (k) {
-      try { return window.localStorage.getItem('c03102.' + k); }
-      catch (e) { return null; }
+      if (this.ok) {
+        try { return window.localStorage.getItem('c03102.' + k); }
+        catch (e) { /* fall through to the map */ }
+      }
+      return Object.prototype.hasOwnProperty.call(this.mem, k) ? this.mem[k] : null;
     },
+
+    // Still returns a boolean, and the c03102. prefix is still applied in here
+    // so callers keep passing bare keys. Both are load bearing: lang, enrolled
+    // and wa_joined already flow through this and phase 4 will too.
     set: function (k, v) {
-      try { window.localStorage.setItem('c03102.' + k, v); return true; }
-      catch (e) { return false; }
+      this.mem[k] = String(v);
+      if (this.ok) {
+        try { window.localStorage.setItem('c03102.' + k, String(v)); return true; }
+        catch (e) { this.ok = false; }   // quota exceeded part way through a session
+      }
+      return false;
+    },
+
+    remove: function (k) {
+      delete this.mem[k];
+      if (this.ok) {
+        try { window.localStorage.removeItem('c03102.' + k); }
+        catch (e) { /* gone from the map either way */ }
+      }
     }
   };
 
@@ -80,6 +122,12 @@
     renderSchedule();
     renderCountdown();
     renderDeadline();
+    /* Before renderNudge(), and the order is load bearing. renderEnrollment()
+       is what creates #enrol-form, and enrollmentReady() gates the bar on that
+       element existing. The other way round the bar is one render behind on
+       first paint, which on a phone means it never appears at all until the
+       guest switches language. */
+    renderEnrollment();
     renderNudge();
     renderLocation();
     renderAccess();
@@ -1061,9 +1109,1012 @@
   }
 
   /* ======================================================================
+     ENROLLMENT: IDENTITY
+
+     One uuid, generated in the browser, written once, kept forever. It never
+     appears in the page, never in a URL, and never in a link a guest could
+     share. This is the whole identity system: no login, no email, no password,
+     and no surface anywhere on the site that asks a guest their name twice.
+     ====================================================================== */
+
+  /* Feature detected by function type and not by property presence, because on
+     an insecure origin the crypto object is absent altogether rather than
+     merely missing the method.
+
+     The fallback builds a real version 4 string, bits and all, rather than a
+     random hex run, because the column is typed uuid and a malformed one comes
+     back 400 with code 22P02.
+
+     Returning null when there is no crypto at all is deliberate and is not a
+     missing case. A pseudo random id would collide on the unique constraint and
+     hand a 409 to a guest who has never registered, which reads as "you are
+     already enrolled" to someone who is not. Null lands cleanly in the pending
+     branch instead, which is this site's established answer to "this cannot
+     work here". */
+  function newGuestId() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+
+    // Safari before 15.4, and any non secure context that still has the object.
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+      var b = new Uint8Array(16);
+      crypto.getRandomValues(b);
+      b[6] = (b[6] & 0x0f) | 0x40;      // version 4
+      b[8] = (b[8] & 0x3f) | 0x80;      // variant 10xx
+      var h = [];
+      for (var i = 0; i < 16; i++) h.push((b[i] + 0x100).toString(16).slice(1));
+      return h[0] + h[1] + h[2] + h[3] + '-' + h[4] + h[5] + '-' + h[6] + h[7] + '-' +
+             h[8] + h[9] + '-' + h[10] + h[11] + h[12] + h[13] + h[14] + h[15];
+    }
+
+    return null;
+  }
+
+  // Probed once. A browser that cannot mint an identity renders the pending
+  // panel and no form, so the nudge bar stays down with it.
+  var IDENTITY_OK = newGuestId() !== null;
+
+  /* The storage layout under the c03102. prefix, exactly: lang, enrolled,
+     wa_joined, guest_id, name, extra_guests, note. The first three were written
+     by phase 1 and are neither renamed nor repurposed, because live guests
+     already carry them on their devices.
+
+     enrolled is the string 1 and is cleared to the string 0, because
+     isEnrolled() compares against that exact string and renderNudge() and
+     renderDeadline() both read it. Writing true, or the number 1, or removing
+     the key are three subtly different things and only one of them is right. */
+  var identity = {
+    get: function () {
+      var n = parseInt(store.get('extra_guests'), 10);
+      return {
+        guest_id: store.get('guest_id'),
+        name: store.get('name'),
+        extra_guests: isNaN(n) ? 0 : n,
+        note: store.get('note'),
+        enrolled: store.get('enrolled') === '1'
+      };
+    },
+
+    save: function (f) {
+      if (f.guest_id) store.set('guest_id', f.guest_id);
+      if (typeof f.name === 'string') store.set('name', f.name);
+      // A decimal string, read back with parseInt base 10, so no float and no
+      // locale formatting ever enters storage.
+      store.set('extra_guests', String(f.extra_guests == null ? 0 : f.extra_guests));
+      if (f.note == null || f.note === '') store.remove('note');
+      else store.set('note', f.note);
+      store.set('enrolled', f.enrolled === false ? '0' : '1');
+    },
+
+    // Withdrawing clears the registration, not the identity (D-15). Forgetting
+    // the device clears both, and that is what this is for.
+    clear: function () {
+      store.remove('guest_id');
+      store.remove('name');
+      store.remove('extra_guests');
+      store.remove('note');
+      store.set('enrolled', '0');
+    }
+  };
+
+  /* ======================================================================
+     ENROLLMENT: THE WIRE
+
+     Plain fetch against PostgREST. No client library, no CDN script tag, on a
+     page whose whole point is loading fast on bad mobile data outdoors.
+     ====================================================================== */
+
+  function sbUrl() { return (CFG.photos || {}).supabaseUrl || ''; }
+
+  function sbKey() {
+    var p = CFG.photos || {};
+    return p.supabaseKey || p.supabaseAnonKey || '';
+  }
+
+  /* The identical expression enrollmentReady() uses, including its acceptance
+     of either key name, or the two functions would disagree about the same
+     configuration and the bar would nudge toward a panel. */
+  function sbConfigured() {
+    var p = CFG.photos || {};
+    return Boolean(p.supabaseUrl && (p.supabaseKey || p.supabaseAnonKey));
+  }
+
+  /* Resolves to { ok, status, code, body } and never rejects, so no call site
+     needs a catch and no code path can leave the submit button locked.
+
+     The key travels in the apikey header and nowhere else. A bearer header
+     carrying a publishable key hard fails 401 on its own, and duplicating the
+     value into it rides a documented exception clause whose own wording reads
+     like it is describing a future rejection. One header, verified working,
+     correct for both the publishable and the legacy key formats config.js
+     promises the owner, and one fewer header from a phone on mobile data.
+
+     The body is read as text and parsed only when there is something to parse.
+     A return=minimal insert answers 201 with an empty body and the amend
+     function answers with a bare integer; handing either to the JSON reader
+     throws, the outer catch would call it a network failure, and every
+     successful registration would land in the failure state. That is the single
+     most likely way to break the happy path on this project.
+
+     The abort timer is unconditional and is cleared on both paths. */
+  function sbRequest(method, path, body, prefer, timeoutMs) {
+    var ctl = ('AbortController' in window) ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, timeoutMs || 12000);
+
+    var headers = { 'apikey': sbKey() };
+    if (body) headers['Content-Type'] = 'application/json';
+    if (prefer) headers['Prefer'] = prefer;
+
+    var opts = { method: method, headers: headers };
+    if (body) opts.body = JSON.stringify(body);
+    if (ctl) opts.signal = ctl.signal;
+
+    return fetch(sbUrl() + path, opts).then(function (res) {
+      clearTimeout(timer);
+      return res.text().then(function (txt) {
+        var parsed = null;
+        if (txt) {
+          try { parsed = JSON.parse(txt); } catch (e) { parsed = null; }
+        }
+        return {
+          ok: res.ok,
+          status: res.status,
+          code: (parsed && parsed.code) || null,
+          body: parsed
+        };
+      });
+    }).catch(function () {
+      clearTimeout(timer);
+      // Abort, offline, DNS failure, CORS. To a guest these are one event.
+      return { ok: false, status: 0, code: 'NETWORK', body: null };
+    });
+  }
+
+  /* Three outcomes only, so the caller has three branches rather than thirteen:
+       ok       the registration is in the database
+       pending  the owner has not re-run supabase/schema.sql yet
+       failed   anything else, and the guest sees the failure state
+
+     Classified on the code field and never on the message string, which is
+     English, unstable, and embeds constraint names.
+
+     Prefer: return=minimal is not relaxed and the row is never asked for back
+     in any form. Both read-back preferences answer 401 with code 42501 AND the
+     row is not written, and the message blames the insert policy while the real
+     cause is the missing read policy. */
+  function submitEnrollment(fields, ident) {
+    var row = {
+      guest_id: ident.guest_id,
+      name: fields.name,
+      extra_guests: fields.extra_guests,
+      note: fields.note,          // already null, never the empty string
+      lang: lang                  // the resolved module variable, never a raw locale
+    };
+
+    return sbRequest('POST', '/rest/v1/enrollments', row, 'return=minimal')
+      .then(function (res) {
+        if (res.status === 201) return { result: 'ok' };
+
+        /* Not a failure. This browser already holds a registration, which D-15
+           makes reachable by design, and a lost response on a bad connection
+           makes it reachable by accident. The guest sees one success. */
+        if (res.status === 409 && res.code === '23505') return amendEnrollment(fields, ident);
+
+        return { result: 'failed', code: res.code };
+      });
+  }
+
+  /* An update request against the table itself is never built here. The live
+     probe proved it matches zero rows and answers 204, so the guest would be
+     told it worked and nothing would happen, on every device, forever. The
+     function runs as its owner instead and hands back the number of rows it
+     touched, which is the only honest answer available. */
+  function amendEnrollment(fields, ident) {
+    var args = {
+      p_guest_id: ident.guest_id,
+      p_name: fields.name,
+      p_extra_guests: fields.extra_guests,
+      p_note: fields.note === null ? '' : fields.note,   // empty means clear it
+      p_lang: lang,
+      p_withdrawn: false
+    };
+
+    return sbRequest('POST', '/rest/v1/rpc/amend_enrollment', args, null)
+      .then(function (res) {
+        // The owner has not re-run the schema file. A pending state, not an
+        // error: the registration is intact and the copy says so.
+        if (res.status === 404 && res.code === 'PGRST202') return { result: 'pending' };
+
+        // A bare integer: rows touched.
+        if (res.ok && res.body === 1) return { result: 'ok' };
+        if (res.ok && res.body === 0) return { result: 'failed', code: 'NOT_FOUND' };
+
+        return { result: 'failed', code: res.code };
+      });
+  }
+
+  /* ======================================================================
+     ENROLLMENT: THE FORM AND THE PANELS
+
+     #enrol-body holds exactly one of five bodies. This plan ships four of
+     them: the inherited pending block, the form, the success receipt and the
+     returning view. Plan 05 adds the withdrawn state.
+     ====================================================================== */
+
+  // Session only. A reload turns the success panel into the returning view,
+  // which is correct: success is a moment and the registration is a status.
+  var successShown = false;
+  var amendPending = false;
+
+  function maxGuests() {
+    var n = parseInt((CFG.enrollment || {}).maxGuestsPerPerson, 10);
+    if (isNaN(n) || n < 0) return 0;
+    return n;
+  }
+
+  function clampGuests(n, max) {
+    if (isNaN(n) || n < 0) return 0;
+    return n > max ? max : n;
+  }
+
+  /* ----------------------------------------------------------------------
+     VALIDATION
+
+     Every validator returns a copy KEY or null, never a rendered string, so a
+     message survives a language switch without being re-computed.
+
+     Two channels, two jobs, and conflating them is the usual mistake. A field
+     error is DESCRIBED through aria-describedby and is never announced. A
+     failed submit is ANNOUNCED through the alert role, which carries an
+     assertive politeness and interrupts. Assertive is right for a submit that
+     did not happen and wrong for a character the guest is still typing.
+
+     The newer ARIA error-message attribute is deliberately not used anywhere
+     here, and its absence is a decision rather than an oversight. MDN
+     recommends it, but its screen reader support is materially weaker than
+     aria-describedby, and this site's audience is on phones running VoiceOver
+     and TalkBack.
+     ---------------------------------------------------------------------- */
+
+  function validateName(v) {
+    // Trimmed first, because the database bound is computed on the trimmed
+    // value and a name of sixty spaces is not a name.
+    var s = (v || '').trim();
+    if (!s) return 'enrol.err.nameRequired';
+    if (s.length > 60) return 'enrol.err.nameLong';
+    return null;
+  }
+
+  function validateNote(v) {
+    return (v || '').length > 500 ? 'enrol.err.noteLong' : null;
+  }
+
+  function validateGuests(v) {
+    var max = maxGuests();
+    var n = parseInt(v, 10);
+    if (isNaN(n) || n < 0 || n > max) return 'enrol.err.guestsRange';
+    return null;
+  }
+
+  // The closest lookup guarded and the manual walk kept as the fallback, the
+  // same shape wireLocation() uses.
+  function fieldWrap(el) {
+    var node = (el && el.closest) ? el.closest('.field') : null;
+    if (node) return node;
+
+    node = el ? el.parentNode : null;
+    while (node && node.classList) {
+      if (node.classList.contains('field')) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  /* The sole owner of the aria wiring, so no call site can set half of it and
+     leave a control that looks invalid and reads as fine, or the reverse. The
+     copy key is stored on the control so a language switch can re-render a
+     currently visible error without re-running validation. */
+  function showFieldError(input, errKey) {
+    var wrap = fieldWrap(input);
+    var err = document.getElementById(input.id + '-err');
+
+    if (errKey) {
+      input.setAttribute('aria-invalid', 'true');
+      if (wrap) wrap.setAttribute('data-invalid', 'true');
+      if (err) err.textContent = t(errKey);
+      input.setAttribute('data-errkey', errKey);
+      return;
+    }
+
+    input.setAttribute('aria-invalid', 'false');
+    if (wrap) wrap.setAttribute('data-invalid', 'false');
+    if (err) err.textContent = '';
+    input.removeAttribute('data-errkey');
+  }
+
+  function wireField(input, validate) {
+    input.addEventListener('blur', function () {
+      /* Untouched and empty says nothing at all. The guidance is explicit: do
+         not mark an empty required control invalid until the guest attempts to
+         submit, because they may still be working on it. Scolding somebody for
+         tabbing past a field they have not reached yet is the fastest way to
+         make a short form feel hostile. */
+      if (!input.value && !input.getAttribute('data-touched')) return;
+      showFieldError(input, validate(input.value));
+    });
+
+    input.addEventListener('input', function () {
+      input.setAttribute('data-touched', '1');
+      // Only while an error is already showing, so it clears the instant it is
+      // fixed and never appears mid-word.
+      if (input.getAttribute('aria-invalid') === 'true') {
+        showFieldError(input, validate(input.value));
+      }
+    });
+  }
+
+  /* The radiogroup is absent from this list by construction: it carries a
+     checked default and cannot hold an invalid value. enrol.err.guestsRange
+     exists for the select branch and for a tampered DOM. */
+  function fieldValidators(form) {
+    var out = [];
+
+    var name = $('#enrol-name', form);
+    if (name) out.push({ input: name, validate: validateName });
+
+    var guests = $('#enrol-guests', form);
+    if (guests && guests.tagName === 'SELECT') {
+      out.push({ input: guests, validate: validateGuests });
+    }
+
+    var note = $('#enrol-note', form);
+    if (note) out.push({ input: note, validate: validateNote });
+
+    return out;
+  }
+
+  // Populates every error node and hands back the first invalid control, so the
+  // caller can move focus to it rather than leaving the guest to hunt.
+  function validateAll(form) {
+    var first = null;
+
+    fieldValidators(form).forEach(function (pair) {
+      var key = pair.validate(pair.input.value);
+      showFieldError(pair.input, key);
+      if (key && !first) first = pair.input;
+    });
+
+    return first;
+  }
+
+  /* One .field row: label, control, hint, error. The error node exists from the
+     first render and is empty when the field is valid, so aria-describedby is
+     written once in markup and is never added or removed, which is where most
+     hand rolled forms break screen readers. An empty node contributes nothing
+     to the accessible description, so this is correct in the valid state too. */
+  function buildField(spec) {
+    var wrap = document.createElement('div');
+    wrap.className = 'field';
+    wrap.setAttribute('data-invalid', 'false');
+
+    /* A radiogroup is labelled by this node through aria-labelledby rather than
+       wrapped in a fieldset and legend: a legend inside a grid container has
+       documented layout bugs in Safari, and every workaround either duplicates
+       the string into two nodes or hacks the legend out of flow. One string,
+       one node, byte identical semantics. */
+    var label = document.createElement(spec.group ? 'p' : 'label');
+    label.className = 'field__label';
+    label.setAttribute('data-i18n', spec.labelKey);
+    label.textContent = t(spec.labelKey);
+    if (spec.group) label.id = spec.id + '-label';
+    else label.setAttribute('for', spec.id);
+    wrap.appendChild(label);
+
+    var control = document.createElement('div');
+    control.className = 'field__control';
+    control.appendChild(spec.control);
+
+    var hint = document.createElement('p');
+    hint.className = 'field__hint';
+    hint.id = spec.id + '-hint';
+    hint.setAttribute('data-i18n', spec.hintKey);
+    hint.textContent = t(spec.hintKey);
+    control.appendChild(hint);
+
+    var err = document.createElement('p');
+    err.className = 'field__err';
+    err.id = spec.id + '-err';
+    control.appendChild(err);
+
+    wrap.appendChild(control);
+    return wrap;
+  }
+
+  /* Zero placeholder attributes anywhere in this phase, and that is a decision
+     rather than an omission: a placeholder is not a label, it vanishes the
+     moment somebody types, and it is one more string whose contrast has to be
+     defended. Every field is labelled with words that stay on the screen. */
+  function buildNameInput(value) {
+    var el = document.createElement('input');
+    el.className = 'field__input';
+    el.id = 'enrol-name';
+    el.name = 'name';
+    el.type = 'text';
+    el.setAttribute('maxlength', '60');
+    el.setAttribute('required', 'required');
+    el.setAttribute('autocomplete', 'name');
+    el.setAttribute('autocapitalize', 'words');
+    el.setAttribute('autocorrect', 'off');
+    el.setAttribute('spellcheck', 'false');
+    el.setAttribute('enterkeyhint', 'next');
+    el.setAttribute('aria-describedby', 'enrol-name-hint enrol-name-err');
+    if (value) el.value = value;
+    return el;
+  }
+
+  /* A segmented radio group is one tap for a three value choice, shows every
+     option at once, needs nothing opened or closed, and reuses the selected
+     segment grammar .langswitch already ships. A stepper would put a disabled
+     control on the happy path and a native picker is three interactions on iOS.
+
+     Above four values the segments no longer fit at 320px and the field renders
+     as a native select over the same range instead. That is the documented
+     overflow branch, not a fallback. */
+  function buildGuestsControl(max, value) {
+    if (max > 4) {
+      var sel = document.createElement('select');
+      sel.className = 'field__select';
+      sel.id = 'enrol-guests';
+      sel.name = 'extra_guests';
+      sel.setAttribute('aria-describedby', 'enrol-guests-hint enrol-guests-err');
+      for (var i = 0; i <= max; i++) {
+        var opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = String(i);
+        if (i === value) opt.selected = true;
+        sel.appendChild(opt);
+      }
+      return sel;
+    }
+
+    var set = document.createElement('div');
+    set.className = 'segset';
+    set.id = 'enrol-guests';
+    set.setAttribute('role', 'radiogroup');
+    set.setAttribute('aria-labelledby', 'enrol-guests-label');
+    set.setAttribute('aria-describedby', 'enrol-guests-hint enrol-guests-err');
+
+    for (var j = 0; j <= max; j++) {
+      var seg = document.createElement('label');
+      seg.className = 'seg';
+
+      // Visually hidden and fully real: the native inputs still supply the
+      // grouping, the arrow key roving and the checked state for free.
+      var radio = document.createElement('input');
+      radio.className = 'sr-only';
+      radio.type = 'radio';
+      radio.name = 'extra_guests';
+      radio.value = String(j);
+      if (j === value) radio.checked = true;
+
+      var face = document.createElement('span');
+      face.textContent = String(j);
+
+      seg.appendChild(radio);
+      seg.appendChild(face);
+      set.appendChild(seg);
+    }
+    return set;
+  }
+
+  function buildNoteControl(value) {
+    var el = document.createElement('textarea');
+    el.className = 'field__textarea';
+    el.id = 'enrol-note';
+    el.name = 'note';
+    el.setAttribute('rows', '3');
+    el.setAttribute('maxlength', '500');
+    el.setAttribute('autocapitalize', 'sentences');
+    el.setAttribute('enterkeyhint', 'done');
+    el.setAttribute('aria-describedby', 'enrol-note-hint enrol-note-err');
+    if (value) el.value = value;
+    return el;
+  }
+
+  /* Name, guests, note, in that order and for one reason: name is required and
+     is the fastest field on the page because autocomplete fills it in a single
+     tap, guest count is one tap so it costs nothing in the middle, and the note
+     is the only field that costs typing, so it goes last and a guest who does
+     not want it reaches the submit with their thumb already moving down. */
+  function buildForm(mode) {
+    var ident = identity.get();
+    var max = maxGuests();
+
+    var form = document.createElement('form');
+    form.id = 'enrol-form';
+    form.className = 'enrol-form';
+    /* novalidate suppresses the browser's own validation bubbles. They are
+       unstyleable, wrongly registered, and rendered in the browser's language
+       rather than the site's, which breaks trilingual parity the first time a
+       Danish guest with an English browser leaves the name blank. */
+    form.setAttribute('novalidate', 'novalidate');
+    form.setAttribute('data-state', 'idle');
+    if (mode === 'edit') form.setAttribute('data-mode', 'edit');
+
+    form.appendChild(buildField({
+      id: 'enrol-name',
+      labelKey: 'enrol.form.name.label',
+      hintKey: 'enrol.form.name.hint',
+      control: buildNameInput(ident.name || '')
+    }));
+
+    // Zero extra guests permitted: the whole field is absent rather than a one
+    // option control, and the request sends zero.
+    if (max > 0) {
+      form.appendChild(buildField({
+        id: 'enrol-guests',
+        // Only the radiogroup branch is labelled by reference. The select
+        // branch is a real control and takes a real label with a for.
+        group: max <= 4,
+        labelKey: 'enrol.form.guests.label',
+        hintKey: 'enrol.form.guests.hint',
+        control: buildGuestsControl(max, clampGuests(ident.extra_guests, max))
+      }));
+    }
+
+    form.appendChild(buildField({
+      id: 'enrol-note',
+      labelKey: 'enrol.form.note.label',
+      hintKey: 'enrol.form.note.hint',
+      control: buildNoteControl(ident.note || '')
+    }));
+
+    /* In the DOM from the first render, hidden, and unhidden and filled on
+       failure. Many screen readers will not announce a live region that is
+       inserted at the same moment its content is written. It sits directly
+       above the action row so the message and the retry button are one object
+       under the thumb. */
+    var alertBox = document.createElement('div');
+    alertBox.id = 'enrol-alert';
+    alertBox.className = 'form-alert';
+    alertBox.setAttribute('role', 'alert');
+    alertBox.hidden = true;
+    form.appendChild(alertBox);
+
+    var actions = document.createElement('div');
+    actions.className = 'enrol-actions';
+
+    /* The same component and the same keyframe the map waiting state already
+       uses, so the page has one vocabulary for "something is happening" rather
+       than two. Empty by design: it says nothing a screen reader needs, because
+       the button label beside it says all of it in words. No spinner glyph,
+       which would be a hand drawn shape this project has refused twice, and no
+       percentage, which would be a fabricated progress claim. */
+    var bar = document.createElement('div');
+    bar.className = 'sweep';
+    actions.appendChild(bar);
+
+    /* Bound to the form's submit event rather than to a click on this button,
+       so Enter in the name field submits. */
+    var submit = document.createElement('button');
+    submit.type = 'submit';
+    submit.id = 'enrol-submit';
+    submit.className = 'btn btn--primary';
+    // Not data-i18n: the label depends on data-state, and the sweep would put
+    // enrol.submit back on a button that should be reading enrol.retry.
+    submit.textContent = t('enrol.submit');
+    actions.appendChild(submit);
+
+    form.appendChild(actions);
+
+    /* Attached here rather than in a wire function, and it is the sanctioned
+       exception rather than a slip: this form is built exactly once and
+       persists for the life of the page, so these listeners cannot stack on a
+       language switch the way a listener inside a re-rendering function would. */
+    fieldValidators(form).forEach(function (pair) { wireField(pair.input, pair.validate); });
+
+    return form;
+  }
+
+  /* One attribute drives everything. CSS reads it, JS sets it, and there is no
+     class juggling and no second flag. Every branch of the submit path ends in
+     a call to this, so no code path can leave the button locked. */
+  function setFormState(form, state) {
+    form.setAttribute('data-state', state);
+
+    var busy = (state === 'submitting');
+    $$('input, select, textarea, button', form).forEach(function (el) { el.disabled = busy; });
+
+    var btn = $('#enrol-submit', form);
+    if (!btn) return;
+
+    btn.textContent = busy ? t('enrol.submitting')
+                   : (state === 'failure' ? t('enrol.retry') : t('enrol.submit'));
+    // A disabled button on its own tells a screen reader nothing about why.
+    btn.setAttribute('aria-busy', busy ? 'true' : 'false');
+  }
+
+  function showAlert(form) {
+    var box = $('#enrol-alert', form);
+    if (!box) return;
+
+    box.textContent = '';
+
+    /* A PostgREST message string is never rendered here. Those are English,
+       unstable, and leak table and constraint names. Every failure maps to the
+       same pair of copy keys, which name the problem, name the recovery, and
+       say that nothing the guest typed was lost. */
+    var title = document.createElement('p');
+    title.className = 'form-alert__t';
+    title.setAttribute('data-i18n', 'enrol.fail.title');
+    title.textContent = t('enrol.fail.title');
+    box.appendChild(title);
+
+    var body = document.createElement('p');
+    body.className = 'form-alert__b';
+    body.setAttribute('data-i18n', 'enrol.fail.body');
+    body.textContent = t('enrol.fail.body');
+    box.appendChild(body);
+
+    box.hidden = false;
+  }
+
+  function hideAlert(form) {
+    var box = $('#enrol-alert', form);
+    if (!box) return;
+    box.hidden = true;
+    box.textContent = '';
+  }
+
+  function recordRow(labelKey, value) {
+    var row = document.createElement('div');
+    row.className = 'facts__row';
+
+    var dt = document.createElement('dt');
+    dt.setAttribute('data-i18n', labelKey);
+    dt.textContent = t(labelKey);
+    row.appendChild(dt);
+
+    // Guest input reaches the DOM here and only ever through textContent. This
+    // is the first phase where a markup string near this value would be
+    // exploitable rather than untidy.
+    var dd = document.createElement('dd');
+    dd.textContent = value;
+    row.appendChild(dd);
+
+    return row;
+  }
+
+  /* The receipt, in the fact table's own grammar. One component, two hosts.
+
+     Echoing the note back is the answer to the honesty gap the note field
+     carries: it is structurally unreadable from the database forever, so this
+     echo from the guest's own device is the only confirmation they will ever
+     get that it arrived. It costs nothing, because it is already in storage. */
+  function buildRecord(rec) {
+    var list = document.createElement('dl');
+    list.className = 'facts facts--record';
+
+    list.appendChild(recordRow('enrol.record.name', rec.name));
+
+    // A bare 0 in a receipt reads as a missing value. facts.location.tbd
+    // already set the precedent for a worded value in this table.
+    list.appendChild(recordRow(
+      'enrol.record.guests',
+      rec.extra_guests > 0 ? String(rec.extra_guests) : t('enrol.record.guests.none')
+    ));
+
+    // Absent entirely rather than filled with an n/a, matching the practical
+    // notes discipline next door.
+    if (rec.note) list.appendChild(recordRow('enrol.record.note', rec.note));
+
+    return list;
+  }
+
+  function panelHeading(key, focusable) {
+    var head = document.createElement('h3');
+    head.className = 'sub-h';
+    head.setAttribute('data-i18n', key);
+    head.textContent = t(key);
+    if (focusable) {
+      head.id = 'enrol-success-title';
+      head.setAttribute('tabindex', '-1');
+    }
+    return head;
+  }
+
+  /* A registration receipt, not a celebration. The roadmap's done-when sentence
+     lives in this panel. */
+  function buildSuccessPanel(rec) {
+    var panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.setAttribute('data-panel', 'success');
+
+    panel.appendChild(panelHeading('enrol.success.title', true));
+
+    var lede = document.createElement('p');
+    lede.className = 'panel__lede';
+    lede.setAttribute('data-i18n', 'enrol.success.lede');
+    lede.textContent = t('enrol.success.lede');
+    panel.appendChild(lede);
+
+    panel.appendChild(buildRecord(rec));
+
+    /* The registration is in the database and could not be amended, because the
+       owner has not re-run the schema file yet. Nothing failed, so this is not
+       the alert banner, and it is one line rather than a nested panel. */
+    if (amendPending) {
+      var stale = document.createElement('p');
+      stale.className = 'panel__pending';
+      stale.setAttribute('data-i18n', 'enrol.amend.pending');
+      stale.textContent = t('enrol.amend.pending');
+      panel.appendChild(stale);
+    }
+
+    /* The group position. whatsapp.inviteUrl is null and that is the shipping
+       state, so it holds one dim line naming the state and the next thing that
+       will happen. Not a pending panel, which would be a nested card, and not a
+       disabled button, because absent beats broken. Plan 04 puts the real
+       button here the day the owner supplies a link. */
+    if (!(CFG.whatsapp || {}).inviteUrl) {
+      var group = document.createElement('p');
+      group.className = 'panel__pending';
+      group.setAttribute('data-i18n', 'enrol.success.group.pending');
+      group.textContent = t('enrol.success.group.pending');
+      panel.appendChild(group);
+    }
+
+    return panel;
+  }
+
+  /* Rendered entirely from storage and never from a fetch, because the database
+     is structurally incapable of answering the question and a blocked read
+     comes back as an empty array rather than as an error. There is no loading
+     state here for exactly that reason.
+
+     Deliberately not the success panel with a flag: they are near identical in
+     content and opposite in purpose, and one component with a flag produces a
+     withdraw button at the instant of celebration. Plan 05 adds the controls. */
+  function buildReturnPanel(rec) {
+    var panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.setAttribute('data-panel', 'return');
+
+    panel.appendChild(panelHeading('enrol.return.title', false));
+
+    /* Carries a substitution token, so it is written here rather than left to
+       the data-i18n sweep, which would overwrite the guest's own name with the
+       raw template. Exactly how renderDeadline() already handles the hero
+       deadline's date token. */
+    var lede = document.createElement('p');
+    lede.className = 'panel__lede';
+    lede.textContent = t('enrol.return.lede').replace('{name}', rec.name);
+    panel.appendChild(lede);
+
+    panel.appendChild(buildRecord(rec));
+    return panel;
+  }
+
+  function storedRecord() {
+    var ident = identity.get();
+    return { name: ident.name || '', extra_guests: ident.extra_guests, note: ident.note };
+  }
+
+  function mountPanel(host, panel) {
+    host.appendChild(panel);
+    // Next frame, so the fade actually runs from the hidden state. Same idiom
+    // as showNudge(), toast() and the map frame, for the same reason.
+    requestAnimationFrame(function () { panel.setAttribute('data-show', '1'); });
+  }
+
+  /* Re-applies to the persistent form everything the data-i18n sweep cannot.
+     The sweep re-translates every static label, hint and heading for free; what
+     it cannot do is the submit label, which depends on data-state, and a
+     currently visible field error, which is re-rendered from the copy key
+     stored on the control rather than by re-running validation. */
+  function syncFormLanguage(form) {
+    if (!form) return;
+
+    setFormState(form, form.getAttribute('data-state') || 'idle');
+
+    $$('[data-errkey]', form).forEach(function (el) {
+      var node = document.getElementById(el.id + '-err');
+      if (node) node.textContent = t(el.getAttribute('data-errkey'));
+    });
+  }
+
+  /* renderLocation()'s shape exactly: null-guard the host, branch rather than
+     early return, and reconcile the persistent child instead of rebuilding it.
+
+     The form is built once and persists. #enrol-body is swapped only when the
+     body state actually changes, so a language switch re-translates the labels
+     through the existing sweep and cannot destroy a typed value or move the
+     caret out from under somebody mid-sentence. */
+  function renderEnrollment() {
+    var host = $('#enrol-body');
+    if (!host) return;
+
+    var ident = identity.get();
+    var body;
+
+    /* Either credential blank, or a browser that cannot mint an identity at
+       all. Both get the inherited pending block, and neither renders
+       #enrol-form, so enrollmentReady() stays false and the nudge bar stays
+       down rather than pointing at a placeholder. */
+    if (!sbConfigured() || !IDENTITY_OK) body = 'pending';
+    else if (successShown) body = 'success';
+    // A guest_id with no name is not a registration, so it renders the form.
+    else if (ident.enrolled && ident.name) body = 'return';
+    else body = 'form';
+
+    if (body === 'form' && host.getAttribute('data-body') === 'form') {
+      syncFormLanguage($('#enrol-form', host));
+      return;
+    }
+
+    host.textContent = '';          // discards the static pending markup
+    host.setAttribute('data-body', body);
+
+    if (body === 'pending') {
+      host.appendChild(pendingBlock('enrol.pending.title', 'enrol.pending.body'));
+      return;
+    }
+
+    if (body === 'form') {
+      host.appendChild(buildForm('new'));
+      return;
+    }
+
+    mountPanel(host, body === 'success'
+      ? buildSuccessPanel(storedRecord())
+      : buildReturnPanel(storedRecord()));
+  }
+
+  /* Every enrollment mutation runs this one function rather than three calls
+     from four places. The deadline line hides once a guest is enrolled and the
+     bar has to be told the state changed, and neither is only a language
+     concern. Order matters here for the same reason it matters in the language
+     chain: the bar reads the form's existence. */
+  function refreshEnrollmentState() {
+    renderEnrollment();
+    renderDeadline();
+    renderNudge();
+  }
+
+  function readGuests(form) {
+    var max = maxGuests();
+    if (max <= 0) return 0;
+
+    var control = $('#enrol-guests', form);
+    var raw = '0';
+
+    if (control && control.tagName === 'SELECT') {
+      raw = control.value;
+    } else {
+      var checked = $('input[name="extra_guests"]:checked', form);
+      if (checked) raw = checked.value;
+    }
+
+    // Parsed base 10 and clamped before sending, so a string never reaches a
+    // smallint column and the config bound, which is tighter than the database
+    // one, is the bound the UI enforces.
+    return clampGuests(parseInt(raw, 10), max);
+  }
+
+  function readFields(form) {
+    var nameEl = $('#enrol-name', form);
+    var noteEl = $('#enrol-note', form);
+
+    // Trimmed, because the database bound is computed on the trimmed value.
+    var name = nameEl ? nameEl.value.trim() : '';
+    var note = noteEl ? noteEl.value.trim() : '';
+
+    return {
+      name: name,
+      extra_guests: readGuests(form),
+      // Never the empty string. An empty note must be a null in the owner's
+      // dashboard rather than a column of blank cells.
+      note: note ? note : null
+    };
+  }
+
+  function focusSuccessHeading() {
+    var head = $('#enrol-success-title');
+    // The focus move is what announces the change to a screen reader user whose
+    // focus was on a submit button that no longer exists, and what brings the
+    // new content into view for everyone else. The panel deliberately carries
+    // no alert role as well: doing both reads as a stutter.
+    if (head && head.focus) head.focus();
+  }
+
+  function handleSubmit(form) {
+    if (form.getAttribute('data-state') === 'submitting') return;
+
+    /* Validate everything, populate every error node, and move focus to the
+       first control that is wrong. This branch terminates in a setFormState
+       call like every other one, so there is no path out of here that leaves
+       the button locked. The state is carried through rather than reset,
+       because a form that already failed on the wire must keep reading
+       enrol.retry while the guest fixes a field. */
+    var invalid = validateAll(form);
+    if (invalid) {
+      setFormState(form, form.getAttribute('data-state') === 'failure' ? 'failure' : 'idle');
+      if (invalid.focus) invalid.focus();
+      return;
+    }
+
+    hideAlert(form);
+
+    var ident = identity.get();
+
+    /* Minted on the first submit and written to storage before the request goes
+       out, so a lost response cannot orphan a row. A second submit from this
+       browser reuses it, and the unique constraint turns that into an amendment
+       rather than a second row. */
+    if (!ident.guest_id) {
+      var fresh = newGuestId();
+      if (!fresh) { setFormState(form, 'failure'); showAlert(form); return; }
+      store.set('guest_id', fresh);
+      ident.guest_id = fresh;
+    }
+
+    var fields = readFields(form);
+
+    setFormState(form, 'submitting');
+
+    submitEnrollment(fields, ident).then(function (res) {
+      if (res.result === 'ok' || res.result === 'pending') {
+        /* The registration exists in the database on both branches: the ok one
+           wrote it, and the pending one proved it with a 409 before finding the
+           amend function missing. Storage is the only place a receipt can come
+           from, so it is written on both, and the pending branch says plainly
+           in the panel that the change itself is not recorded yet. */
+        amendPending = (res.result === 'pending');
+        identity.save({
+          guest_id: ident.guest_id,
+          name: fields.name,
+          extra_guests: fields.extra_guests,
+          note: fields.note,
+          enrolled: true
+        });
+
+        setFormState(form, 'success');
+        successShown = true;
+        refreshEnrollmentState();
+        focusSuccessHeading();
+        return;
+      }
+
+      setFormState(form, 'failure');
+      showAlert(form);
+    });
+  }
+
+  /* Delegated from the stable container and wired once from init(), because a
+     listener attached inside a render function stacks a duplicate on every
+     language switch. The closest lookup is guarded and keeps the manual check
+     as a fallback, exactly as wireLocation() does. */
+  function wireEnrollment() {
+    var host = $('#enrol-body');
+    if (!host) return;
+
+    host.addEventListener('submit', function (ev) {
+      var node = ev.target;
+      var form = (node && node.closest) ? node.closest('#enrol-form') : null;
+      if (!form && node && node.id === 'enrol-form') form = node;
+      if (!form) return;
+
+      ev.preventDefault();
+      handleSubmit(form);
+    });
+  }
+
+  /* ======================================================================
      ENROLLMENT DEADLINE and NUDGE
-     The form itself arrives in phase 3. The pressure to use it is built
-     here, because it depends only on the clock.
+     The pressure to register, which depends only on the clock. The form it
+     points at is built above; the gate below reads that form's existence and
+     is deliberately not touched by it.
 
      Rule: an enrolled guest is never nudged again. Nagging someone who has
      already done the thing is the fastest way to lose them.
@@ -1231,6 +2282,7 @@
     lang = resolveInitialLang();
     wireNudge();
     wireLocation();
+    wireEnrollment();
     applyLanguage();
     startClock();
 

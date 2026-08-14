@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 1
+open_count: 3
 waived_count: 0
 fixed_count: 0
-total_count: 1
-last_updated: 2026-08-14T08:50:26.039Z
+total_count: 3
+last_updated: 2026-08-14T18:43:16.602Z
 ---
 
 # Broken Windows Ledger
@@ -16,6 +16,8 @@ last_updated: 2026-08-14T08:50:26.039Z
 | id | phase | kind | file | line | description | status | reason | recorded_at | resolved_at |
 |----|-------|------|------|------|-------------|--------|--------|-------------|-------------|
 | 1 | 02 | unrun-verify | .planning/phases/02-practical-information/02-DEVICE-PASS.md |  | The D-23 real device pass and the blocked network check for the 02-05 map fallback are owed on real hardware; ACC-01, DEL-02 and DEL-03 stay unchecked until that sheet is filled | open |  | 2026-08-14T08:50:26.039Z |  |
+| 2 | 03 | unrun-verify | .planning/phases/03-enrollment-identity-and-the-group/03-DEVICE-PASS.md |  | The 03-01 rendered half is unproven: the device pass (enrol end to end on iOS Safari and Android Chrome, no viewport zoom on focus, nudge bar clearance, VoiceOver and TalkBack announcement of a field error versus a submit failure, reduced motion sweep parked at full width) has not been run on real hardware | open |  | 2026-08-14T18:43:04.952Z |  |
+| 3 | 03 | stub | app.js |  | buildSuccessPanel renders nothing at the group CTA position when whatsapp.inviteUrl is truthy; the dim enrol.success.group.pending line covers the null case, which is the shipping state, and plan 04 owns whatsappButton() for the configured case | open |  | 2026-08-14T18:43:16.602Z |  |
 
 ````json
 [
@@ -30,6 +32,31 @@ last_updated: 2026-08-14T08:50:26.039Z
     "reason": "",
     "recorded_at": "2026-08-14T08:50:26.039Z",
     "resolved_at": null
+  },
+  {
+    "id": 2,
+    "kind": "unrun-verify",
+    "phase": "03",
+    "file": ".planning/phases/03-enrollment-identity-and-the-group/03-DEVICE-PASS.md",
+    "line": null,
+    "description": "The 03-01 rendered half is unproven: the device pass (enrol end to end on iOS Safari and Android Chrome, no viewport zoom on focus, nudge bar clearance, VoiceOver and TalkBack announcement of a field error versus a submit failure, reduced motion sweep parked at full width) has not been run on real hardware",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-14T18:43:04.952Z",
+    "resolved_at": null
+  },
+  {
+    "id": 3,
+    "kind": "stub",
+    "phase": "03",
+    "file": "app.js",
+    "line": null,
+    "description": "buildSuccessPanel renders nothing at the group CTA position when whatsapp.inviteUrl is truthy; the dim enrol.success.group.pending line covers the null case, which is the shipping state, and plan 04 owns whatsappButton() for the configured case",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-14T18:43:16.602Z",
+    "resolved_at": null
   }
 ]
 ````
+
