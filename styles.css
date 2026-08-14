@@ -1583,6 +1583,50 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
 }
 
 /* --------------------------------------------------------------------------
+   The two group CTAs.
+
+   Written HERE rather than up in the button region where they belong by
+   subject, for the reason the inline link block already records: both selectors
+   weigh exactly the same as .btn, .btn sits earlier in this file, and a height
+   written in its correct subject block would have lost silently. Fourth time in
+   this project. Do not tidy it upwards.
+
+   Only what differs from the base button is set. Everything else is
+   .btn--primary unchanged, and no new class is introduced for the section
+   itself. The unused legacy handoff class further up is not adopted: it carries
+   a side stripe this phase committed to not spreading to a new usage, and phase
+   5's pre flight owns deleting it or taking it global.
+   -------------------------------------------------------------------------- */
+
+/* The phase's second headline action, so it stands exactly where the submit
+   button stands. 44px is the floor, not the target. */
+.panel__wa { min-height: 52px; }
+
+@media (pointer: coarse) {
+  .panel__wa { min-height: 56px; }
+  /* Secondary reachability rather than the moment, so one step over the
+     inherited 48 where the panel's button takes two. */
+  .wa__cta { min-height: 52px; }
+}
+
+/* The same full bleed stack .hero__actions, .dirs and the submit button already
+   take. A ragged auto width button under a thumb reads as an accident. */
+@media (max-width: 480px) {
+  .panel__wa, .wa__cta { width: 100%; }
+}
+
+/* The framing line above the success panel's button. Body copy in the dim ink,
+   and a different job from the pending line directly above it in the source:
+   this one says what the group is for, that one says the group does not exist
+   yet. They are never both rendered. */
+.panel__handoff {
+  color: var(--ink-dim);
+  margin-top: var(--s-6);
+  margin-bottom: var(--s-5);
+  max-width: 62ch;
+}
+
+/* --------------------------------------------------------------------------
    Reduced motion. Mandatory. The arc becomes tonal rather than kinetic.
    -------------------------------------------------------------------------- */
 
