@@ -107,6 +107,8 @@ window.PARTY_COPY = {
     'loc.google': 'Open in Google Maps',
     'loc.apple': 'Open in Apple Maps',
     'loc.maptitle': 'Map showing the party location',
+    'loc.map.loading': 'Map loading. The address above works without it.',
+    'loc.map.blocked': 'The map did not load. Use the address or the directions buttons above.',
 
     'access.heading': 'Building access',
     'access.lede': 'The single most useful section on this page. Watch this before you arrive, or while standing outside wondering which door is the right one.',
@@ -224,6 +226,8 @@ window.PARTY_COPY = {
     'loc.google': 'Apri in Google Maps',
     'loc.apple': 'Apri in Apple Maps',
     'loc.maptitle': 'Mappa con la sede della festa',
+    'loc.map.loading': 'Mappa in caricamento. L’indirizzo qui sopra funziona anche senza.',
+    'loc.map.blocked': 'La mappa non si è caricata. Usa l’indirizzo o i pulsanti qui sopra.',
 
     'access.heading': 'Accesso all’edificio',
     'access.lede': 'La sezione più utile di questa pagina. Guardala prima di arrivare, oppure mentre sei fuori a chiederti quale sia la porta giusta.',
@@ -345,6 +349,8 @@ window.PARTY_COPY = {
     'loc.google': 'Åbn i Google Maps',
     'loc.apple': 'Åbn i Apple Maps',
     'loc.maptitle': 'Kort der viser festens placering',
+    'loc.map.loading': 'Kortet indlæses. Adressen ovenfor virker også uden.',
+    'loc.map.blocked': 'Kortet blev ikke indlæst. Brug adressen eller knapperne ovenfor.',
 
     'access.heading': 'Adgang til bygningen',
     'access.lede': 'Den mest nyttige sektion på denne side. Se den, før du ankommer, eller mens du står udenfor og tænker over, hvilken dør der er den rigtige.',

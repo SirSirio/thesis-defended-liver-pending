@@ -604,6 +604,101 @@ a { color: inherit; }
 }
 
 /* --------------------------------------------------------------------------
+   The map slot. The house panel recipe minus the accent side rule, because no
+   NEW component in this phase introduces a side stripe.
+
+   Fixed ratio on purpose: the box is exactly the same height empty, waiting
+   and loaded, so nothing on the page moves when Google finally answers. A
+   guest reading the address must never have it jump out from under a thumb.
+   -------------------------------------------------------------------------- */
+
+.map-slot {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  margin-top: var(--s-6);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  aspect-ratio: 4 / 3;
+}
+
+/* Narrow screens get the taller box. A map is only useful here if it shows two
+   streets crossing, and that is a vertical measurement, not a horizontal one. */
+@media (min-width: 560px) {
+  .map-slot { aspect-ratio: 16 / 10; }
+}
+
+.map-wait {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-5);
+}
+
+/* The copy is the design here, not the texture. It answers the only question
+   the guest actually has during these seconds, which is whether they have to
+   wait for this. --ink-dim is 7.15:1 on --surface. */
+.map-wait__line {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  text-align: center;
+  text-wrap: balance;
+  max-width: 34ch;
+}
+
+/* Two parts: this strip is the clipping window pinned to the top edge, and the
+   pseudo element is the quarter width piece that travels across it. It reads
+   as the progress rule at the top of a document viewer, which is the correct
+   register for a page pretending to be courseware.
+
+   --accent-lit, never --accent: the fill red is 2.06:1 against this surface,
+   which is below even the 3:1 non text floor, and it was invisible. */
+.map-wait__bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  overflow: hidden;
+}
+
+.map-wait__bar::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 25%;
+  height: 100%;
+  background: var(--accent-lit);
+  /* linear is the one sanctioned exception to the token easing curves.
+     Constant indeterminate motion must not accelerate, because acceleration
+     reads as progress and there is no progress here to report. Transform
+     only, so this never touches layout. */
+  animation: map-sweep 1100ms linear infinite;
+}
+
+@keyframes map-sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(400%); }
+}
+
+/* Required, not redundant. The global reduced motion block collapses
+   transitions and clamps animations to a single 0.01ms pass, which leaves this
+   bar sitting wherever that pass dropped it. So it is stopped explicitly and
+   parked at full width, dimmed. The line underneath already carries the
+   meaning, so nothing is lost by holding still. */
+@media (prefers-reduced-motion: reduce) {
+  .map-wait__bar::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.35;
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
    Footer
    -------------------------------------------------------------------------- */
 

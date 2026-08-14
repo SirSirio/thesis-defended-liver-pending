@@ -338,96 +338,166 @@
       data.textContent = '';
     }
 
+    /* Branch rather than early return, because the map slot below has to be
+       reconciled in both directions. An address that is later blanked must
+       take its map with it, and that only happens if the last line runs on
+       every path through this function. */
     var address = typeof venue.address === 'string' ? venue.address : '';
     if (!address) {
       data.appendChild(pendingBlock('loc.pending.title', 'loc.pending.body'));
+    } else {
+      var box = document.createElement('div');
+      box.className = 'addr';
+
+      var label = document.createElement('p');
+      label.className = 'addr__label';
+      label.textContent = t('loc.address');
+      box.appendChild(label);
+
+      var value = document.createElement('p');
+      value.className = 'addr__value';
+
+      /* Split on the first comma only: street on one line, postcode and city and
+         country on the second. Two short lines are read in one glance outdoors,
+         a single line wrapping wherever a 340px screen decides is not. This is
+         presentation only. venue.address stays intact for the copy action and
+         the map URLs, which must never be rebuilt out of the rendered lines. */
+      var lines = [];
+      var cut = address.indexOf(',');
+      if (cut === -1) {
+        lines.push(address);
+      } else {
+        lines.push(address.slice(0, cut));
+        lines.push(address.slice(cut + 1).replace(/^\s+/, ''));
+      }
+      for (var i = 0; i < lines.length; i++) {
+        var line = document.createElement('span');
+        line.textContent = lines[i];
+        value.appendChild(line);
+      }
+      box.appendChild(value);
+
+      if (venue.note) {
+        var note = document.createElement('p');
+        note.className = 'addr__note';
+        note.textContent = venue.note;
+        box.appendChild(note);
+      }
+
+      data.appendChild(box);
+
+      /* Actions sit in their own row below the address. This block is only ever
+         reached with an address in hand, so there is no disabled button and no
+         dead affordance anywhere in the section. Absent beats greyed out. */
+      var dirs = document.createElement('div');
+      dirs.className = 'dirs';
+
+      var urls = directionsUrls(address);
+
+      /* Google is the filled accent button because it works on every platform and
+         is the universal answer. That also keeps exactly one filled accent button
+         in this section, matching the hero and the nudge bar. */
+      var google = document.createElement('a');
+      google.className = 'btn btn--primary';
+      google.textContent = t('loc.google');
+      google.setAttribute('href', urls.google);
+      google.setAttribute('target', '_blank');
+      google.setAttribute('rel', 'noopener');
+      dirs.appendChild(google);
+
+      // Apple only where it can act, and absent from the DOM rather than hidden.
+      if (isApplePlatform()) {
+        var apple = document.createElement('a');
+        apple.className = 'btn btn--ghost';
+        apple.textContent = t('loc.apple');
+        apple.setAttribute('href', urls.apple);
+        apple.setAttribute('target', '_blank');
+        apple.setAttribute('rel', 'noopener');
+        dirs.appendChild(apple);
+      }
+
+      /* Copy goes last. Both handoffs belong under the thumb, and copying an
+         address is the least urgent of the three things a guest does here.
+
+         No loading state and no error state on either handoff: this is a
+         navigation handoff, the OS owns the transition, and every heuristic for
+         whether a native app opened produces false negatives on slow devices.
+         That refusal is deliberate, and recorded so nobody adds one later. */
+      var copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'btn btn--ghost copybtn';
+      copy.textContent = t('loc.copy');
+      dirs.appendChild(copy);
+
+      data.appendChild(dirs);
+    }
+
+    renderMapSlot();
+  }
+
+  /* ----------------------------------------------------------------------
+     THE MAP SLOT
+
+     Last in the section because it is the slowest and least essential thing
+     in it. The address and both handoffs are already usable above, which is
+     the sentence the waiting copy exists to say out loud.
+
+     The slot is a sibling of #loc-data, not a child, and it is created once
+     and never rebuilt. #loc-data is emptied on every language switch, and
+     emptying a mounted map would send the guest's phone back to Google for a
+     second copy of tiles it already has, on mobile data, outdoors.
+     ---------------------------------------------------------------------- */
+
+  function renderMapSlot() {
+    var host = $('#location-body');
+    if (!host) return;
+
+    var venue = CFG.venue || {};
+    var address = typeof venue.address === 'string' ? venue.address : '';
+    var slot = $('#loc-map', host);
+
+    /* No address, no map. Nothing to point at, so the section falls back to
+       exactly one pending block and nothing else: no empty frame, no grey
+       rectangle standing in for a decision that has not been made. */
+    if (!address) {
+      if (slot && slot.parentNode) slot.parentNode.removeChild(slot);
       return;
     }
 
-    var box = document.createElement('div');
-    box.className = 'addr';
-
-    var label = document.createElement('p');
-    label.className = 'addr__label';
-    label.textContent = t('loc.address');
-    box.appendChild(label);
-
-    var value = document.createElement('p');
-    value.className = 'addr__value';
-
-    /* Split on the first comma only: street on one line, postcode and city and
-       country on the second. Two short lines are read in one glance outdoors,
-       a single line wrapping wherever a 340px screen decides is not. This is
-       presentation only. venue.address stays intact for the copy action and
-       the map URLs, which must never be rebuilt out of the rendered lines. */
-    var lines = [];
-    var cut = address.indexOf(',');
-    if (cut === -1) {
-      lines.push(address);
-    } else {
-      lines.push(address.slice(0, cut));
-      lines.push(address.slice(cut + 1).replace(/^\s+/, ''));
-    }
-    for (var i = 0; i < lines.length; i++) {
-      var line = document.createElement('span');
-      line.textContent = lines[i];
-      value.appendChild(line);
-    }
-    box.appendChild(value);
-
-    if (venue.note) {
-      var note = document.createElement('p');
-      note.className = 'addr__note';
-      note.textContent = venue.note;
-      box.appendChild(note);
+    /* The slot already exists, so this is a language switch. Update the
+       translated strings in place and touch nothing else. Rebuilding here is
+       what would cost the guest a second request. */
+    if (slot) {
+      var line = $('.map-wait__line', slot);
+      if (line) {
+        line.textContent = slot.getAttribute('data-state') === 'blocked'
+          ? t('loc.map.blocked')
+          : t('loc.map.loading');
+      }
+      return;
     }
 
-    data.appendChild(box);
+    slot = document.createElement('div');
+    slot.id = 'loc-map';
+    slot.className = 'map-slot';
+    slot.setAttribute('data-state', 'mounting');
 
-    /* Actions sit in their own row below the address. This block is only ever
-       reached with an address in hand, so there is no disabled button and no
-       dead affordance anywhere in the section. Absent beats greyed out. */
-    var dirs = document.createElement('div');
-    dirs.className = 'dirs';
+    var wait = document.createElement('div');
+    wait.className = 'map-wait';
 
-    var urls = directionsUrls(address);
+    // Empty by design: it is the loader bar, and it says nothing a screen
+    // reader needs, because the line below it says all of it in words.
+    var bar = document.createElement('div');
+    bar.className = 'map-wait__bar';
+    wait.appendChild(bar);
 
-    /* Google is the filled accent button because it works on every platform and
-       is the universal answer. That also keeps exactly one filled accent button
-       in this section, matching the hero and the nudge bar. */
-    var google = document.createElement('a');
-    google.className = 'btn btn--primary';
-    google.textContent = t('loc.google');
-    google.setAttribute('href', urls.google);
-    google.setAttribute('target', '_blank');
-    google.setAttribute('rel', 'noopener');
-    dirs.appendChild(google);
+    var text = document.createElement('p');
+    text.className = 'map-wait__line';
+    text.textContent = t('loc.map.loading');
+    wait.appendChild(text);
 
-    // Apple only where it can act, and absent from the DOM rather than hidden.
-    if (isApplePlatform()) {
-      var apple = document.createElement('a');
-      apple.className = 'btn btn--ghost';
-      apple.textContent = t('loc.apple');
-      apple.setAttribute('href', urls.apple);
-      apple.setAttribute('target', '_blank');
-      apple.setAttribute('rel', 'noopener');
-      dirs.appendChild(apple);
-    }
-
-    /* Copy goes last. Both handoffs belong under the thumb, and copying an
-       address is the least urgent of the three things a guest does here.
-
-       No loading state and no error state on either handoff: this is a
-       navigation handoff, the OS owns the transition, and every heuristic for
-       whether a native app opened produces false negatives on slow devices.
-       That refusal is deliberate, and recorded so nobody adds one later. */
-    var copy = document.createElement('button');
-    copy.type = 'button';
-    copy.className = 'btn btn--ghost copybtn';
-    copy.textContent = t('loc.copy');
-    dirs.appendChild(copy);
-
-    data.appendChild(dirs);
+    slot.appendChild(wait);
+    host.appendChild(slot);
   }
 
   var copyRevert = null;
