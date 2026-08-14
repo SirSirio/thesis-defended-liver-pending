@@ -784,6 +784,55 @@
     return pendingBlock('access.dir.pending.title', 'access.dir.pending.body');
   }
 
+  /* A literal ordered array rather than Object.keys, so the render order is a
+     property of this file and not of what an owner did to config.js at two in
+     the morning. Door questions first, because the section is written for
+     somebody already standing outside. What to bring and when to arrive are
+     read before leaving home, so they sit last. */
+  var NOTE_KEYS = ['entrance', 'floor', 'buzzer', 'parking', 'transit', 'bring', 'arrive'];
+
+  /* The page's own institutional list, reused rather than replaced by a card
+     grid. The density is part of the parody, and a guest who has already read
+     the course fact table knows how to read this the moment they see it.
+
+     Labels come from copy.js so a Danish guest never meets an English one.
+     Values come from config.js and are shown exactly as written in every
+     language. That is a documented tradeoff, not an oversight: an address
+     fragment like "3. sal" should not be translated, and a per language notes
+     object is a structure a non programmer would get wrong. */
+  function buildNotes() {
+    var notes = (CFG.venue || {}).notes || {};
+
+    var list = document.createElement('dl');
+    list.className = 'facts facts--notes';
+
+    for (var i = 0; i < NOTE_KEYS.length; i++) {
+      var key = NOTE_KEYS[i];
+      var value = notes[key];
+
+      // A row the owner has not filled in contributes nothing at all. No n/a
+      // filler and no empty row: the absence is the honest answer (D-16).
+      if (typeof value !== 'string' || !value) continue;
+
+      var row = document.createElement('div');
+      row.className = 'facts__row';
+
+      var label = document.createElement('dt');
+      label.textContent = t('notes.' + key);
+      row.appendChild(label);
+
+      var cell = document.createElement('dd');
+      cell.textContent = value;
+      row.appendChild(cell);
+
+      list.appendChild(row);
+    }
+
+    // Nothing filled in, so there is nothing to title. The caller adds neither
+    // the sub-heading nor the list, rather than shipping an empty shell.
+    return list.children.length ? list : null;
+  }
+
   function renderAccess() {
     var host = $('#access-body');
     if (!host) return;
@@ -800,6 +849,12 @@
       host.appendChild(subHeading('access.dir.heading'));
     }
     host.appendChild(directions);
+
+    var notes = buildNotes();
+    if (notes) {
+      host.appendChild(subHeading('access.notes.heading'));
+      host.appendChild(notes);
+    }
 
     /* Interim placeholder standing in the video position, and plan 04 task 1
        deletes this line as it adds the real .video-slot. The two must never

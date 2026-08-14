@@ -43,6 +43,34 @@ window.PARTY_CONFIG = {
     name: null,        // e.g. 'Anker Engelunds Vej 1, Bygning 101'
     address: 'Trongårdsvej 46, 2800 Kongens Lyngby, Denmark',
     note: null,        // optional extra line, e.g. 'Second floor, follow the noise'
+
+    /* -----------------------------------------------------------------
+       PRACTICAL NOTES
+       -----------------------------------------------------------------
+       The seven things guests actually message you about. They show up in
+       the Building access section, in the order written below, which puts
+       the door questions first and the pre-departure ones last.
+
+       Fill in the ones you can answer and leave the rest null. A row left
+       null simply does not appear, no empty row and no "n/a", and if all
+       seven are null the whole block disappears instead of standing there
+       as an empty shell.
+
+       These are shown exactly as you write them, in every language. Keep
+       them short and factual. The label on the left is translated for you;
+       what you type on the right is not, which is deliberate, because
+       "3. sal" and "ring 46" should not be translated anyway.
+       ----------------------------------------------------------------- */
+
+    notes: {
+      entrance: null,  // e.g. 'Main entrance on Trongårdsvej, staircase C'
+      floor:    null,  // e.g. '3rd floor, first door on the right'
+      buzzer:   null,  // e.g. 'Ring 46. The name on the buzzer is Sirio'
+      parking:  null,  // e.g. 'Free on the street after 18:00'
+      transit:  null,  // e.g. 'Bus 300S to Lyngby St., then 6 minutes on foot'
+      bring:    null,  // e.g. 'Whatever you want to drink. Indoor shoes help'
+      arrive:   null,  // e.g. 'From 16:00. Food is served around 19:00'
+    },
   },
 
   /* ---------------------------------------------------------------------

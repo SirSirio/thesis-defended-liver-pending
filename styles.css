@@ -812,6 +812,33 @@ a { color: inherit; }
   max-width: 60ch;
 }
 
+/* The practical notes are the course fact table again, wearing one change:
+   the label column narrows. Note labels are short words ("Entrance", "Floor")
+   where a course fact label is a phrase ("Language of instruction"), and the
+   column that fits the phrase leaves a trench beside the word.
+
+   Everything else is inherited on purpose. Hairlines, dt and dd sizes and
+   colours are untouched, and the dim ink token stays where it is: it is 7.65:1
+   on the page background and passes, where the token below it is 3.88:1 and
+   fails the 4.5:1 floor for text this size. */
+.facts--notes .facts__row {
+  grid-template-columns: minmax(140px, 200px) 1fr;
+}
+
+/* Not redundant, and do not delete it as duplication. The shared collapse
+   above is written as .facts__row inside a media query, media queries carry no
+   specificity of their own, and the two class selector above therefore beats it
+   at every width. Without this line the notes list would be the one table on
+   the page that refuses to collapse on a phone, which is the width it is most
+   read at. Same cascade trap as the .dirs touch minimums further up. */
+@media (max-width: 640px) {
+  .facts--notes .facts__row { grid-template-columns: 1fr; }
+}
+
+/* A long value, or Danish being Danish, wraps inside its cell rather than
+   pushing the whole page sideways at 320px. */
+.facts--notes dd { overflow-wrap: break-word; }
+
 /* --------------------------------------------------------------------------
    Footer
    -------------------------------------------------------------------------- */

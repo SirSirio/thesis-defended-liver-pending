@@ -117,6 +117,17 @@ window.PARTY_COPY = {
     'access.dir.heading': 'Written directions',
     'access.dir.pending.title': 'Door instructions pending',
     'access.dir.pending.body': 'The exact entrance is being confirmed. The address and the map above already get you to the building.',
+    'access.notes.heading': 'Practical notes',
+
+    /* Labels only. The values beside them come from config.js and are shown
+       exactly as the host wrote them, in every language. */
+    'notes.entrance': 'Entrance',
+    'notes.floor': 'Floor',
+    'notes.buzzer': 'Doorbell',
+    'notes.parking': 'Parking',
+    'notes.transit': 'Public transport',
+    'notes.bring': 'What to bring',
+    'notes.arrive': 'When to arrive',
 
     'photos.heading': 'Documentation',
     'photos.lede': 'Students are asked to submit photographic evidence of the evening. Maximum five per person, which is a limit chosen to protect everyone.',
@@ -239,6 +250,15 @@ window.PARTY_COPY = {
     'access.dir.heading': 'Indicazioni scritte',
     'access.dir.pending.title': 'Istruzioni per la porta in arrivo',
     'access.dir.pending.body': 'L’ingresso esatto è in via di conferma. L’indirizzo e la mappa qui sopra ti portano comunque all’edificio.',
+    'access.notes.heading': 'Note pratiche',
+
+    'notes.entrance': 'Ingresso',
+    'notes.floor': 'Piano',
+    'notes.buzzer': 'Campanello',
+    'notes.parking': 'Parcheggio',
+    'notes.transit': 'Mezzi pubblici',
+    'notes.bring': 'Cosa portare',
+    'notes.arrive': 'Quando arrivare',
 
     'photos.heading': 'Documentazione',
     'photos.lede': 'Agli studenti è richiesto di consegnare prove fotografiche della serata. Massimo cinque a testa, un limite scelto per tutelare tutti.',
@@ -365,6 +385,15 @@ window.PARTY_COPY = {
     'access.dir.heading': 'Skriftlig vejledning',
     'access.dir.pending.title': 'Døranvisning afventer',
     'access.dir.pending.body': 'Den præcise indgang er ved at blive bekræftet. Adressen og kortet ovenfor bringer dig alligevel hen til bygningen.',
+    'access.notes.heading': 'Praktiske oplysninger',
+
+    'notes.entrance': 'Indgang',
+    'notes.floor': 'Etage',
+    'notes.buzzer': 'Dørtelefon',
+    'notes.parking': 'Parkering',
+    'notes.transit': 'Offentlig transport',
+    'notes.bring': 'Hvad du skal medbringe',
+    'notes.arrive': 'Hvornår du skal komme',
 
     'photos.heading': 'Dokumentation',
     'photos.lede': 'Studerende bedes aflevere fotografisk dokumentation af aftenen. Maksimalt fem per person, en grænse valgt for at beskytte alle.',
