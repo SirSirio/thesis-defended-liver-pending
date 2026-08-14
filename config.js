@@ -55,12 +55,29 @@ window.PARTY_CONFIG = {
      about 10 MB, since guests will load it outdoors on mobile data.
      MP4 (H.264) plays everywhere. A poster frame is optional but stops the
      player being a black rectangle while it loads.
+
+     `directions` is the written version of the same thing, and it is always
+     shown, above the video, rather than only when the video is missing.
+     Someone standing outside on a weak signal reads it long before a clip
+     finishes loading.
+
+     You can write it two ways. One clean sentence in quotes, or a list of
+     short steps in square brackets, which the site numbers 01, 02, 03 and
+     lays out as a walking sequence. Use the list if getting in takes more
+     than one instruction, because a numbered list is much easier to follow
+     in the dark than a sentence is.
+
+     Leave it null and the section says the door instructions are still being
+     confirmed, which is a normal thing for an invitation to say.
      --------------------------------------------------------------------- */
 
   door: {
     videoSrc: null,    // e.g. 'assets/door.mp4'
     posterSrc: null,   // e.g. 'assets/door-poster.jpg'
-    directions: null,  // written backup, e.g. 'Blue door on the left of the main gate'
+
+    // A list looks like this, and the numbering is added for you:
+    // ['Blue gate on the left', 'Staircase C, at the back', 'Third floor, ring 46']
+    directions: null,  // or one sentence, e.g. 'Blue door left of the main gate, ring 46'
   },
 
   /* ---------------------------------------------------------------------

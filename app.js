@@ -82,6 +82,7 @@
     renderDeadline();
     renderNudge();
     renderLocation();
+    renderAccess();
   }
 
   function setLanguage(next) {
@@ -717,6 +718,101 @@
       if (!btn) return;
       copyAddress(btn);
     });
+  }
+
+  /* ----------------------------------------------------------------------
+     THE ACCESS SECTION
+
+     Three answers to three separate questions, in one fixed order: written
+     directions, practical notes, video, back link. Text sits above the video
+     and is never merely its fallback (D-12, D-15). A guest outdoors on a weak
+     signal reads a numbered list long before a clip finishes loading, and the
+     list still works on the evening the clip does not.
+
+     One standing rule for everything rendered in here, stated now because
+     plan 04 is built on it: any node that must survive a re-render is held in
+     a module scope reference and re-appended, never recreated. #loc-map next
+     door already works this way. Nothing in this plan needs it yet. The video
+     element does, because rebuilding a <video> mid playback stops it dead in
+     the hand of a guest who is watching it.
+     ---------------------------------------------------------------------- */
+
+  function subHeading(key) {
+    var head = document.createElement('h3');
+    head.className = 'sub-h';
+    head.textContent = t(key);
+    return head;
+  }
+
+  /* door.directions takes either one clean sentence or a list of short steps,
+     and the shape it is written in decides the shape it renders as. A numbered
+     walking sequence is far faster to follow at night than a prose sentence,
+     and the owner should not be forced into a list to say one simple thing.
+
+     Every entry goes in with textContent, so an owner authored string is text
+     and never markup, however long the list gets. */
+  function buildDirections() {
+    var door = CFG.door || {};
+    var value = door.directions;
+
+    if (Array.isArray(value) && value.length) {
+      var list = document.createElement('ol');
+      list.className = 'steps';
+
+      for (var i = 0; i < value.length; i++) {
+        var step = typeof value[i] === 'string' ? value[i] : '';
+        if (!step) continue;
+        var item = document.createElement('li');
+        item.textContent = step;
+        list.appendChild(item);
+      }
+
+      // A list of one renders as a single row numbered 01. Slightly formal,
+      // and exactly the register the rest of the page is written in.
+      if (list.children.length) return list;
+    } else if (typeof value === 'string' && value) {
+      var prose = document.createElement('p');
+      prose.className = 'dir-prose';
+      prose.textContent = value;
+      return prose;
+    }
+
+    /* Null, blank, an empty list, or a list holding nothing usable. One self
+       titled panel, and the caller puts no sub-heading above it: a heading
+       standing over a panel that already titles itself is the redundant state,
+       and a heading standing over nothing is the broken one. */
+    return pendingBlock('access.dir.pending.title', 'access.dir.pending.body');
+  }
+
+  function renderAccess() {
+    var host = $('#access-body');
+    if (!host) return;
+
+    // Discards the static pending markup on the first run. Everything below is
+    // rebuilt from config on every language switch.
+    host.textContent = '';
+
+    /* The order is the argument. Written directions, practical notes, video,
+       back link, and plan 04 appends into this same sequence rather than
+       reordering it. */
+    var directions = buildDirections();
+    if (!directions.classList.contains('pending')) {
+      host.appendChild(subHeading('access.dir.heading'));
+    }
+    host.appendChild(directions);
+
+    /* Interim placeholder standing in the video position, and plan 04 task 1
+       deletes this line as it adds the real .video-slot. The two must never
+       both render.
+
+       It is here because clearing #access-body above throws away the static
+       pending panel that is live on the deployed page right now, and this site
+       deploys from main with no build step: a commit landing between this plan
+       and the next is in front of guests within the minute. Both keys already
+       ship in all three languages, so this costs no copy. Keep it the last
+       statement in the function, so later blocks insert above it rather than
+       stranding it in the middle of the section. */
+    host.appendChild(pendingBlock('access.pending.title', 'access.pending.body'));
   }
 
   /* ======================================================================

@@ -751,6 +751,68 @@ a { color: inherit; }
 }
 
 /* --------------------------------------------------------------------------
+   Building access. Three sub-blocks answering three separate questions, and
+   the 48px between them is what stops them reading as one wall of text.
+   -------------------------------------------------------------------------- */
+
+/* 20px rather than 17px, deliberately. At 17 it tied the directions body
+   sitting directly beneath it, which leaves family and weight as the only
+   hierarchy signal and a size ratio of exactly 1.0. That is not a step, it is
+   a coincidence. */
+.sub-h {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  margin-top: var(--s-7);
+  margin-bottom: var(--s-4);
+}
+
+/* The learning objectives counter pattern, reused outright rather than
+   reinvented: same numeral, same hairline, same left rail, so a guest reads
+   the arrival sequence with the grammar the page taught them higher up.
+
+   The banned pattern is a generic step label ("Step 1", "Stage 2"), and there
+   is none here. This renders the instruction itself with a leading numeral. */
+.steps {
+  list-style: none;
+  margin: 0; padding: 0;
+  max-width: 72ch;
+  counter-reset: step;
+}
+
+.steps li {
+  counter-increment: step;
+  position: relative;
+  padding: var(--s-4) 0 var(--s-4) var(--s-7);
+  border-bottom: 1px solid var(--rule);
+  /* 17 rather than 16, and it is the one place on this page that is read
+     outdoors, standing, at night, by someone who wants to be inside. */
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.steps li::before {
+  content: counter(step, decimal-leading-zero);
+  position: absolute; left: 0; top: var(--s-4);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--accent-lit);
+}
+
+/* One clean sentence instead of a list. Same size as a step, for the same
+   reason. Narrower measure, because a paragraph needs one and a list row,
+   which the eye re-enters at the numeral every time, does not. */
+.dir-prose {
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink);
+  max-width: 60ch;
+}
+
+/* --------------------------------------------------------------------------
    Footer
    -------------------------------------------------------------------------- */
 

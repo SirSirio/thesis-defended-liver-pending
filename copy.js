@@ -114,6 +114,9 @@ window.PARTY_COPY = {
     'access.lede': 'The single most useful section on this page. Watch this before you arrive, or while standing outside wondering which door is the right one.',
     'access.pending.title': 'Access documentation pending',
     'access.pending.body': 'A short clip showing the correct door is being produced. Until then, ask the person who invited you, or follow the noise.',
+    'access.dir.heading': 'Written directions',
+    'access.dir.pending.title': 'Door instructions pending',
+    'access.dir.pending.body': 'The exact entrance is being confirmed. The address and the map above already get you to the building.',
 
     'photos.heading': 'Documentation',
     'photos.lede': 'Students are asked to submit photographic evidence of the evening. Maximum five per person, which is a limit chosen to protect everyone.',
@@ -233,6 +236,9 @@ window.PARTY_COPY = {
     'access.lede': 'La sezione più utile di questa pagina. Guardala prima di arrivare, oppure mentre sei fuori a chiederti quale sia la porta giusta.',
     'access.pending.title': 'Documentazione di accesso in preparazione',
     'access.pending.body': 'Un breve video che mostra la porta corretta è in produzione. Nel frattempo, chiedi a chi ti ha invitato, o segui il rumore.',
+    'access.dir.heading': 'Indicazioni scritte',
+    'access.dir.pending.title': 'Istruzioni per la porta in arrivo',
+    'access.dir.pending.body': 'L’ingresso esatto è in via di conferma. L’indirizzo e la mappa qui sopra ti portano comunque all’edificio.',
 
     'photos.heading': 'Documentazione',
     'photos.lede': 'Agli studenti è richiesto di consegnare prove fotografiche della serata. Massimo cinque a testa, un limite scelto per tutelare tutti.',
@@ -356,6 +362,9 @@ window.PARTY_COPY = {
     'access.lede': 'Den mest nyttige sektion på denne side. Se den, før du ankommer, eller mens du står udenfor og tænker over, hvilken dør der er den rigtige.',
     'access.pending.title': 'Adgangsdokumentation undervejs',
     'access.pending.body': 'Et kort klip, der viser den rigtige dør, er under produktion. Indtil da kan du spørge den, der inviterede dig, eller følge lyden.',
+    'access.dir.heading': 'Skriftlig vejledning',
+    'access.dir.pending.title': 'Døranvisning afventer',
+    'access.dir.pending.body': 'Den præcise indgang er ved at blive bekræftet. Adressen og kortet ovenfor bringer dig alligevel hen til bygningen.',
 
     'photos.heading': 'Dokumentation',
     'photos.lede': 'Studerende bedes aflevere fotografisk dokumentation af aftenen. Maksimalt fem per person, en grænse valgt for at beskytte alle.',
