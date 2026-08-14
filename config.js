@@ -161,7 +161,7 @@ window.PARTY_CONFIG = {
      THE QUIZ
      ---------------------------------------------------------------------
      Hidden until either the clock reaches `unlockAt`, or someone finds the
-     easter egg. Built in phase 4. Configured here so it is ready.
+     easter egg. Built in phase 5. Configured here so it is ready.
 
      This is a party quiz, not a secret. Anyone who opens the page source
      can find the link. That is fine and not worth engineering around.
@@ -176,10 +176,16 @@ window.PARTY_CONFIG = {
   /* ---------------------------------------------------------------------
      PHOTOS
      ---------------------------------------------------------------------
-     Guests upload into a shared album. Built in phase 3.
+     Guests upload into a shared album. Built in phase 4.
 
      Needs a free Supabase account (supabase.com). Run supabase/schema.sql
      once in the SQL editor, then copy two values from Project Settings > API.
+
+     `supabaseUrl` and `supabaseKey` are shared. Registration uses exactly the
+     same two values, on the same Supabase project, even though they sit under
+     photos. They live here because photos asked for them first, and moving
+     them now would switch registration off, so they stay put and this note
+     explains why rather than the naming being a small mystery forever.
 
      The key below is the client side one. Newer projects call it the
      "publishable" key and it starts sb_publishable_. Older projects call it
@@ -190,8 +196,9 @@ window.PARTY_CONFIG = {
      key hidden. A key starting sb_secret_ is the opposite: it must never go
      in this file.
 
-     Until both are filled in, enrollment and photos show a waiting message
-     instead of failing.
+     Both are filled in and live. The waiting message is what the site falls
+     back to if either is ever blank: registration and the album say they are
+     being set up rather than breaking, so the link stays shareable.
      --------------------------------------------------------------------- */
 
   photos: {
