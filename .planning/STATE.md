@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 02
 current_phase_name: practical-information
-status: executing
-stopped_at: Completed 02-03-PLAN.md, written directions and practical notes. Wave 3 done, plan 04 (the video slot) remains.
-last_updated: "2026-08-14T06:07:08.160Z"
+status: verifying
+stopped_at: Completed 02-04-PLAN.md, the door video slot and the phase closing sweep. All four plans of phase 02 are executed; the D-23 device pass on real iOS Safari and real Android Chrome is the outstanding item.
+last_updated: "2026-08-14T06:22:25.345Z"
 last_activity: 2026-08-14
-last_activity_desc: Phase 02 waves 1-3 complete. Location data core, lazy map slot, and the access section's written directions and practical notes.
+last_activity_desc: Phase 02 fully executed. Location data core, lazy map slot, written directions and practical notes, and the door video slot with its unconfigured state, its jump path and the phase closing sweep.
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -27,12 +27,12 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 
 ## Current Position
 
-Phase: 02 (practical-information) — EXECUTING
+Phase: 02 (practical-information) — READY FOR VERIFICATION
 Plan: 4 of 4
-Status: Ready to execute
-Last activity: 2026-08-14 — Waves 1-3 complete (02-01 location data core, 02-02 map slot, 02-03 directions and notes)
+Status: Phase complete — ready for verification
+Last activity: 2026-08-14 — All four plans executed (02-01 location data core, 02-02 map slot, 02-03 directions and notes, 02-04 door video slot and jump path). The D-23 real device pass is the one item still owed.
 
-Progress: [████████░░] 75%
+Progress: [██████████] 100%
 
 ## Live status
 
@@ -96,6 +96,7 @@ activates itself. Do not replace this with a config flag.
 |------|----------|-------|-------|
 | Phase 02 P02 | 17m | 3 tasks | 3 files |
 | Phase 02 P03 | 13m | 2 tasks | 4 files |
+| Phase 02 P04 | 16m | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -124,6 +125,10 @@ activates itself. Do not replace this with a config flag.
 - Phase 2: **A pending panel that titles itself gets no heading above it.** With `door.directions` null the panel carries the block, which reconciles the ACC-04 resolved edge against the UI contract instead of picking one of them.
 - Phase 2: **`renderAccess()` re-appends the access pending panel as an interim placeholder** in the video position, so the commit landing between waves 3 and 4 is deployable on its own. Plan 04 deletes that line as it adds the real video slot.
 - Phase 2: **Note labels are translated, note values are not.** Labels live in copy.js so a Danish guest never meets an English one, values stay verbatim from config.js in every language, and the config comment says so plainly.
+- Phase 2: **The video slot renders at the configured ratio on every path.** The unconfigured panel and the player are the same box, so the day the owner sets one config line the video appears and nothing on the page moves.
+- Phase 2: **playsinline and muted are set as attributes and as properties in one construction path**, so neither can ship without the other. Either alone fails inline playback on iOS Safari, which is the single behaviour this phase most needed.
+- Phase 2: **Both video failure paths land on the same phase 1 pending panel**, absent file and broken path alike, and nothing is written to the console. To a guest a missing file and an unmade file are one event; the owner catches the difference in config.js.
+- Phase 2: **The two jumped-to sections are focusable and the focus ring is suppressed for the pointer case only**, so a tap does not paint a ring around a whole section while a keyboard jump still shows where it landed.
 
 ### Pending Todos
 
@@ -159,8 +164,8 @@ Concern: the DTU CourseBase joke lands hardest with classmates and may read as p
 
 ## Session Continuity
 
-Last session: 2026-08-14T06:07:08.149Z
-Stopped at: Completed 02-03-PLAN.md, written directions and practical notes. Wave 3 done, plan 04 (the video slot) remains.
+Last session: 2026-08-14T06:20:32.486Z
+Stopped at: Completed 02-04-PLAN.md, the door video slot and the phase closing sweep. All four plans of phase 02 are executed; the D-23 device pass on real iOS Safari and real Android Chrome is the outstanding item.
 Resume file: None
 
 **To resume in a fresh session:** read this file, then PROJECT.md, ROADMAP.md and

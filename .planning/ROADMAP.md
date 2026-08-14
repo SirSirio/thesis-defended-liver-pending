@@ -44,7 +44,7 @@ the page looks deliberate rather than unfinished.
 - Jump link from the top of the page straight to door access (ACC-02)
 - Mobile and iOS Safari verification (DEL-02, DEL-03)
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans executed
 
 Plans:
 **Wave 1**
@@ -61,7 +61,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 02-04-PLAN.md — Door video slot, pending and error states, jump path, device pass
+- [x] 02-04-PLAN.md — Door video slot, pending and error states, jump path, device pass
 
 **Done when:** the address and door instructions are findable in seconds on a phone, at
 night, on a bad connection.
