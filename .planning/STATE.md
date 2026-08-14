@@ -7,8 +7,8 @@ current_phase_name: practical-information
 status: executing
 stopped_at: Completed 02-02-PLAN.md, the map slot. Wave 2 done, plans 03 and 04 remain.
 last_updated: "2026-08-14T05:53:40.146Z"
-last_activity: 2026-08-13
-last_activity_desc: Phase 1 complete, deployed, and verified live.
+last_activity: 2026-08-14
+last_activity_desc: Phase 02 waves 1-2 complete — location data core and lazy map slot.
 progress:
   total_phases: 1
   completed_phases: 0
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 ## Current Position
 
 Phase: 02 (practical-information) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
-Last activity: 2026-08-13 — Phase 02 execution started
+Last activity: 2026-08-14 — Waves 1-2 complete (02-01 location data core, 02-02 map slot)
 
 Progress: [█████░░░░░] 50%
 
