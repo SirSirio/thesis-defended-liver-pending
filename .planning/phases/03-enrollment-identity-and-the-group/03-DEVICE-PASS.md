@@ -244,6 +244,60 @@ would make the sheet read as finished when the part that matters has not started
 
 ---
 
+## Cleanup and the head count (03-06 task 2, 2026-08-15)
+
+The owner ran the delete against project `aplaxdplwnnlezffatal`, and the result was then read back
+from the wire by this executor rather than accepted as a report. Recorded here because the head
+count arithmetic these rows were the fixture for is now running against real data for the first
+time, and a later reader needs to know when the fixture went away.
+
+**The acceptance probe, run first-hand, verbatim.**
+
+```
+GET /rest/v1/attendees?select=first_name,extra_guests
+[{"first_name":"Sirio","extra_guests":0}]
+HTTP 200
+```
+
+No entry whose first name is `ZZTEST`. The three test rows are gone and the owner's own
+registration survived, which is the outcome the exact-equality predicate guaranteed.
+
+**The control probe, which is the half that makes the acceptance probe mean anything.**
+
+```
+GET /rest/v1/enrollments?select=*
+[]
+HTTP 200
+```
+
+The raw table still answers `[]` to the publishable key while the view demonstrably returns a
+row, so the delete did not open a read path. This pairing is the whole reason the probe reads the
+view: an empty array from the table is what a blocked read and a clean table both look like.
+
+| Reading | Before the delete | After the delete |
+|---|---|---|
+| Rows in `public.attendees` | 4 | **1** |
+| Head count the page would compute | 4 | **1** |
+| Configured threshold `showCountFrom` | 8 | 8 |
+| Social proof block | absent, 4 < 8 | **absent, 1 < 8** |
+| Names the list row would render | `Sirio, ZZTEST, ZZTEST, ZZTEST` | **`Sirio`** |
+
+The arithmetic was re-established by running the shipped `renderSocialProof()` and `recordRow()`,
+sliced out of `app.js` by brace matching, against the real wire body above. It was not re-typed,
+so a change to the count in `app.js` changes these numbers. At the committed threshold of 8 the
+block does not render; with the threshold lowered to 1 purely to read the value out, it renders
+`1` and the single name `Sirio`. The same harness against the pre-delete four-row body renders
+`4` and `Sirio, ZZTEST, ZZTEST, ZZTEST`, which is what the cleanup actually removed: not only an
+inflated number but three test strings that would have been shown to every guest had the count
+ever reached the threshold.
+
+**Not established here.** Nothing on this page has been seen rendered. The social proof block's
+correct state today is *absent*, so even a browser would have shown nothing, and the row on
+Table C covering the block at the threshold boundary stays unanswered along with the rest of the
+device pass.
+
+---
+
 ## Outcome
 
 Fill this in when both platforms are done. Anything unchecked stays unchecked in
