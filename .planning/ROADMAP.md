@@ -138,10 +138,35 @@ group with one more tap, and is never nudged again.
 > phase too. Untrusted file upload from strangers' phones into shared storage is the one genuinely
 > hard thing in this project. Slow is correct here.
 
+**Requirements:** PH-01, PH-02, PH-03, PH-04, PH-05, PH-06, PH-07, PH-08
+
 - Upload flow: client-side downscale, validation, progress, success and failure states (PH-01 to PH-08)
 - 5-photo limit with remaining count, keyed to the enrolled identity
 - Shared album view with uploader names
 - Graceful unconfigured state
+
+**Plans:** 5 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Tracer: one picked photograph becomes an object, a row and a tile, plus the config and copy contract the whole phase reads from
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-02-PLAN.md — The batch and the transcript: five at once, one in flight, a bar that does not claim more than it knows
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04-03-PLAN.md — The five bodies, the opening gate on the clock that already exists, and the count above the button
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04-04-PLAN.md — Failure, retry, and the punchline: two classifiers, one retry, three routes to five
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 04-05-PLAN.md — The bucket limits, the blocking owner re-run and cleanup, and the device pass a terminal cannot do
 
 **Done when:** a phone can upload five photos and see them in the album, and the sixth is
 refused with a joke rather than an error.
