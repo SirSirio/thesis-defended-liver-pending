@@ -171,6 +171,13 @@
   var startMs = Date.parse(CFG.startsAt);
   var endMs   = Date.parse(CFG.endsAt);
 
+  /* The photo portal's opening moment, parsed once, here, by the same helper
+     and beside the same two values, because it is the same kind of value doing
+     the same job. The configured string carries its own UTC offset, so the
+     parse yields one instant that every guest shares no matter which country
+     their phone thinks it is in. */
+  var photosOpenMs = Date.parse((CFG.photos || {}).opensAt);
+
   var els = {
     root:   $('#countdown'),
     d:      $('#cd-d'),
@@ -191,9 +198,56 @@
     return 'live';
   }
 
+  /* Epoch milliseconds and nothing else: no date built from separate year,
+     month and day arguments, no comparison of formatted strings, and the
+     browser's own offset is never consulted. Both sides of the comparison are
+     integers, so the per-tick cost below is nothing.
+
+     The fallback cuts the opposite way from phase() above, and that inversion
+     is load bearing rather than an oversight. An unparseable or absent opensAt
+     opens the portal, never shuts it: config.js documents `opensAt: null` as
+     the owner's one line recovery from a phone showing the wrong date, on the
+     night, with nobody at a laptop, and a typo in that field must not lock the
+     album shut for everybody. Written as: closed only when there is a valid
+     timestamp still in the future. */
+  function photosOpen(now) {
+    if (isNaN(photosOpenMs)) return true;
+    return now >= photosOpenMs;
+  }
+
+  /* The gate rides the clock that already exists. No new interval and no new
+     timer is created anywhere in this phase, and the countdown's own one is
+     neither duplicated nor restarted.
+
+     renderPhotos() runs only when the boolean flips, so a guest reading the
+     closed panel does not have it rebuilt under them once a second, and a
+     guest sitting on the page when the moment passes gets the upload body
+     without touching anything.
+
+     opensAt is kept earlier than startsAt, and config.js names that
+     relationship beside the value: the countdown's closing state tells guests
+     to go and upload, so it must always land inside the open window and can
+     never invite them to a portal that is shut. */
+  var photosWasOpen = photosOpen(Date.now());
+
+  function syncPhotosGate() {
+    var open = photosOpen(Date.now());
+    if (open === photosWasOpen) return;
+    photosWasOpen = open;
+    renderPhotos();
+  }
+
   var lastSrMinute = null;
 
   function renderCountdown() {
+    /* Above the node guards on purpose. This is the countdown's tick, and the
+       gate has to be re-evaluated on a page whose countdown markup is missing
+       just as much as on one where it is present. The visibility handler below
+       reaches this same call through startClock(), which renders once before
+       it re-arms the interval, so the two re-evaluation sites the contract
+       asks for are the tick and the return from a backgrounded tab. */
+    syncPhotosGate();
+
     if (!els.root) return;
     /* The six cached nodes below are dereferenced unguarded while els.sr and the
        label are guarded, which is the file's defensive style applied to two
@@ -257,8 +311,11 @@
     tick = setInterval(renderCountdown, 1000);
   }
 
-  // A backgrounded tab throttles timers, so the clock is re-synced on return
-  // rather than left showing a stale value.
+  /* A backgrounded tab throttles timers, so the clock is re-synced on return
+     rather than left showing a stale value. startClock() renders once before
+     it re-arms the interval, and renderCountdown() re-evaluates the photo
+     portal's gate as its first statement, so a phone that was in a pocket
+     while uploads opened shows the control the moment it comes back out. */
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) startClock();
   });
@@ -4355,6 +4412,45 @@
     renderAlbum($('#photos-album'));
   }
 
+  /* formatSchedule()'s shape, one for one: the same three way locale ternary,
+     the same Europe/Copenhagen pin so the moment reads in the party's own
+     timezone rather than the reader's, and the same try and fall back. No
+     second locale map is declared here, because this file has never held one
+     and this is not the phase that starts one. */
+  function formatOpensAt() {
+    var locale = lang === 'it' ? 'it-IT' : (lang === 'da' ? 'da-DK' : 'en-GB');
+    var opts = {
+      day: 'numeric', month: 'long', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+      timeZone: 'Europe/Copenhagen'
+    };
+    try {
+      return new Intl.DateTimeFormat(locale, opts).format(new Date(photosOpenMs));
+    } catch (e) {
+      return new Date(photosOpenMs).toLocaleString();
+    }
+  }
+
+  /* The closed body reuses the existing pending title rather than adding a
+     second one. "Submission portal opens later" already says exactly the right
+     thing for both placeholder bodies, and one fewer key across three
+     languages is one fewer parity risk. Only the body differs, because only
+     the closed body knows a date.
+
+     The panel states the moment as text and does not tick. The hero owns the
+     ticking and there is one clock per page.
+
+     {when} is substituted after pendingBlock() returns, by writing the
+     paragraph's textContent. That builder writes text directly and adds no
+     translation attribute, so there is no applyLanguage() sweep to fight and
+     the substituted moment survives a language tap by being rebuilt with it. */
+  function closedPanel() {
+    var box = pendingBlock('photos.pending.title', 'photos.closed.body');
+    var body = $('.pending__b', box);
+    if (body) body.textContent = phrase('photos.closed.body', { when: formatOpensAt() });
+    return box;
+  }
+
   function buildGatePanel() {
     var panel = document.createElement('div');
     panel.className = 'panel';
@@ -4775,10 +4871,21 @@
     /* Either credential blank, or a browser that cannot mint an identity at
        all. Both get the inherited pending block and no album below it. */
     if (!sbConfigured() || !IDENTITY_OK) body = 'pending';
+    /* Second, and before the registration gate: three hours before the party
+       there is nothing to register for yet either. It renders no album below
+       it, because there is nothing to show before the evening has happened and
+       half a section is worse than a whole placeholder (D-06). */
+    else if (!photosOpen(Date.now())) body = 'closed';
     /* Storage holding a guest_id but no name is not a registration. The album
        renders the first token of name, and a guest with no name cannot be
        attributed, so this is the gate rather than the control (D-01). */
     else if (!ident.name || !ident.guest_id) body = 'gate';
+    /* THE QUOTA BRANCH GOES HERE, fourth, and plan 04-04 inserts it:
+         else if (identity.photoCount() >= photosMaxPerGuest()) body = 'full';
+       Its body is a .panel and the album stays below it, so it needs no new
+       handling further down beyond its own builder. The position is named
+       rather than left to be worked out, because the ladder's order is the
+       contract: unconfigured, closed, not registered, quota, upload. */
     else body = 'upload';
 
     host.textContent = '';          // discards the static pending markup
@@ -4803,6 +4910,13 @@
 
     if (body === 'pending') {
       host.appendChild(pendingBlock('photos.pending.title', 'photos.pending.body'));
+      return;
+    }
+
+    /* Returns above the album, deliberately. D-06: no album under the closed
+       body. */
+    if (body === 'closed') {
+      host.appendChild(closedPanel());
       return;
     }
 
