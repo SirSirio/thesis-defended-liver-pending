@@ -100,12 +100,15 @@ window.PARTY_COPY = {
     'enrol.submit': 'Submit registration',
     'enrol.submitting': 'Submitting',
     'enrol.retry': 'Submit again',
+    'enrol.update': 'Save changes',
+    'enrol.cancel': 'Discard changes',
     'enrol.fail.title': 'The registration was not recorded.',
     'enrol.fail.body': 'Your answers are still here. Check your connection and submit again.',
 
     'enrol.success.title': 'Registration confirmed',
     'enrol.success.lede': 'You are on the participant list. The host has the numbers.',
     'enrol.success.group.pending': 'The course group chat is not set up yet. The link appears here when it is.',
+    'enrol.success.amend': 'Change these details',
 
     'enrol.record.name': 'Name',
     'enrol.record.guests': 'Additional guests',
@@ -114,6 +117,11 @@ window.PARTY_COPY = {
 
     'enrol.return.title': 'Your registration',
     'enrol.return.lede': 'Registered in the name of {name}. Nothing further is required.',
+    'enrol.edit': 'Change your registration',
+    'enrol.updated.toast': 'Registration updated.',
+    'enrol.withdraw': 'Withdraw from the course',
+    'enrol.identity.clear': 'Forget my details on this device',
+    'enrol.identity.cleared': 'Details removed from this device.',
     'enrol.amend.pending': 'Changes cannot be recorded yet. Tell the host directly. Your registration stays as it is.',
 
     /* Two labels rather than one sentence. The total counts plus ones and the
@@ -275,12 +283,15 @@ window.PARTY_COPY = {
     'enrol.submit': 'Invia l’iscrizione',
     'enrol.submitting': 'Invio in corso',
     'enrol.retry': 'Invia di nuovo',
+    'enrol.update': 'Salva le modifiche',
+    'enrol.cancel': 'Annulla le modifiche',
     'enrol.fail.title': 'L’iscrizione non è stata registrata.',
     'enrol.fail.body': 'Le tue risposte sono ancora qui. Controlla la connessione e invia di nuovo.',
 
     'enrol.success.title': 'Iscrizione confermata',
     'enrol.success.lede': 'Sei nell’elenco dei partecipanti. Il festeggiato ha i numeri.',
     'enrol.success.group.pending': 'Il gruppo del corso non è ancora attivo. Il link comparirà qui quando lo sarà.',
+    'enrol.success.amend': 'Modifica questi dati',
 
     'enrol.record.name': 'Nome',
     'enrol.record.guests': 'Ospiti aggiuntivi',
@@ -289,6 +300,11 @@ window.PARTY_COPY = {
 
     'enrol.return.title': 'La tua iscrizione',
     'enrol.return.lede': 'Iscrizione a nome di {name}. Non serve altro.',
+    'enrol.edit': 'Modifica l’iscrizione',
+    'enrol.updated.toast': 'Iscrizione aggiornata.',
+    'enrol.withdraw': 'Ritirati dal corso',
+    'enrol.identity.clear': 'Dimentica i miei dati su questo dispositivo',
+    'enrol.identity.cleared': 'Dati rimossi da questo dispositivo.',
     'enrol.amend.pending': 'Le modifiche non possono ancora essere registrate. Dillo direttamente al festeggiato. La tua iscrizione resta com’è.',
 
     'enrol.proof.count.label': 'Presenze previste',
@@ -448,12 +464,15 @@ window.PARTY_COPY = {
     'enrol.submit': 'Send tilmelding',
     'enrol.submitting': 'Sender',
     'enrol.retry': 'Send igen',
+    'enrol.update': 'Gem ændringer',
+    'enrol.cancel': 'Kassér ændringer',
     'enrol.fail.title': 'Tilmeldingen blev ikke registreret.',
     'enrol.fail.body': 'Dine svar står der stadig. Tjek din forbindelse, og send igen.',
 
     'enrol.success.title': 'Tilmelding bekræftet',
     'enrol.success.lede': 'Du står på deltagerlisten. Værten har tallene.',
     'enrol.success.group.pending': 'Kursets gruppechat er ikke oprettet endnu. Linket kommer her, når den er.',
+    'enrol.success.amend': 'Ret disse oplysninger',
 
     'enrol.record.name': 'Navn',
     'enrol.record.guests': 'Ekstra gæster',
@@ -462,6 +481,11 @@ window.PARTY_COPY = {
 
     'enrol.return.title': 'Din tilmelding',
     'enrol.return.lede': 'Tilmeldt i navnet {name}. Der kræves ikke mere.',
+    'enrol.edit': 'Ret din tilmelding',
+    'enrol.updated.toast': 'Tilmeldingen er opdateret.',
+    'enrol.withdraw': 'Meld dig fra kurset',
+    'enrol.identity.clear': 'Glem mine oplysninger på denne enhed',
+    'enrol.identity.cleared': 'Oplysningerne er fjernet fra denne enhed.',
     'enrol.amend.pending': 'Ændringer kan ikke registreres endnu. Sig det direkte til værten. Din tilmelding står, som den er.',
 
     'enrol.proof.count.label': 'Forventet fremmøde',

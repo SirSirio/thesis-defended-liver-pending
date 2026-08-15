@@ -1031,6 +1031,36 @@ a { color: inherit; }
   .inline-link--back { min-height: 44px; }
 }
 
+/* The success panel's change these details control wears this class but is a
+   real button, because it performs an action rather than navigating anywhere.
+   An anchor with no href is not reachable by keyboard and announces as plain
+   text, which would put the one affordance a guest needs one second after
+   submitting out of reach of everybody using the site without a thumb.
+
+   Only the browser's button chrome is reset here. Every visual property is the
+   inherited class untouched, so the two forms of the control are indivisible on
+   screen. The element plus class selector outweighs the bare class, so this
+   cannot be defeated by the source order trap recorded directly above; it is
+   still written below the class it modifies rather than beside it, for the same
+   reason as everything else in this region. */
+button.inline-link {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  button.inline-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
 /* --------------------------------------------------------------------------
    Nudge bar
    Pinned to the bottom on phones, which is where this site is read. It sits
@@ -1558,6 +1588,17 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   max-width: 62ch;
 }
 
+/* Same treatment and the same reason as the panel heading directly above: this
+   line takes focus programmatically when it replaces the control that was
+   tapped, and painting a ring around a sentence for somebody who arrived by
+   tapping is noise. :focus-visible is untouched, so a keyboard guest still sees
+   exactly where they landed. */
+.panel__pending[tabindex="-1"]:focus:not(:focus-visible) { outline: none; }
+
+/* In a row of its own the line is the row, so the row's own step above it would
+   double the gap the class already carries. */
+.panel__row > .panel__pending { margin-top: 0; }
+
 /* The receipt and the social proof block. Narrower label column than the course
    facts, for the same reason .facts--notes narrows: "Name", "Note" and
    "Registered" are words where a course fact label is a phrase, and the column
@@ -1649,6 +1690,96 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   margin-top: var(--s-6);
   margin-bottom: var(--s-5);
   max-width: 62ch;
+}
+
+/* --------------------------------------------------------------------------
+   The returning guest's controls, and the withdrawn state's.
+
+   Every one of them lives inside a row of its own, and that is structural
+   rather than tidiness: the not recordable answer replaces the tapped control's
+   row in place, so each control needs a container that can be emptied without
+   disturbing the receipt above it or the control below it. The withdraw
+   confirmation takes over the withdraw row by exactly the same mechanism.
+   -------------------------------------------------------------------------- */
+
+/* 32px below the receipt, which is the same step the action row takes below the
+   last field. Enough that the control reads as an action rather than as one
+   more line of the record. */
+.panel__row--cta { margin-top: var(--s-6); }
+
+/* The base class carries 8px of left margin because it was written to trail the
+   end of a sentence. In a row of its own that is an 8px indent against nothing.
+   Same clearance, same reason, as the back to map link further up. */
+.panel__row .inline-link { margin-left: 0; }
+
+.panel__acts { margin-top: var(--s-6); }
+
+/* 16px on top of two 44px targets. Below that, two adjacent grey links a thumb
+   is aiming at in the dark are a mis-tap farm at 320px, and one of them removes
+   a registration. */
+.panel__acts .panel__row + .panel__row { margin-top: var(--s-4); }
+
+/* Dim ink, underlined, at the fact label size, and deliberately NOT the inline
+   link treatment directly above. That one is red and draws the eye, which is
+   right for a helpful jump and exactly wrong for a control whose design goal is
+   reachable without inviting an accidental tap. Grey and underlined is
+   discoverable, unambiguous, and does not advertise itself.
+
+   A button rather than an anchor for the same reason the amended inline link is
+   one: these act, they do not navigate. The chrome is reset and nothing else is
+   inherited from the platform. */
+.subtle-action {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .subtle-action:not(:disabled):hover { color: var(--ink); }
+}
+
+/* Disabled while a request is in flight. The underline goes, which is the whole
+   signal, and the colour deliberately does not move: dimming a 14.5px grey any
+   further would put it under the body text floor, and this project already
+   rejected an opacity based disabled state on the fields for exactly that
+   arithmetic. It reads as the sentence it is until it is a control again. */
+.subtle-action:disabled {
+  text-decoration: none;
+  cursor: default;
+}
+
+/* Secondary buttons, one step above the inherited 48 where the submit takes
+   two. The withdraw confirmation is deliberately not full width at any size:
+   the destructive control is the one control on the page that should not be
+   the easiest thing under a thumb. */
+@media (pointer: coarse) {
+  .panel__edit,
+  .panel__again,
+  .panel__confirm { min-height: 52px; }
+
+  /* After the base block it overrides, which is the source order rule this file
+     has now recorded five times. */
+  .subtle-action {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel__edit,
+  .panel__again { width: 100%; }
 }
 
 /* --------------------------------------------------------------------------
