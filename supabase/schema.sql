@@ -26,6 +26,16 @@
 -- and never any part of the row itself, withdrawn rows stop counting toward
 -- the head count on the site, and the attendees view still exposes nothing but
 -- a first name, a plus one count and a joining date.
+--
+-- Sections 9 and 10 were applied to the same project on 2026-08-15, and
+-- verified against the live database. Reading the photos table directly is now
+-- refused with error 42501 instead of being answered, the album view answers in
+-- its place with a first name, a storage path and a date, and asking that view
+-- for a guest_id is refused with error 42703 because the column is not there to
+-- ask for. The whole file was run rather than only the new sections, so the
+-- earlier ones were proved again on the way past: the amend function still
+-- answers, and a registration bringing five extra people is now refused by the
+-- guest count bound.
 -- ============================================================================
 
 
