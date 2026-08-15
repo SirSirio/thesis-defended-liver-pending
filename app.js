@@ -3654,10 +3654,17 @@
     return Math.min(1, Math.max(0, q));
   }
 
-  function maxFileBytes() {
+  /* One reader of the configured ceiling, two callers. The refusal copy
+     photos.err.size carries {mb} and has to name the same number the check
+     enforced, and two parses of one config value are two numbers that drift
+     apart on a typo. */
+  function maxFileMb() {
     var mb = parseFloat((CFG.photos || {}).maxFileSizeMb);
-    if (isNaN(mb) || mb <= 0) mb = 12;
-    return mb * 1024 * 1024;
+    return (isNaN(mb) || mb <= 0) ? 12 : mb;
+  }
+
+  function maxFileBytes() {
+    return maxFileMb() * 1024 * 1024;
   }
 
   function maxEdgePx() {
@@ -4029,23 +4036,242 @@
 
   /* ----------------------------------------------------------------------
      THE SECTION BODY
+
+     One control, eight states, and a batch that is a JavaScript array rather
+     than a reading of the DOM. Everything visible below is a projection of
+     that array: the transcript, the counted sentence, the button's own busy
+     state. A language switch therefore costs a repaint and never a lost file,
+     and the guest can be told by name what happened to every file they chose,
+     which is the whole of PH-05.
      ---------------------------------------------------------------------- */
 
-  function setUploaderState(host, state) {
-    if (!host) return;
-    host.setAttribute('data-state', state);
+  /* The batch model, and everything that is a function of it, in one
+     statement, because it is one model. A second declaration somewhere else
+     is how two halves of a control start disagreeing about what is in flight.
+
+     A record is { file, index, slot, state, reasonKey, reasonVals, path,
+     progress } plus the nodes its row was rendered into. index is the numeral
+     the guest reads and counts every picked file; slot counts only the
+     accepted ones and is the {i} of "Sending {i} of {n}". */
+  var photoBatch = [],            // the records, in pick order
+      photoBatchPending = false,  // a language render was skipped mid batch
+      photoBatchTotal = 0,        // accepted files, the {n} of "Sending {i} of {n}"
+      photoUploader = null,       // the standing .uploader, held rather than queried
+      photoQueueEl = null,        // its transcript list, likewise
+      photoIdent = null,          // identity, read once at pick time
+      photoState = 'idle',        // the control state. setUploaderState is its only writer
+      photoStatus = null,         // { key, vals } for the polite line, or null
+      photoAlert = null;          // { key, vals } for the assertive line, or null
+
+  /* The eight values written out, so a typo cannot invent a ninth and reach
+     CSS that has no rule for it.
+
+     full is the quota body, which plan 04-04 adds as a branch of the ladder in
+     renderPhotos(). It is named here rather than later because this closed
+     list is the guard, and a list that grows by one on a later plan is a list
+     two plans disagree about. */
+  var UPLOADER_STATES = ['idle', 'preparing', 'uploading', 'success', 'partial', 'refused', 'failed', 'full'];
+
+  /* The seven row states and the word each one renders. A table rather than a
+     concatenated key, for two reasons: a bogus state cannot silently produce a
+     missing string, and every key this section can render is greppable in the
+     file rather than assembled at run time. */
+  var ROW_STATE_KEY = {
+    waiting:   'photos.queue.waiting',
+    preparing: 'photos.queue.preparing',
+    uploading: 'photos.queue.uploading',
+    recording: 'photos.queue.recording',
+    done:      'photos.queue.done',
+    refused:   'photos.queue.refused',
+    failed:    'photos.queue.failed'
+  };
+
+  /* Substitution in one place. t() returns the template and this fills it, so
+     no key carrying {n} can reach the DOM with the brace still in it. */
+  function phrase(key, vals) {
+    var s = t(key);
+    if (!vals) return s;
+    for (var k in vals) {
+      if (Object.prototype.hasOwnProperty.call(vals, k)) {
+        s = s.split('{' + k + '}').join(String(vals[k]));
+      }
+    }
+    return s;
+  }
+
+  function photosMaxPerGuest() {
+    var n = parseInt((CFG.photos || {}).maxPerGuest, 10);
+    return isNaN(n) || n < 0 ? 5 : n;
+  }
+
+  /* Read from config, never hardcoded, and never negative: a stored count
+     above the maximum is a drifted count, not a negative allowance. */
+  function photosRemaining() {
+    return Math.max(0, photosMaxPerGuest() - identity.photoCount());
+  }
+
+  /* setFormState()'s shape, one for one. One attribute drives everything: CSS
+     reads it, JS sets it, there is no class juggling and no second flag. Every
+     branch of the upload path ends in a call to this, so no code path can
+     leave the control locked.
+
+     The label deliberately does not change while busy. The status line
+     directly below already says what is happening, and swapping the label as
+     well would be the same sentence twice.
+
+     There is no validating state. A pass over five File objects is sub
+     millisecond, so a distinct visible state would be a flash; validation
+     folds into preparing and its results are rendered as row states, which is
+     where a guest can actually act on them. */
+  function setUploaderState(uploader, state) {
+    if (UPLOADER_STATES.indexOf(state) === -1) state = 'idle';
+    photoState = state;
+
+    if (!uploader) return;
+    uploader.setAttribute('data-state', state);
 
     var busy = (state === 'preparing' || state === 'uploading');
-    var btn = $('#photos-pick', host);
+    var btn = $('#photos-pick', uploader);
     if (!btn) return;
 
     btn.disabled = busy;
-    /* A disabled button on its own tells a screen reader nothing about why.
-       The label deliberately does not change: the status line below already
-       says what is happening and swapping the label too is the same sentence
-       twice. */
-    btn.setAttribute('aria-busy', busy ? 'true' : 'false');
     btn.textContent = t('photos.cta');
+    // A disabled button on its own tells a screen reader nothing about why.
+    btn.setAttribute('aria-busy', busy ? 'true' : 'false');
+  }
+
+  /* The polite line. Progress and success, and nothing else: a counted
+     progress sentence is not worth interrupting a screen reader for.
+
+     It is never given the hidden attribute, and that is a deliberate
+     departure from the contract's own wording, taken because two of the
+     contract's rules cannot both hold literally. [hidden] is
+     display:none !important in the Base block, so a hidden status line has no
+     box at all, and the reserved box is what keeps the submit button and the
+     album below it from moving when a batch starts and ends. An empty node
+     that is in the layout also announces more reliably than one that was
+     display:none at the instant its content arrived, which is the reason the
+     contract wanted the node to exist early in the first place. So it exists
+     from first render, empty, and holds its 24px box in every state. */
+  function paintStatus() {
+    var node = photoUploader && $('.uploader__status', photoUploader);
+    if (!node) return;
+    node.textContent = photoStatus ? phrase(photoStatus.key, photoStatus.vals) : '';
+  }
+
+  /* The assertive line. Refusals and failures only. A file that did not land
+     is worth interrupting for; "Sending 2 of 3" is not. Hidden until it has
+     something to say, and never created with its content already in it. */
+  function paintAlert() {
+    var node = photoUploader && $('.uploader__alert', photoUploader);
+    if (!node) return;
+    if (!photoAlert) { node.textContent = ''; node.hidden = true; return; }
+    node.textContent = phrase(photoAlert.key, photoAlert.vals);
+    node.hidden = false;
+  }
+
+  function setUploaderStatus(key, vals) {
+    photoStatus = key ? { key: key, vals: vals || null } : null;
+    paintStatus();
+  }
+
+  function setUploaderAlert(key, vals) {
+    photoAlert = key ? { key: key, vals: vals || null } : null;
+    paintAlert();
+  }
+
+  /* The sole writer of a row's state attribute, and the sole writer of the
+     record's state, so the model and the markup cannot disagree.
+
+     The reason is stored as a copy KEY on the record rather than as a
+     rendered string, which is what lets a language switch re-render a refusal
+     without re-running validation, and what keeps a Storage or PostgREST
+     message string from ever reaching the page. */
+  function setRowState(rec, state, reasonKey, reasonVals) {
+    if (!rec) return;
+    if (!ROW_STATE_KEY[state]) state = 'waiting';
+    rec.state = state;
+
+    if (arguments.length >= 3) {
+      rec.reasonKey = reasonKey || null;
+      rec.reasonVals = reasonVals || null;
+    }
+
+    var row = rec.node;
+    if (!row) return;
+    row.setAttribute('data-state', state);
+    if (rec.stateEl) rec.stateEl.textContent = t(ROW_STATE_KEY[state]);
+  }
+
+  /* The transcript, rendered from photoBatch and from nothing else. It is
+     never read back out of the DOM: a queue that is its own record is a queue
+     a language switch destroys. */
+  function renderQueue() {
+    var list = photoQueueEl;
+    if (!list) return;
+
+    list.textContent = '';
+
+    if (!photoBatch.length) { list.hidden = true; return; }
+
+    for (var i = 0; i < photoBatch.length; i++) {
+      var rec = photoBatch[i];
+
+      var row = document.createElement('li');
+      row.className = 'queue__row';
+
+      /* Not decoration. iOS hands back identical names for several picks from
+         some camera roll paths, so five rows can legitimately read the same,
+         and the numeral is what makes the transcript and D-15's refusal
+         actually identify a file. */
+      var num = document.createElement('span');
+      num.className = 'queue__n';
+      num.textContent = String(rec.index);
+
+      /* An operating system supplied string, so createElement plus
+         textContent and never a markup string. An empty name is a real case
+         on iOS and renders the named fallback rather than a blank cell. */
+      var name = document.createElement('span');
+      name.className = 'queue__name';
+      name.textContent = (rec.file && rec.file.name) ? rec.file.name : t('photos.queue.unnamed');
+
+      var word = document.createElement('span');
+      word.className = 'queue__state';
+
+      row.appendChild(num);
+      row.appendChild(name);
+      row.appendChild(word);
+
+      rec.node = row;
+      rec.stateEl = word;
+
+      // Painted from the record, so a rebuild in a new language loses nothing.
+      setRowState(rec, rec.state);
+
+      list.appendChild(row);
+    }
+
+    list.hidden = false;
+  }
+
+  /* refreshEnrollmentState()'s shape: the single fan out a recorded
+     photograph owes, called from one place rather than three calls from four.
+     Three things change together when the register accepts a file. The figure
+     the guest reads. The control's own state, re-seated rather than changed,
+     because the driver owns which state it is in and this only re-applies it
+     so the disabled property cannot drift from the attribute CSS reads. And
+     the album, which is read back because a status code is not proof (D-27).
+
+     The album read is 8000ms and non blocking, so a refetch per recorded file
+     costs the batch nothing and puts the guest's own photograph directly
+     below the control while the next file is still decoding. */
+  function refreshPhotosState() {
+    if (photoUploader) {
+      var fig = $('.uploader__count', photoUploader);
+      if (fig) fig.textContent = String(photosRemaining());
+      setUploaderState(photoUploader, photoState);
+    }
+    renderAlbum($('#photos-album'));
   }
 
   function buildGatePanel() {
@@ -4077,11 +4303,42 @@
   function buildUploader() {
     var box = document.createElement('div');
     box.className = 'uploader';
-    box.setAttribute('data-state', 'idle');
 
+    /* The remaining count is a labelled data field in the receipt's own
+       grammar. Not a chip, which would be the only chip on the page, and not
+       folded into the button label, which would change the label's length on
+       every upload and reflow a full width button under a thumb.
+
+       recordRow() is deliberately not reused for it. That builder writes a
+       translation attribute, and this phase writes none anywhere: the sweep
+       would then re-translate half the control on a language tap whose render
+       was skipped mid batch, which is exactly the half translated state the
+       skip exists to prevent. */
+    var list = document.createElement('dl');
+    list.className = 'facts facts--record';
+
+    var line = document.createElement('div');
+    line.className = 'facts__row';
+
+    var label = document.createElement('dt');
+    label.className = 'uploader__label';
+
+    // Mono with tabular figures, because the number changes as files land and
+    // a proportional face would shift the value cell sideways every time.
+    var fig = document.createElement('dd');
+    fig.className = 'mono uploader__count';
+
+    line.appendChild(label);
+    line.appendChild(fig);
+    list.appendChild(line);
+    box.appendChild(list);
+
+    /* Above the button rather than below it. It is information a guest needs
+       in order to decide, so it has to be read before the picker opens, and it
+       is the pre-commitment substitute for a destructive confirmation this
+       phase deliberately does not have. */
     var note = document.createElement('p');
     note.className = 'uploader__note';
-    note.textContent = t('photos.permanent');
     box.appendChild(note);
 
     var acts = document.createElement('div');
@@ -4091,7 +4348,6 @@
     btn.type = 'button';
     btn.className = 'btn btn--primary';
     btn.id = 'photos-pick';
-    btn.textContent = t('photos.cta');
     acts.appendChild(btn);
     box.appendChild(acts);
 
@@ -4113,6 +4369,30 @@
     input.hidden = true;
     box.appendChild(input);
 
+    /* Two live regions with two urgencies, both in the document from first
+       render and both empty. Many screen readers will not announce a region
+       that arrives with its content already in it, so nothing in this section
+       creates a node and fills it in the same breath. */
+    var status = document.createElement('p');
+    status.className = 'uploader__status';
+    status.setAttribute('role', 'status');
+    box.appendChild(status);
+
+    var alertLine = document.createElement('p');
+    alertLine.className = 'uploader__alert';
+    alertLine.setAttribute('role', 'alert');
+    alertLine.hidden = true;
+    box.appendChild(alertLine);
+
+    var queue = document.createElement('ol');
+    queue.className = 'queue';
+    queue.hidden = true;
+    box.appendChild(queue);
+
+    // Held rather than queried. Exactly one uploader stands at a time.
+    photoUploader = box;
+    photoQueueEl = queue;
+
     // The button calls the input from inside its own click handler, which is a
     // user gesture and is the supported pattern on both platforms.
     btn.addEventListener('click', function () { input.click(); });
@@ -4120,73 +4400,243 @@
       var files = Array.prototype.slice.call(input.files || []);
       // The value is cleared so picking the same file twice still fires change.
       input.value = '';
-      if (files.length) runBatch(box, files);
+      /* A picker dismissed with no selection changes nothing: no state
+         transition, no queue, no status line. */
+      if (files.length) runBatch(files);
     });
 
     return box;
   }
 
-  /* Sequential, one file at a time (D-18), so a failure at file four leaves
-     files one to three genuinely uploaded rather than in an ambiguous partial
-     state, and so one decoded bitmap is alive at a time on a phone.
+  /* syncFormLanguage()'s job, for a control that carries no translation
+     attribute at all, which is a deliberate departure from phase 3's form.
+     The applyLanguage() sweep cannot help here by design, so every string in
+     the control is re-seated from the model: the two labels from their keys,
+     the button from its state, the two live regions from the { key, vals }
+     they hold, and every queue row from the copy key its record stored when it
+     was refused, never by re-running validation. */
+  function syncUploaderLanguage(uploader) {
+    if (!uploader) return;
 
-     Validation runs across the WHOLE picked list before any decode, so a file
-     refused by validation never reaches the canvas and never reaches the
-     network.
+    var label = $('.uploader__label', uploader);
+    if (label) label.textContent = t('photos.remaining.label');
 
-     Every branch terminates in a call to setUploaderState(), so no path can
-     leave the control locked. */
-  function runBatch(host, files) {
+    var fig = $('.uploader__count', uploader);
+    if (fig) fig.textContent = String(photosRemaining());
+
+    var note = $('.uploader__note', uploader);
+    if (note) note.textContent = t('photos.permanent');
+
+    setUploaderState(uploader, photoState);
+
+    paintStatus();
+    paintAlert();
+    renderQueue();
+  }
+
+  /* A guest with five photographs picks five once (D-15), and every one of
+     them becomes a numbered row from the instant of selection, before any work
+     begins. Silently dropping a file somebody chose is the failure PH-05
+     forbids, wearing a quieter costume.
+
+     Picking a new batch replaces the array wholly and discards any un-retried
+     failed records. The guest was told by name what did not land and was
+     offered a retry before they chose to move on, and a queue that accumulates
+     across batches grows without bound during exactly the hours the phone is
+     busiest. */
+  function runBatch(files) {
+    var uploader = photoUploader;
     var maxBytes = maxFileBytes();
-    var accepted = [];
+    var room = photosRemaining();
+    var i, rec;
 
-    for (var i = 0; i < files.length; i++) {
-      if (!validateFile(files[i], maxBytes)) accepted.push(files[i]);
-    }
+    photoIdent = identity.get();
+    photoBatch = [];
+    setUploaderStatus(null);
+    setUploaderAlert(null);
 
-    if (!accepted.length) { setUploaderState(host, 'idle'); return; }
-
-    var ident = identity.get();
-    var index = 0;
-    var landed = 0;
-
-    function next() {
-      if (index >= accepted.length) {
-        if (landed) {
-          identity.setPhotoCount(identity.photoCount() + landed);
-          // Read back through the view, which is what proves the write (D-27).
-          renderAlbum($('#photos-album'));
-        }
-        setUploaderState(host, 'idle');
-        return;
-      }
-
-      var file = accepted[index++];
-      setUploaderState(host, 'preparing');
-
-      downscaleToJpeg(file, maxEdgePx(), jpegQuality(), function (blob, errKey) {
-        if (errKey || !blob) return next();
-
-        var path = storagePath();
-        if (!path) return next();
-
-        setUploaderState(host, 'uploading');
-
-        /* The progress callback is wired here and has no bar to drive yet.
-           Plan 04-02 renders the transcript it feeds. */
-        uploadObject(path, blob, function () { }, function (out) {
-          if (!out.ok) return next();
-
-          // Storage first, then the row (D-19).
-          insertPhotoRow(ident, path, function (result) {
-            if (result === 'ok') landed++;
-            next();
-          });
-        });
+    for (i = 0; i < files.length; i++) {
+      photoBatch.push({
+        file: files[i],
+        index: i + 1,
+        slot: 0,
+        state: 'waiting',
+        reasonKey: null,
+        reasonVals: null,
+        path: null,
+        progress: 0,
+        node: null,
+        stateEl: null
       });
     }
 
-    next();
+    // The transcript exists before any work begins, which is the point of it.
+    renderQueue();
+
+    /* Validation folds into preparing rather than getting a state of its own,
+       and it runs across the WHOLE picked list before any decode (D-21), so a
+       file too large to decode is refused before it can exhaust the phone. */
+    setUploaderState(uploader, 'preparing');
+
+    var accepted = 0;
+    var extra = [];
+
+    for (i = 0; i < photoBatch.length; i++) {
+      rec = photoBatch[i];
+
+      var bad = validateFile(rec.file, maxBytes);
+      if (bad) {
+        setRowState(rec, 'refused', bad, bad === 'photos.err.size' ? { mb: maxFileMb() } : null);
+        continue;
+      }
+
+      /* Overflow (D-15): the first N are accepted and the rest are refused by
+         name and by number in their own rows, which is more readable than
+         cramming three file names into one sentence. */
+      if (accepted >= room) { extra.push(rec); continue; }
+
+      rec.slot = ++accepted;
+    }
+
+    photoBatchTotal = accepted;
+
+    if (extra.length) {
+      for (i = 0; i < extra.length; i++) {
+        setRowState(extra[i], 'refused', 'photos.refuse.extra', { n: extra.length });
+      }
+      setUploaderAlert('photos.refuse.extra', { n: extra.length });
+    }
+
+    if (!accepted) return settleBatch();
+    runNextFile();
+  }
+
+  /* Sequential, one file at a time (D-18), so a failure at file four leaves
+     files one to three genuinely recorded rather than in an ambiguous partial
+     state, and so exactly one decoded bitmap is alive at a time on a phone.
+     At any instant at most one request is in flight and at most one row is in
+     a moving state.
+
+     Every branch below terminates in a row state and re-enters here, and the
+     walk terminates in settleBatch(), which terminates in a control state. No
+     path can leave the control locked.
+
+     Writes go to the model first and to the record's node second. If a render
+     has replaced that node the write is a harmless no-op, because the next
+     render paints from the model rather than from the orphan. */
+  function runNextFile() {
+    var uploader = photoUploader;
+    var rec = null;
+
+    for (var i = 0; i < photoBatch.length; i++) {
+      if (photoBatch[i].state === 'waiting') { rec = photoBatch[i]; break; }
+    }
+
+    if (!rec) return settleBatch();
+
+    setUploaderState(uploader, 'preparing');
+    setRowState(rec, 'preparing');
+
+    downscaleToJpeg(rec.file, maxEdgePx(), jpegQuality(), function (blob, errKey) {
+      /* Terminal for this file and never retried: each retry re-decodes the
+         full resolution source and the third attempt is where a phone gives
+         up. It is a refusal rather than a failure, because nothing was sent. */
+      if (errKey || !blob) {
+        setRowState(rec, 'refused', errKey || 'photos.err.decode', null);
+        return runNextFile();
+      }
+
+      /* No source of randomness at all, so the file cannot be given a safe
+         name. The same branch enrollment takes at the identical moment. */
+      var path = storagePath();
+      if (!path) {
+        setRowState(rec, 'failed', 'photos.err.server', null);
+        return runNextFile();
+      }
+      rec.path = path;
+
+      setUploaderState(uploader, 'uploading');
+      setRowState(rec, 'uploading');
+
+      uploadObject(path, blob, function () { }, function (out) {
+        if (!out.ok) {
+          setRowState(rec, 'failed', out.code === 'NETWORK' ? 'photos.err.network' : 'photos.err.server', null);
+          return runNextFile();
+        }
+
+        // Storage first, then the row (D-19).
+        insertPhotoRow(photoIdent, path, function (result) {
+          if (result === 'ok') {
+            setRowState(rec, 'done', null, null);
+            identity.setPhotoCount(identity.photoCount() + 1);
+            refreshPhotosState();
+          } else if (result === 'limit') {
+            /* The bytes went up, so this is not a failure: the submission was
+               declined. The local count was wrong and the register was right,
+               so the count self-heals to the maximum (D-19) rather than the
+               path being retried, which would upload bytes forever. */
+            setRowState(rec, 'refused', 'photos.refuse.server', null);
+            identity.setPhotoCount(photosMaxPerGuest());
+            refreshPhotosState();
+          } else {
+            setRowState(rec, 'failed', 'photos.err.server', null);
+          }
+          runNextFile();
+        });
+      });
+    });
+  }
+
+  /* The batch settles. The terminal control state is computed from the
+     records, never from a counter kept alongside them, so it cannot disagree
+     with the transcript the guest is reading.
+
+     The polite line carries the success, the assertive line carries what did
+     not land, and where every refusal shares one reason that reason is named
+     rather than summarised. No message string from either Supabase service is
+     ever rendered: every sentence here is a copy key. */
+  function settleBatch() {
+    var uploader = photoUploader;
+    var ok = 0, refused = 0, failed = 0, i, rec;
+    var oneKey = null, oneVals = null, mixed = false;
+
+    for (i = 0; i < photoBatch.length; i++) {
+      rec = photoBatch[i];
+      if (rec.state === 'done') { ok++; continue; }
+      if (rec.state === 'refused') refused++;
+      else if (rec.state === 'failed') failed++;
+      else continue;
+
+      if (!oneKey) { oneKey = rec.reasonKey; oneVals = rec.reasonVals; }
+      else if (oneKey !== rec.reasonKey) mixed = true;
+    }
+
+    var bad = refused + failed;
+    var state = 'idle';
+    if (ok && bad) state = 'partial';
+    else if (ok) state = 'success';
+    else if (failed) state = 'failed';
+    else if (refused) state = 'refused';
+
+    setUploaderState(uploader, state);
+
+    if (state === 'success') setUploaderStatus(ok === 1 ? 'photos.status.done.one' : 'photos.status.done.many', { n: ok });
+    else if (state === 'partial') setUploaderStatus('photos.status.partial', { ok: ok, bad: bad });
+    else setUploaderStatus(null);
+
+    /* One reason shared by every unlanded row is named. Several reasons become
+       the counted sentence, because three sentences stacked in an assertive
+       region is three interruptions for one event. */
+    if (!bad) setUploaderAlert(null);
+    else if (!mixed && oneKey) setUploaderAlert(oneKey, oneVals);
+    else setUploaderAlert('photos.status.partial', { ok: ok, bad: bad });
+
+    /* The language render that was skipped mid batch happens once, here, and
+       this is the only place the flag is cleared. */
+    if (photoBatchPending) {
+      photoBatchPending = false;
+      renderPhotos();
+    }
   }
 
   /* renderEnrollment()'s shape exactly: null-guard the host, compute one body
@@ -4198,6 +4648,22 @@
   function renderPhotos() {
     var host = $('#photos-body');
     if (!host) return;
+
+    /* renderPhotos() joins the applyLanguage() chain, so a guest tapping DA
+       mid upload would otherwise get the control rebuilt underneath in-flight
+       requests. The rebuild is skipped while the control is preparing or
+       uploading and a flag is set; the batch renders once from the model when
+       it settles. Skipping is simpler than restoring, and because this phase
+       writes no translation attribute anywhere, a skipped render leaves the
+       control wholly in the previous language rather than half translated.
+
+       The presence of the control is read from the DOM. Its state is not:
+       that comes from the model, which is the only thing that knows. */
+    if (photoUploader && $('.uploader', host) &&
+        (photoState === 'preparing' || photoState === 'uploading')) {
+      photoBatchPending = true;
+      return;
+    }
 
     var ident = identity.get();
     var body;
@@ -4214,13 +4680,38 @@
     host.textContent = '';          // discards the static pending markup
     host.setAttribute('data-body', body);
 
+    /* The standing control is about to be discarded, so the references to it
+       go with it rather than being left to point at detached nodes. */
+    photoUploader = null;
+    photoQueueEl = null;
+
+    if (body !== 'upload') {
+      /* No control means no batch. The model is cleared with it, so a guest
+         who withdraws mid session does not come back to a transcript of an
+         evening the control can no longer act on. */
+      photoBatch = [];
+      photoBatchTotal = 0;
+      photoBatchPending = false;
+      photoStatus = null;
+      photoAlert = null;
+      photoState = 'idle';
+    }
+
     if (body === 'pending') {
       host.appendChild(pendingBlock('photos.pending.title', 'photos.pending.body'));
       return;
     }
 
-    if (body === 'gate') host.appendChild(buildGatePanel());
-    else host.appendChild(buildUploader());
+    if (body === 'gate') {
+      host.appendChild(buildGatePanel());
+    } else {
+      var box = buildUploader();
+      host.appendChild(box);
+      /* Every string in the control is written after it is in the document
+         and never before, which is what the two live regions need: a region
+         that arrives with its content already in it is not announced. */
+      syncUploaderLanguage(box);
+    }
 
     /* The album is present under the gate deliberately: it is what makes the
        registration prompt persuasive. A guest who can see the evening
