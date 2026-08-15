@@ -2432,9 +2432,29 @@
      the page rather than merely unlikely to.
      ====================================================================== */
 
+  /* Two callers, the language chain and every enrollment mutation, and both can
+     have a read out at the same time. Held at module scope and read back in the
+     continuation, so a response that has been superseded is discarded rather
+     than painted. */
+  var proofSeq = 0;
+
   function renderSocialProof() {
     var host = $('#enrol-proof');
     if (!host || !sbConfigured()) return;
+
+    /* Claimed before the request goes out. The reachable sequence is a
+       withdrawal, which fires a read that will no longer count the withdrawing
+       guest, and then a language switch inside that round trip, which fires a
+       second. If the first lands last the guest is shown a head count that
+       still counts them, in the one widget on this page whose entire job is to
+       be believed.
+
+       Checked above the clear below rather than after it, and that placement is
+       the whole fix rather than a detail of it. Clearing on a superseded
+       response blanks a block a newer response has already painted correctly,
+       so a token checked one line later would still destroy the right answer
+       and merely decline to write the wrong one. */
+    var seq = ++proofSeq;
 
     /* 8 seconds rather than the write path's 12. This is a non blocking
        decoration and a guest should never wait on it. The wire also offers a
@@ -2443,6 +2463,11 @@
        sorted here into a register instead. */
     sbRequest('GET', '/rest/v1/attendees?select=first_name,extra_guests', null, null, 8000)
       .then(function (res) {
+        // A newer read is already out or has already landed. This one is not
+        // new information, and writing anything at all from here, the clear
+        // included, would be replacing a fresher answer with a staler one.
+        if (seq !== proofSeq) return;
+
         // Cleared on every outcome, so a switch to a language whose fetch fails
         // does not leave the previous language's block standing.
         host.textContent = '';
@@ -3404,18 +3429,35 @@
 
   var toastEl = $('#toast');
   var toastTimer = null;
+  var toastHideTimer = null;
 
+  /* Both timers held at module scope and both cleared before either is set,
+     which is the rule this file states for itself and already applies to
+     copyRevert, mapTimer and nudgeHideTimer. The hide timer used to be the one
+     exception, and this phase is what made the exception reachable: it added
+     two toasts fired from controls sitting two rows apart on the same panel, so
+     a second message arriving inside the previous one's 260ms fade is an
+     ordinary sequence rather than a contrivance. The stale hide would then set
+     hidden on the new message, and [hidden] takes it off the screen entirely,
+     so a guest is told something and never gets to read it. */
   function toast(msg) {
     if (!toastEl) return;
+
+    if (toastTimer !== null)     { clearTimeout(toastTimer);     toastTimer = null; }
+    if (toastHideTimer !== null) { clearTimeout(toastHideTimer); toastHideTimer = null; }
+
     toastEl.textContent = msg;
     toastEl.hidden = false;
     // Next frame, so the transition actually runs from the hidden state.
     requestAnimationFrame(function () { toastEl.setAttribute('data-show', '1'); });
 
-    if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(function () {
+      toastTimer = null;
       toastEl.removeAttribute('data-show');
-      setTimeout(function () { toastEl.hidden = true; }, 260);
+      toastHideTimer = setTimeout(function () {
+        toastHideTimer = null;
+        toastEl.hidden = true;
+      }, 260);
     }, 2400);
   }
 
