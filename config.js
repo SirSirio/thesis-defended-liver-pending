@@ -214,7 +214,38 @@ window.PARTY_CONFIG = {
     bucket: 'party-photos',
     table: 'photos',
     maxPerGuest: 5,      // also enforced in the database, see supabase/schema.sql
+
+    /* The biggest file a phone is allowed to hand over, before the site
+       shrinks it. This number and the bucket's own three megabyte ceiling
+       in supabase/schema.sql section 6 are two different numbers doing two
+       different jobs: this one protects the phone's memory before the
+       shrink, that one protects the bucket after it. Do not reconcile them
+       into one. */
     maxFileSizeMb: 12,
+
+    /* When the album starts accepting photographs. Written the same way as
+       the party time above, with the country's offset on the end, so it is
+       compared as a moment rather than as a wall clock: a guest whose phone
+       is set to another country still gets the same instant.
+
+       Set this to null to open uploads immediately. That is the one line
+       to change on the night if a phone is showing the wrong date and
+       guests are being told the portal is shut.
+
+       Keep it earlier than startsAt above. The countdown's closing state
+       tells guests to go and upload their photographs, and it must never
+       point them at a portal that is still closed. */
+    opensAt: '2026-10-03T13:00:00+02:00',
+
+    /* The longest edge of a photograph after the site shrinks it, in
+       pixels. Bigger is prettier and roughly doubles the bytes on a
+       connection that will already be busy. */
+    maxEdgePx: 1600,
+
+    /* JPEG quality, between 0 and 1. A number outside that range is
+       silently ignored by the browser, so a typo here makes larger files
+       and no error message anywhere. */
+    jpegQuality: 0.82,
   },
 
   /* ---------------------------------------------------------------------
