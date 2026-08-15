@@ -4513,6 +4513,43 @@
     return panel;
   }
 
+  /* The quota body, and it is the phase. The roadmap's done-when sentence ends
+     here: the sixth photograph is refused with a joke rather than an error.
+
+     A sub-heading and a lede, in the existing panel grammar, and nothing else.
+     No button, no queue, no line inviting the guest to contact the host, and
+     above all no remaining count reading zero, because a zero would be a
+     number where the joke goes. It is a course requirement satisfied rather
+     than a wall hit, and the register is the whole difference between the joke
+     landing and an error message wearing a costume (D-23).
+
+     It is not an assertive region and it does not take focus. It is reached
+     two ways and neither is an event that needs announcing on its own: at page
+     load it is simply the state of the section, and mid batch it is reached
+     after the alert line has already announced the refusal assertively, where
+     a focus move would announce the same fact twice and read as a stutter.
+
+     It is a .panel, so it mounts at zero opacity and the ladder's data-show
+     line is what makes it visible. That line is deliberately in the ladder
+     rather than in the builders, so this body could not ship with the defect
+     the registration gate shipped with and had repaired. */
+  function quotaPanel() {
+    var panel = document.createElement('div');
+    panel.className = 'panel';
+
+    var h = document.createElement('h3');
+    h.className = 'sub-h';
+    h.textContent = t('photos.full.title');
+
+    var lede = document.createElement('p');
+    lede.className = 'panel__lede';
+    lede.textContent = t('photos.full.body');
+
+    panel.appendChild(h);
+    panel.appendChild(lede);
+    return panel;
+  }
+
   function buildUploader() {
     var box = document.createElement('div');
     box.className = 'uploader';
@@ -4832,9 +4869,7 @@
                not call it one: the submission was declined. The local count
                was wrong and the register was right, so it self-heals to the
                maximum (D-19) instead of the path being retried. */
-            setRowState(rec, 'refused', 'photos.refuse.server', null);
-            identity.setPhotoCount(photosMaxPerGuest());
-            refreshPhotosState();
+            hitQuota(rec, 'photos.refuse.server');
           } else {
             /* The object is up and the row is not, so this branch is where the
                accepted orphan of D-19 is created. It is left exactly where it
@@ -4848,6 +4883,52 @@
         });
       });
     });
+  }
+
+  /* The single self-healing response to the register being full, and the only
+     one of the three routes to five that arrives from the wire.
+
+     The local count is the affordance and the database trigger is the floor.
+     When the two disagree the floor is right, so the count is set to the
+     configured maximum rather than incremented, and the ladder's quota branch
+     takes over when the batch settles. Self-healing rather than a dead end
+     (D-19).
+
+     It never re-enters the driver and never mints a second object key for the
+     same record. The trigger is BEFORE INSERT, so it fires ahead of the unique
+     constraint and a guest at the maximum sees the same code for a path
+     collision too: a retry with a fresh path would upload bytes forever.
+
+     The copy it is handed must never say the upload failed, because it did
+     not. The bytes were accepted and the submission was declined, and saying
+     otherwise makes the site lie about work the guest's phone actually did. */
+  function hitQuota(rec, reasonKey) {
+    // The configured photos.maxPerGuest, through the one reader of it and
+    // never a literal, because two parses of one value drift apart on a typo.
+    identity.setPhotoCount(photosMaxPerGuest());
+
+    if (rec) setRowState(rec, 'refused', reasonKey, null);
+
+    /* Every file still waiting is refused here rather than sent one at a time
+       and declined one at a time. The register is full and is not going to
+       become less full inside this batch, so at most one upload is wasted per
+       storage reset. They are refused by name in their own rows, which is
+       where D-15's requirement that the extras are named is honoured. */
+    var waiting = [], i;
+    for (i = 0; i < photoBatch.length; i++) {
+      if (photoBatch[i].state === 'waiting') waiting.push(photoBatch[i]);
+    }
+    for (i = 0; i < waiting.length; i++) {
+      setRowState(waiting[i], 'refused', 'photos.refuse.extra', { n: waiting.length });
+    }
+
+    /* The figure and nothing else. Deliberately not refreshPhotosState(),
+       which also refetches the album: D-12 gives the album exactly one
+       trigger, a photograph landing, and nothing landed here. */
+    if (photoUploader) {
+      var fig = $('.uploader__count', photoUploader);
+      if (fig) fig.textContent = String(photosRemaining());
+    }
   }
 
   /* The batch settles. The terminal control state is computed from the
@@ -4901,6 +4982,21 @@
     else if (!mixed && oneKey) setUploaderAlert(oneKey, oneVals);
     else if (state === 'partial') setUploaderAlert(null);
     else setUploaderAlert('photos.status.partial', { ok: ok, bad: bad });
+
+    /* Two of the three routes to five land here, and they land the same way.
+       An overflow batch that filled the allowance and a server refusal that
+       healed the count both leave the stored count at the maximum, so the
+       ladder is asked again rather than a state being written by hand. The
+       third route needs nothing at all: at page load the quota body is simply
+       what the ladder finds.
+
+       The flip happens at settle rather than the instant the count reaches the
+       maximum, so the guest sees the transcript of the batch they just
+       submitted finish before the file closes over it. */
+    if (identity.photoCount() >= photosMaxPerGuest()) {
+      photoBatchPending = false;
+      return renderPhotos();
+    }
 
     /* The language render that was skipped mid batch happens once, here, and
        this is the only place the flag is cleared. */
@@ -5003,12 +5099,14 @@
        renders the first token of name, and a guest with no name cannot be
        attributed, so this is the gate rather than the control (D-01). */
     else if (!ident.name || !ident.guest_id) body = 'gate';
-    /* THE QUOTA BRANCH GOES HERE, fourth, and plan 04-04 inserts it:
-         else if (identity.photoCount() >= photosMaxPerGuest()) body = 'full';
-       Its body is a .panel and the album stays below it, so it needs no new
-       handling further down beyond its own builder. The position is named
-       rather than left to be worked out, because the ladder's order is the
-       contract: unconfigured, closed, not registered, quota, upload. */
+    /* Fourth, and above the control rather than inside it: at the maximum
+       there is no control to be in a state, so the whole of it is replaced
+       rather than disabled. A disabled primary button sitting under a joke is
+       a broken control; an absent one is a closed file. The album stays below
+       it, so a guest can still look at the evening they simply cannot add to.
+       The ladder's order is the contract: unconfigured, closed, not
+       registered, quota, upload. */
+    else if (identity.photoCount() >= photosMaxPerGuest()) body = 'full';
     else body = 'upload';
 
     host.textContent = '';          // discards the static pending markup
@@ -5057,6 +5155,9 @@
 
     if (body === 'gate') {
       host.appendChild(buildGatePanel());
+    } else if (body === 'full') {
+      // Falls through to the album below, deliberately, unlike the closed body.
+      host.appendChild(quotaPanel());
     } else {
       var box = buildUploader();
       host.appendChild(box);
