@@ -1260,10 +1260,35 @@
      successful registration would land in the failure state. That is the single
      most likely way to break the happy path on this project.
 
-     The abort timer is unconditional and is cleared on both paths. */
+     The settlement is unconditional; the abort is not, and the difference
+     matters. A browser with fetch and no AbortController is a real population,
+     and there the timer used to fire into nothing: the fetch went on hanging,
+     neither branch below ran, and the promise never settled at all. Every
+     caller's state reset lives in one of those branches, so on that population
+     setFormState(form,'submitting') became permanent, the whole form stayed
+     disabled with every typed value trapped behind it, and the withdrawal
+     confirmation stayed frozen the same way, with no recovery short of a
+     reload. That falsified both of the invariants written down for this
+     helper and for setFormState: that no code path can leave the button
+     locked, and that no call site needs a catch.
+
+     Racing the wire against a timeout that resolves is what makes those two
+     sentences true rather than merely asserted. The abort still fires wherever
+     it can, because a request nobody is waiting for should not stay on the
+     wire; the answer no longer depends on it having taken effect. The timer is
+     cleared once the race resolves, on both outcomes. */
   function sbRequest(method, path, body, prefer, timeoutMs) {
     var ctl = ('AbortController' in window) ? new AbortController() : null;
-    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, timeoutMs || 12000);
+    var timer = null;
+
+    var timeout = new Promise(function (resolve) {
+      timer = setTimeout(function () {
+        if (ctl) ctl.abort();
+        // The same shape the catch returns. To a guest a request that failed
+        // and one that never answered are the same event.
+        resolve({ ok: false, status: 0, code: 'NETWORK', body: null });
+      }, timeoutMs || 12000);
+    });
 
     var headers = { 'apikey': sbKey() };
     if (body) headers['Content-Type'] = 'application/json';
@@ -1273,8 +1298,7 @@
     if (body) opts.body = JSON.stringify(body);
     if (ctl) opts.signal = ctl.signal;
 
-    return fetch(sbUrl() + path, opts).then(function (res) {
-      clearTimeout(timer);
+    var wire = fetch(sbUrl() + path, opts).then(function (res) {
       return res.text().then(function (txt) {
         var parsed = null;
         if (txt) {
@@ -1288,9 +1312,13 @@
         };
       });
     }).catch(function () {
-      clearTimeout(timer);
       // Abort, offline, DNS failure, CORS. To a guest these are one event.
       return { ok: false, status: 0, code: 'NETWORK', body: null };
+    });
+
+    return Promise.race([wire, timeout]).then(function (out) {
+      clearTimeout(timer);
+      return out;
     });
   }
 
@@ -1317,11 +1345,19 @@
 
     return sbRequest('POST', '/rest/v1/enrollments', row, 'return=minimal')
       .then(function (res) {
-        if (res.status === 201) return { result: 'ok' };
+        /* Any 2xx, and read the same way the two RPC callers read theirs. There
+           is nothing to disambiguate with: Prefer: return=minimal guarantees an
+           empty body, so a 2xx on this path means the row was written and
+           nothing else it could mean. Gating on the one exact status this
+           endpoint happens to answer today reports a written row as a lost one
+           the day a proxy normalises it, in the single most important branch in
+           the file. */
+        if (res.ok) return { result: 'ok' };
 
         /* Not a failure. This browser already holds a registration, which D-15
            makes reachable by design, and a lost response on a bad connection
-           makes it reachable by accident. The guest sees one success. */
+           makes it reachable by accident. The guest sees one success. A 409 is
+           not ok, so it reaches this test exactly as it did before. */
         if (res.status === 409 && res.code === '23505') return amendEnrollment(fields, ident);
 
         return { result: 'failed', code: res.code };
