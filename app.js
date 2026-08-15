@@ -3299,10 +3299,19 @@
      the bar said "closes tomorrow" on the last day there was.
 
      The catch is the same shape formatDate uses and is there for the same
-     reason: on a platform that cannot answer the better question this degrades
-     to the old arithmetic rather than throwing. That fallback can still yield
-     negative zero, which is exactly the defect this region carried, and it is
-     harmless here only because deadlinePassed() runs above every caller. */
+     reason: a platform without IANA zone data or without formatToParts must
+     still get an answer rather than an exception. What it degrades is the zone,
+     from Copenhagen to the device's own, and nothing else. It is still a
+     calendar difference between two midnights, so it still answers the calendar
+     question every string in the ladder asks, it cannot return negative zero,
+     and it does not need deadlinePassed() above it to be harmless.
+
+     Degrading instead to the millisecond division this function replaced would
+     have reintroduced the whole defect on those platforms: a 24 hour window
+     cannot render "closes today" at all, and prints "closes tomorrow" on the
+     last day there is. A guest on an old browser would be shown the false
+     statement on the day the pressure is meant to peak, which is the outcome
+     that was rejected when deleting the today key was considered. */
   function calendarDaysUntil(ms) {
     try {
       var fmt = new Intl.DateTimeFormat('en-GB', {
@@ -3321,7 +3330,12 @@
       };
       return Math.round((dayOf(ms) - dayOf(Date.now())) / 86400000);
     } catch (e) {
-      return Math.ceil((ms - Date.now()) / 86400000);
+      var a = new Date(ms);
+      var b = new Date();
+      return Math.round((
+        Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()) -
+        Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())
+      ) / 86400000);
     }
   }
 
