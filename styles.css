@@ -1877,6 +1877,17 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
      is not hidden, which would remove the only thing on the row that says the
      file is in flight. */
   .queue__fill { transition: none; }
+
+  /* The photos body swap becomes an instant swap, which is correct and honest:
+     the closed panel is replaced by the control the moment uploads open, and
+     the information is the replacement rather than the fade.
+
+     Written out for the same reason .panel above is, and the opacity is reset
+     as well as the transition: the container is set to zero opacity and waits
+     a frame for its attribute, so a 0.01ms transition and no transition are
+     not the same thing when the state change arrives after the paint. */
+  #photos-body,
+  #photos-body[data-show="0"] { opacity: 1; transition: none; }
 }
 
 /* ==========================================================================
@@ -1982,6 +1993,33 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
    Every colour is a token, every space is a token, and this block declares no
    new custom property.
    ========================================================================== */
+
+/* The body swap. #photos-body holds exactly one of five bodies and this is the
+   only motion between them: no height animation, ever, because height is
+   neither a transform nor an opacity and the section does grow when the closed
+   panel is replaced by the control.
+
+   The attribute is inverted against .panel's above. Absent it the container is
+   fully opaque, so the static .pending markup index.html ships stays visible
+   if this script never runs; .panel can afford to default to zero because
+   nothing builds one without JavaScript. */
+#photos-body {
+  /* opacity only, 220ms via the --t-base token */
+  transition: opacity var(--t-base) var(--ease-out);
+}
+#photos-body[data-show="0"] { opacity: 0; }
+
+/* The registration gate's call to action carries the same standing as the
+   submit button: in that body it is the only action in the section. Same
+   geometry, driven off the body attribute rather than a new class, which is
+   the [data-state] gating idiom this file already uses. */
+#photos-body[data-body="gate"] .btn { min-height: 52px; }
+@media (pointer: coarse) {
+  #photos-body[data-body="gate"] .btn { min-height: 56px; }
+}
+@media (max-width: 480px) {
+  #photos-body[data-body="gate"] .btn { display: flex; width: 100%; }
+}
 
 .uploader__note {
   font-size: 13px;

@@ -4891,6 +4891,18 @@
     host.textContent = '';          // discards the static pending markup
     host.setAttribute('data-body', body);
 
+    /* The body swap, and the container owns it rather than each of the five
+       bodies owning one: 220ms, opacity only, and no height animation anywhere
+       because height is neither a transform nor an opacity. mountPanel()'s
+       idiom, applied one level up, so a single fade covers whichever of the
+       five bodies lands.
+
+       The attribute is inverted against .panel's, deliberately. Absent it the
+       container is fully opaque, which is what keeps the static .pending
+       markup index.html ships visible if this script never runs at all. */
+    host.setAttribute('data-show', '0');
+    requestAnimationFrame(function () { host.setAttribute('data-show', '1'); });
+
     /* The standing control is about to be discarded, so the references to it
        go with it rather than being left to point at detached nodes. */
     photoUploader = null;
@@ -4930,6 +4942,19 @@
          that arrives with its content already in it is not announced. */
       syncUploaderLanguage(box);
     }
+
+    /* Every .panel in this file mounts at opacity 0 and waits for its
+       data-show attribute (styles.css:1541). The gate body is a .panel, and so
+       is the quota body plan 04-04 adds, so without this line they render
+       invisible: the enrollment section reaches its panels through
+       mountPanel() and this ladder does not.
+
+       Written synchronously, before the inserted node has been painted once,
+       rather than on the next frame. #photos-body owns the 220ms body swap
+       above and one fade per swap is the contract; a panel fading a second
+       time inside a fading container is two fades multiplied together. */
+    var panel = $('.panel', host);
+    if (panel) panel.setAttribute('data-show', '1');
 
     /* The album is present under the gate deliberately: it is what makes the
        registration prompt persuasive. A guest who can see the evening
