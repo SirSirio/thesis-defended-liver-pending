@@ -20,10 +20,12 @@
 -- rows, the attendees view exposes first names only, and anonymous deletes are
 -- refused.
 --
--- Sections 7 and 8 were added on 2026-08-14 and are NOT in the database yet.
--- Until you run this file again, a guest can still register perfectly well,
--- but nobody can edit or withdraw a registration and the site says so plainly
--- instead of pretending otherwise. Running the whole file again installs them.
+-- Sections 7 and 8 were applied to the same project on 2026-08-15, and
+-- verified against the live database. A guest can now change or withdraw a
+-- registration, the amend function hands back a count of the rows it touched
+-- and never any part of the row itself, withdrawn rows stop counting toward
+-- the head count on the site, and the attendees view still exposes nothing but
+-- a first name, a plus one count and a joining date.
 -- ============================================================================
 
 
