@@ -284,6 +284,14 @@ None for this plan. The migration this plan depends on was already applied by th
 - **Phase 4 can attribute photos to a guest who has withdrawn.** The guest id and the name survive a withdrawal by design; only forgetting the device removes them.
 - **Owed on real hardware,** and blocking nothing in code: that an amendment and a withdrawal reach the database, focus movement and the Escape binding on the confirmation, the Danish confirmation question at 320px, and that the bar stays down for the rest of the session after a withdrawal.
 
+## Self-Check: PASSED
+
+- Files claimed and found: `app.js`, `styles.css`, `copy.js`, `.planning/phases/03-enrollment-identity-and-the-group/03-05-SUMMARY.md`, `.planning/WINDOWS.md`
+- Commits claimed and found: `dfb16a0`, `fc58c2b`, `c80c1ea`
+- Plan-level verification: all nine items pass (syntax and the four ES5 / markup gates at 0, 156 keys x 3 at identical key sets, PATCH and DELETE at 0, no native confirm and no dialog element, success panel carries the amend link and no leaving control, withdrawn body carries no form, `store.remove` at 6, the not-recordable and zero-row branches inside `withdrawEnrollment` itself, zero em and en dashes across five files)
+- Shared orchestrator artifacts untouched: `STATE.md` and `ROADMAP.md` show no modification in any of this plan's three commits
+- Live database: no row added, no row modified, no row removed. Both wire probes used a uuid matching no row and returned a row count of 0
+
 ---
 *Phase: 03-enrollment-identity-and-the-group*
 *Completed: 2026-08-15*
