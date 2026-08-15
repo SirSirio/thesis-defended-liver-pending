@@ -2624,17 +2624,30 @@
     if (edit) { handleAmend(form, fields, ident); return; }
 
     submitEnrollment(fields, ident).then(function (res) {
-      // The form this answer belongs to has left the document. Same reasoning
-      // as the withdrawal's guard: a continuation cannot report into a subtree
-      // nobody is looking at, and must not write module state from it either.
-      if (!stillMounted(form)) return;
-
       if (res.result === 'ok' || res.result === 'pending') {
         /* The registration exists in the database on both branches: the ok one
            wrote it, and the pending one proved it with a 409 before finding the
            amend function missing. Storage is the only place a receipt can come
            from, so it is written on both, and the pending branch says plainly
-           in the panel that the change itself is not recorded yet. */
+           in the panel that the change itself is not recorded yet.
+
+           Written before any mounted test, and never behind one. A row that
+           exists in the database and nowhere on the device is the worst state
+           this file can produce: the guest is handed back an empty form with no
+           confirmation, no error and no banner, while the host is counting
+           them. refreshEnrollmentState() renders the receipt out of storage and
+           module state rather than out of this node, so it appears whether the
+           form survived or not.
+
+           Today no reachable sequence detaches the form here, and the reason is
+           worth writing down because it is a coupling and not an accident:
+           renderEnrollment's early exit keeps a standing #enrol-form across a
+           language switch whenever the selected body is the form and the mode
+           matches, which is exactly the state this continuation runs in, and
+           setFormState(form,'submitting') has disabled everything else in the
+           body. Change either of those and the guard below becomes reachable.
+           It is placed so that when that day comes it costs a repaint and not a
+           registration. */
         amendPending = (res.result === 'pending');
         identity.save({
           guest_id: ident.guest_id,
@@ -2643,13 +2656,17 @@
           note: fields.note,
           enrolled: true
         });
-
-        setFormState(form, 'success');
         successShown = true;
+
+        if (stillMounted(form)) setFormState(form, 'success');
         refreshEnrollmentState();
         focusPanelHeading('enrol-success-title');
         return;
       }
+
+      // The failure branch renders into the form and into nothing else, so a
+      // form that has left the document has nowhere to put the banner.
+      if (!stillMounted(form)) return;
 
       setFormState(form, 'failure');
       showAlert(form);
@@ -2686,9 +2703,11 @@
      banner is for a thing that did not work this time. */
   function handleAmend(form, fields, ident) {
     saveAmendment(fields, ident).then(function (res) {
-      // As above, and for the same reason.
-      if (!stillMounted(form)) return;
-
+      /* As above, and for the same reason. The two answers the database has
+         acted on write storage and module state first and unconditionally, and
+         then render from those, so neither can be lost to a form that was
+         replaced while the request was out. Only the state call on the old node
+         needs it to still be there. */
       if (res.result === 'ok') {
         amendPending = false;
         identity.save({
@@ -2700,7 +2719,7 @@
         });
 
         editing = false;
-        setFormState(form, 'idle');
+        if (stillMounted(form)) setFormState(form, 'idle');
         refreshEnrollmentState();
         toast(t('enrol.updated.toast'));
         focusAfterEdit();
@@ -2710,11 +2729,14 @@
       if (res.result === 'pending') {
         amendPending = true;
         editing = false;
-        setFormState(form, 'idle');
+        if (stillMounted(form)) setFormState(form, 'idle');
         refreshEnrollmentState();
         focusAmendPending(null);
         return;
       }
+
+      // And as above, the failure banner has nowhere to go without the form.
+      if (!stillMounted(form)) return;
 
       setFormState(form, 'failure');
       showAlert(form);
