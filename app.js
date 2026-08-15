@@ -1377,6 +1377,44 @@
     });
   }
 
+  /* Leaving. The guest id and the flag, and deliberately nothing else.
+
+     Every other argument is omitted rather than sent, and the function
+     coalesces an omitted argument against the column's existing value, so a
+     parameter this call has no business choosing cannot blank a column on the
+     way past. Widening this argument list is how leaving the course quietly
+     becomes a rewrite of somebody's name.
+
+     Three outcomes plus the wire, all read from the integer the function hands
+     back and from its error code, never from a status code. On this project a
+     status code is not proof of anything: a blocked read answers with an empty
+     list and a blocked delete answers 204, and both look exactly like success.
+     That is the entire reason this function exists instead of an update.
+
+       ok       the row was found and flagged, which is the real thing
+       gone     zero rows, so the database holds no registration under this
+                guest id at all. The device and the database disagree, and the
+                honest answer is to believe the database and correct the device:
+                the guest's stated intent is already satisfied, and arguing with
+                them about a row they are structurally forbidden from seeing
+                would be absurd
+       pending  the owner has not re-run supabase/schema.sql
+       failed   the request never arrived */
+  function withdrawEnrollment(ident) {
+    var args = { p_guest_id: ident.guest_id, p_withdrawn: true };
+
+    return sbRequest('POST', '/rest/v1/rpc/amend_enrollment', args, null)
+      .then(function (res) {
+        if (res.status === 404 && res.code === 'PGRST202') return { result: 'pending' };
+
+        // A bare integer: rows touched.
+        if (res.ok && res.body === 1) return { result: 'ok' };
+        if (res.ok && res.body === 0) return { result: 'gone' };
+
+        return { result: 'failed', code: res.code };
+      });
+  }
+
   /* ======================================================================
      ENROLLMENT: THE FORM AND THE PANELS
 
@@ -1395,6 +1433,12 @@
      site: changing a name and changing a registration are the same act, so they
      are the same form (D-16, ID-04). Session only, like the two flags above. */
   var editing = false;
+
+  /* Session only, and that is the whole design of the state it drives. On the
+     next load an unenrolled guest with a stored name gets the form, prefilled,
+     carrying the ordinary submit label, which is already correct and needs no
+     state of its own to express it. */
+  var withdrawnShown = false;
 
   function maxGuests() {
     var n = parseInt((CFG.enrollment || {}).maxGuestsPerPerson, 10);
@@ -1931,17 +1975,102 @@
   function amendPendingLine() {
     var line = document.createElement('p');
     line.className = 'panel__pending';
-    line.id = 'enrol-amend-pending';
     /* Focusable only programmatically, and focused the moment it replaces the
        control that was tapped. That control is gone, so focus would otherwise
        fall to the document body and the next Tab would restart at the top of
        the page, while a screen reader guest would be told nothing at all about
        why the thing they pressed did not happen. Landing on the sentence is
-       both the announcement and the answer. */
+       both the announcement and the answer.
+
+       Carries no id, deliberately. Two of these can stand at once, on the row
+       the edit control used to occupy and on the row the leaving control used
+       to occupy, because both are backed by the same absent function and each
+       reports in its own place. A shared id across two live nodes is invalid
+       and would send both focus calls to whichever one happened to be first. */
     line.setAttribute('tabindex', '-1');
     line.setAttribute('data-i18n', 'enrol.amend.pending');
     line.textContent = t('enrol.amend.pending');
     return line;
+  }
+
+  /* The two step confirmation, inline and in place. It takes over the row of
+     the control that summoned it and touches nothing else on the panel.
+
+     Not a native dialog and not the browser's own one liner. The browser's is
+     unstyleable and renders in the browser's language rather than the site's,
+     which breaks trilingual parity for the one question on the page where being
+     understood matters most. A dialog element would be the only modal on the
+     site, would need focus trapping written and maintained for it, and is a lot
+     of machinery for a party invitation being read one handed on a phone.
+
+     Three elements and no more. A question naming both the consequence and the
+     recovery in one sentence, a control whose label names the consequence in
+     full and never says yes or ok, and a way back that is not a button at all.
+
+     No animation on the reveal, deliberately. A destructive confirmation that
+     fades in is a confirmation a thumb already in motion can tap straight
+     through during the fade.
+
+     No timer either, and that is the same decision from the other side: a
+     confirmation that expires is one that vanishes while somebody is still
+     reading it. It waits as long as it is left. */
+  function buildWithdrawConfirm() {
+    var box = document.createElement('div');
+    box.className = 'withdraw-confirm';
+    box.setAttribute('data-state', 'idle');
+
+    /* The same component and the same keyframe the form's action row uses, so
+       the page keeps one vocabulary for "something is happening" rather than
+       growing a second one for the one request that most needs to be believed. */
+    var bar = document.createElement('div');
+    bar.className = 'sweep';
+    box.appendChild(bar);
+
+    var q = document.createElement('p');
+    q.className = 'withdraw-confirm__q';
+    q.setAttribute('data-i18n', 'enrol.withdraw.confirm.q');
+    q.textContent = t('enrol.withdraw.confirm.q');
+    box.appendChild(q);
+
+    /* The phase's only destructive treatment, and the colour is not what
+       carries it: the design brief locks one accent and permits no second hue,
+       so destructive and accent share a red by contract. Three things that are
+       not colour carry the difference instead. This is the only ghost control
+       on the page whose border and label are red at rest, it is the only one
+       reached through two steps, and its label names what happens.
+
+       No data-i18n, for the same reason the submit button carries none: this
+       label depends on the block's state, and the language sweep would put
+       "Confirm withdrawal" back on a control that is mid request. */
+    var yes = document.createElement('button');
+    yes.type = 'button';
+    yes.id = 'enrol-withdraw-yes';
+    yes.className = 'btn btn--ghost panel__confirm enrol-act';
+    yes.setAttribute('data-action', 'withdraw-yes');
+    yes.textContent = t('enrol.withdraw.confirm.yes');
+    box.appendChild(yes);
+
+    box.appendChild(panelRow(
+      panelButton('enrol.withdraw.confirm.no', 'withdraw-no', 'subtle-action')
+    ));
+
+    /* Escape reverts, and it is bound to the block rather than to the document
+       because the block owns the state it reverts. Focus is moved inside on
+       reveal, so the key is live from the first frame, and the listener dies
+       with the node rather than accumulating one more copy of itself every time
+       the control is tapped.
+
+       Ignored while the request is in flight: at that point the withdrawal has
+       left the device and there is nothing left for a key press to take back. */
+    box.addEventListener('keydown', function (ev) {
+      var key = ev.key || ev.keyCode;
+      if (key !== 'Escape' && key !== 'Esc' && key !== 27) return;
+      if (box.getAttribute('data-state') === 'submitting') return;
+      ev.preventDefault();
+      keepRegistration();
+    });
+
+    return box;
   }
 
   /* A registration receipt, not a celebration. The roadmap's done-when sentence
@@ -2089,6 +2218,56 @@
     return panel;
   }
 
+  /* The state after a confirmed withdrawal, and it is structurally required
+     rather than a nicety. Without it the branch chain above would hand a guest
+     who has just left a blank registration screen, which reads as "did that
+     work", two seconds after they were told it did.
+
+     Read the shape of it, because the shape is load bearing. There is no
+     registration screen inside this panel, so the bar's readiness gate finds
+     nothing to point at and the bar stays down. Nudging somebody to sign up
+     again two seconds after they left would be the single most obnoxious thing
+     this site could do, and it is prevented by what this builder does not
+     contain rather than by a special case in the bar that somebody could later
+     tidy away as dead code.
+
+     The way back in is explicit, because leaving here is technically reversible
+     and not visibly so: re-registering reuses the same guest id, so the insert
+     conflicts, falls to the amend path and resurrects the existing row with the
+     flag cleared, which the unique constraint makes the only correct behaviour.
+     The guest can never watch any of that happen, so they are handed a control
+     that says it instead.
+
+     Forgetting stays reachable from here. Someone who has left the course is at
+     least as likely to want their name off the device as someone who has not. */
+  function buildWithdrawnPanel() {
+    var panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.setAttribute('data-panel', 'withdrawn');
+
+    panel.appendChild(panelHeading('enrol.withdrawn.title', 'enrol-withdrawn-title'));
+
+    var lede = document.createElement('p');
+    lede.className = 'panel__lede';
+    lede.setAttribute('data-i18n', 'enrol.withdrawn.body');
+    lede.textContent = t('enrol.withdrawn.body');
+    panel.appendChild(lede);
+
+    panel.appendChild(panelRow(
+      panelButton('enrol.withdrawn.again', 'again', 'btn btn--ghost panel__again'),
+      'panel__row--cta'
+    ));
+
+    var acts = document.createElement('div');
+    acts.className = 'panel__acts';
+    acts.appendChild(panelRow(
+      panelButton('enrol.identity.clear', 'forget', 'subtle-action')
+    ));
+    panel.appendChild(acts);
+
+    return panel;
+  }
+
   function storedRecord() {
     var ident = identity.get();
     return { name: ident.name || '', extra_guests: ident.extra_guests, note: ident.note };
@@ -2139,6 +2318,11 @@
     // Editing outranks the registration, because it is the registration being
     // changed. The same screen, in a mode, and never a second one.
     else if (editing) body = 'form';
+    /* Above the enrolled test rather than below it, and above the success one
+       too. The flag has already gone to the string 0 by the time this is read,
+       so the enrolled test would fall through to the form and hand a blank
+       registration screen to somebody who just left. */
+    else if (withdrawnShown) body = 'withdrawn';
     else if (successShown) body = 'success';
     // A guest_id with no name is not a registration, so it renders the form.
     else if (ident.enrolled && ident.name) body = 'return';
@@ -2171,6 +2355,11 @@
 
     if (body === 'form') {
       host.appendChild(buildForm(editing ? 'edit' : 'new'));
+      return;
+    }
+
+    if (body === 'withdrawn') {
+      mountPanel(host, buildWithdrawnPanel());
       return;
     }
 
@@ -2447,7 +2636,7 @@
         editing = false;
         setFormState(form, 'idle');
         refreshEnrollmentState();
-        focusPanelHeading('enrol-amend-pending');
+        focusAmendPending(null);
         return;
       }
 
@@ -2474,13 +2663,20 @@
     return true;
   }
 
+  // Scoped, because two of these can stand at once and each one answers for the
+  // row it is standing in.
+  function focusAmendPending(scope) {
+    var line = $('.panel__pending[tabindex="-1"]', scope || $('#enrol-body'));
+    if (line && line.focus) line.focus();
+  }
+
   /* Coming back out of the form, by either door. The edit control is absent in
      exactly one case, which is the case where the pending line has taken its
      row, so the line is where focus belongs instead: it is both the reason the
      control is gone and the answer to what happened. */
   function focusAfterEdit() {
     if (focusEnrolAction('edit')) return;
-    focusPanelHeading('enrol-amend-pending');
+    focusAmendPending(null);
   }
 
   /* Reached from the returning view and from the success panel, and both mean
@@ -2535,10 +2731,166 @@
     return el;
   }
 
-  function runEnrolAction(action) {
-    if (action === 'edit')    { startEdit();      return; }
-    if (action === 'discard') { discardEdit();    return; }
-    if (action === 'forget')  { forgetIdentity(); return; }
+  /* The row a control lives in, which is the unit every in place replacement on
+     these panels works on. The closest lookup with the manual walk kept as its
+     fallback, the same shape the location wiring uses. */
+  function enrolRow(node) {
+    var el = (node && node.closest) ? node.closest('.panel__row') : null;
+    if (el) return el;
+
+    el = node ? node.parentNode : null;
+    while (el && el.classList) {
+      if (el.classList.contains('panel__row')) return el;
+      el = el.parentNode;
+    }
+    return null;
+  }
+
+  function withdrawBox(node) {
+    var el = (node && node.closest) ? node.closest('.withdraw-confirm') : null;
+    if (el) return el;
+
+    el = node ? node.parentNode : null;
+    while (el && el.classList) {
+      if (el.classList.contains('withdraw-confirm')) return el;
+      el = el.parentNode;
+    }
+    return null;
+  }
+
+  /* Step one. The confirmation takes over the row of the control that summoned
+     it, so the receipt above and the forget control below both stay exactly
+     where the guest last saw them, and nothing on the panel moves except the
+     one line that is being asked about.
+
+     Focus lands on the control that does the thing, which is deliberate in both
+     directions: a screen reader guest hears the question and then the
+     consequence named in full, and a keyboard guest is one key from either
+     answer. */
+  function askWithdraw(btn) {
+    var row = enrolRow(btn);
+    if (!row) return;
+
+    row.textContent = '';
+    row.appendChild(buildWithdrawConfirm());
+
+    var yes = $('#enrol-withdraw-yes', row);
+    if (yes && yes.focus) yes.focus();
+  }
+
+  /* Step one, declined, and by two routes: the keep control and the Escape key.
+     Both put the original line back with nothing sent and nothing changed, and
+     hand focus to the control that was there before, which is where the guest
+     was standing when they changed their mind. */
+  function keepRegistration() {
+    var box = $('#enrol-body .withdraw-confirm');
+    var row = box ? box.parentNode : null;
+    if (!row) return;
+
+    row.textContent = '';
+    row.appendChild(panelButton('enrol.withdraw', 'withdraw', 'subtle-action'));
+
+    var back = $('[data-action="withdraw"]', row);
+    if (back && back.focus) back.focus();
+  }
+
+  /* The block borrows the form's submitting grammar rather than inventing a
+     second one: the control disables, its label swaps to the label the form
+     already uses, the busy attribute goes on, and the same 2px bar sweeps
+     across the top of the block. No new component and no new copy key. */
+  function setWithdrawState(box, state) {
+    box.setAttribute('data-state', state);
+
+    var busy = (state === 'submitting');
+    $$('button', box).forEach(function (el) { el.disabled = busy; });
+
+    var yes = $('#enrol-withdraw-yes', box);
+    if (!yes) return;
+
+    yes.textContent = busy ? t('enrol.submitting') : t('enrol.withdraw.confirm.yes');
+    yes.setAttribute('aria-busy', busy ? 'true' : 'false');
+  }
+
+  /* Step two, and the whole plan exists for this function.
+
+     Between the tap and the answer there is a defined state, because a
+     withdrawal that just sits there for twelve seconds on bad mobile data reads
+     as frozen, and the request carries the same unconditional abort every other
+     write in this phase carries, because one that hangs forever is worse than
+     one that fails. The block always terminates somewhere defined.
+
+     Two of the four answers mean the guest is off the list, and both write the
+     flag before the state that claims it is ever mounted. There is no path here
+     where the interface tells somebody they have withdrawn while the database
+     still counts them: that is the exact failure the schema change was made to
+     prevent, and it is prevented by reading the integer rather than the status.
+
+     The identity survives, and only the registration goes. The guest id and the
+     name stay on the device because the photo album attributes pictures to
+     them, and somebody who cannot come to this one may still have photographs
+     from an earlier evening (D-15, ID-05).
+
+     The other two answers mean nothing was recorded. The block is replaced in
+     place by the line that already says the change was not recorded, says to
+     tell the host directly, and says the registration stands, all three of
+     which are true whether the function is missing or the request never left
+     the phone. Reused rather than given a key of its own, because a second
+     sentence saying the same thing in three languages is three more strings to
+     keep true. */
+  function doWithdraw(btn) {
+    var box = withdrawBox(btn);
+    if (!box) return;
+    if (box.getAttribute('data-state') === 'submitting') return;
+
+    var ident = identity.get();
+
+    setWithdrawState(box, 'submitting');
+
+    withdrawEnrollment(ident).then(function (res) {
+      if (res.result === 'ok' || res.result === 'gone') {
+        store.set('enrolled', '0');
+
+        withdrawnShown = true;
+        successShown = false;
+        editing = false;
+
+        refreshEnrollmentState();
+        focusPanelHeading('enrol-withdrawn-title');
+        return;
+      }
+
+      setWithdrawState(box, 'idle');
+
+      var row = box.parentNode;
+      if (!row) return;
+
+      row.textContent = '';
+      row.appendChild(amendPendingLine());
+      focusAmendPending(row);
+    });
+  }
+
+  /* Back in, from the state that follows leaving. The form comes up prefilled
+     from the storage the withdrawal deliberately kept, and submitting it reuses
+     the same guest id, so the insert conflicts and falls to the amend path,
+     which clears the flag on the row that is already there. One guest, one row,
+     which the unique constraint makes the only correct answer. */
+  function registerAgain() {
+    withdrawnShown = false;
+    successShown = false;
+    editing = false;
+    refreshEnrollmentState();
+    focusNameField();
+  }
+
+  function runEnrolAction(action, btn) {
+    if (action === 'edit')         { startEdit();          return; }
+    if (action === 'discard')      { discardEdit();        return; }
+    if (action === 'forget')       { forgetIdentity();     return; }
+    if (action === 'withdraw')     { askWithdraw(btn);     return; }
+    if (action === 'withdraw-yes') { doWithdraw(btn);      return; }
+    if (action === 'withdraw-no')  { keepRegistration();   return; }
+    if (action === 'again')        { registerAgain();      return; }
   }
 
   /* Delegated from the stable container and wired once from init(), because a
@@ -2569,7 +2921,7 @@
     host.addEventListener('click', function (ev) {
       var btn = enrolAction(ev.target);
       if (!btn) return;
-      runEnrolAction(btn.getAttribute('data-action'));
+      runEnrolAction(btn.getAttribute('data-action'), btn);
     });
 
     /* The bar yields to the keyboard.

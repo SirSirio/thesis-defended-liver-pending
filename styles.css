@@ -1783,6 +1783,56 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
 }
 
 /* --------------------------------------------------------------------------
+   The withdraw confirmation. Inline, two step, and in place: it takes over the
+   row of the control that summoned it and moves nothing else.
+
+   Relative, because the sweep bar pins to its top edge exactly as it does on
+   the form's action row. The 8px of clearance is the same 8px, so the one
+   loading vocabulary on this page reads identically in both places.
+
+   There is deliberately no reveal animation and therefore no reduced motion
+   rule for one further down: a destructive confirmation that fades in is a
+   confirmation a thumb already in motion can tap through during the fade. The
+   sweep bar inside it is covered by the rule the form's bar already carries.
+   -------------------------------------------------------------------------- */
+
+.withdraw-confirm {
+  position: relative;
+  padding-top: var(--s-2);
+}
+
+/* States the consequence and the recovery in one sentence, in the dim ink,
+   because this is the question and not the answer. */
+.withdraw-confirm__q {
+  color: var(--ink-dim);
+  font-size: 14.5px;
+  line-height: 1.6;
+  margin: 0 0 var(--s-4);
+  max-width: 62ch;
+}
+
+/* The phase's only destructive treatment. Red border and red label AT REST,
+   which no other ghost control on this page has, and which is what carries the
+   distinction given that the brief permits exactly one accent hue and so
+   destructive and accent are the same red by contract. Written below the base
+   ghost rule it overrides, both weighing the same, which is the source order
+   trap this file has now recorded five times.
+
+   Deliberately not full width at any size. Every other secondary button in this
+   section stretches under the thumb at 480px; this is the one control on the
+   page that should not be the easiest thing to hit by accident. */
+.panel__confirm {
+  border-color: var(--accent-lit);
+  color: var(--accent-lit);
+}
+
+.withdraw-confirm .panel__row { margin-top: var(--s-4); }
+
+/* Only while the request is actually out. Same gate, same component and same
+   keyframe as the form's, one attribute driving it and no class juggling. */
+.withdraw-confirm[data-state="submitting"] .sweep { display: block; }
+
+/* --------------------------------------------------------------------------
    Reduced motion. Mandatory. The arc becomes tonal rather than kinetic.
    -------------------------------------------------------------------------- */
 
