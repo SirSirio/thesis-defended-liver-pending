@@ -3854,7 +3854,12 @@
     xhr.timeout = 60000;   // a photograph on party wifi is not a 12 second request
 
     xhr.upload.onprogress = function (e) {
-      if (e.lengthComputable && typeof onProgress === 'function') onProgress(e.loaded / e.total);
+      if (typeof onProgress !== 'function') return;
+      /* The false side is reported rather than dropped. A browser that will
+         not measure gets the held bar and the recording word from the start,
+         which is honest, rather than a bar sitting at zero for ten seconds
+         while the photograph is in fact moving. */
+      onProgress(e.lengthComputable ? (e.loaded / e.total) : null);
     };
 
     xhr.onload = function () {
@@ -4200,7 +4205,118 @@
     var row = rec.node;
     if (!row) return;
     row.setAttribute('data-state', state);
+
+    // Colour is never the only signal here: the state word names every state.
     if (rec.stateEl) rec.stateEl.textContent = t(ROW_STATE_KEY[state]);
+
+    /* The reason node carries the hidden attribute in every other state, so a
+       healthy row is two lines of mono and a rule rather than three. */
+    var shown = (state === 'refused' || state === 'failed');
+    if (rec.reasonEl) {
+      if (shown && rec.reasonKey) {
+        rec.reasonEl.textContent = phrase(rec.reasonKey, rec.reasonVals);
+        rec.reasonEl.hidden = false;
+      } else {
+        rec.reasonEl.textContent = '';
+        rec.reasonEl.hidden = true;
+      }
+    }
+
+    /* Nothing was recorded, so no line is drawn. The track stays a plain
+       hairline, which is the honest reading of a row that did not land. */
+    if (shown) setRowProgress(rec, 0);
+  }
+
+  /* The progress honesty contract, and the 0.92 is the whole of it.
+
+     The upload's progress event reports bytes handed to the socket, not bytes
+     the archive has accepted. On a bad connection the bar completes and then
+     nothing happens for several seconds, which is indistinguishable from a
+     hang, and that is exactly the "is this broken?" moment PH-05 was written
+     against, wearing a new costume. So the visible fill is capped until the
+     response lands and the state word swaps to Recording: the dead wait
+     becomes a named step rather than a stalled bar, and the bar never claims
+     completion while the server has not answered.
+
+     A fraction that is not a number is a browser that will not measure. The
+     fill holds at the cap from the start with the recording word rather than
+     being drawn from a figure nobody has, because the site never draws a bar
+     it cannot honestly fill.
+
+     One transform, on one fill, and never a layout property. That is not
+     pedantry: a width transition on a bar updated by every progress event
+     triggers layout on every event, on a phone, while the same phone is
+     decoding the next image. */
+  function setRowProgress(rec, fraction) {
+    if (!rec) return;
+
+    var f = (typeof fraction === 'number' && isFinite(fraction)) ? fraction : 0.92;
+    if (f < 0) f = 0;
+    if (f > 1) f = 1;
+
+    if (f >= 0.92 && rec.state !== 'done') {
+      f = 0.92;
+      if (rec.state === 'uploading') setRowState(rec, 'recording');
+    }
+
+    rec.progress = f;
+    if (rec.fillEl) rec.fillEl.style.transform = 'scaleX(' + f + ')';
+  }
+
+  /* One file, one numbered entry. Four cells and a bar, and the bar is also
+     the row's separating rule: the institutional table rule under each log
+     entry is the thing that fills up while that file moves. */
+  function queueRow(rec) {
+    var row = document.createElement('li');
+    row.className = 'queue__row';
+
+    /* Not decoration. iOS hands back identical names for several picks from
+       some camera roll paths, so five rows can legitimately read the same, and
+       the numeral is what makes the transcript, and D-15's refusal, actually
+       identify a file. */
+    var num = document.createElement('span');
+    num.className = 'queue__n';
+    num.textContent = String(rec.index);
+
+    /* An operating system supplied string, so createElement plus textContent
+       and never a markup string. An empty name is a real case on iOS and
+       renders the named fallback rather than a blank cell. */
+    var name = document.createElement('span');
+    name.className = 'queue__name';
+    name.textContent = (rec.file && rec.file.name) ? rec.file.name : t('photos.queue.unnamed');
+
+    var word = document.createElement('span');
+    word.className = 'queue__state';
+
+    var reason = document.createElement('p');
+    reason.className = 'queue__reason';
+    reason.hidden = true;
+
+    var bar = document.createElement('span');
+    bar.className = 'queue__bar';
+
+    var fill = document.createElement('span');
+    fill.className = 'queue__fill';
+    bar.appendChild(fill);
+
+    row.appendChild(num);
+    row.appendChild(name);
+    row.appendChild(word);
+    row.appendChild(reason);
+    row.appendChild(bar);
+
+    rec.node = row;
+    rec.stateEl = word;
+    rec.reasonEl = reason;
+    rec.fillEl = fill;
+
+    /* Painted from the record and never from the previous markup, so a rebuild
+       in a new language re-renders the reason from its stored copy key rather
+       than by re-running validation, and the bar comes back where it was. */
+    setRowState(rec, rec.state);
+    setRowProgress(rec, rec.progress);
+
+    return row;
   }
 
   /* The transcript, rendered from photoBatch and from nothing else. It is
@@ -4214,42 +4330,7 @@
 
     if (!photoBatch.length) { list.hidden = true; return; }
 
-    for (var i = 0; i < photoBatch.length; i++) {
-      var rec = photoBatch[i];
-
-      var row = document.createElement('li');
-      row.className = 'queue__row';
-
-      /* Not decoration. iOS hands back identical names for several picks from
-         some camera roll paths, so five rows can legitimately read the same,
-         and the numeral is what makes the transcript and D-15's refusal
-         actually identify a file. */
-      var num = document.createElement('span');
-      num.className = 'queue__n';
-      num.textContent = String(rec.index);
-
-      /* An operating system supplied string, so createElement plus
-         textContent and never a markup string. An empty name is a real case
-         on iOS and renders the named fallback rather than a blank cell. */
-      var name = document.createElement('span');
-      name.className = 'queue__name';
-      name.textContent = (rec.file && rec.file.name) ? rec.file.name : t('photos.queue.unnamed');
-
-      var word = document.createElement('span');
-      word.className = 'queue__state';
-
-      row.appendChild(num);
-      row.appendChild(name);
-      row.appendChild(word);
-
-      rec.node = row;
-      rec.stateEl = word;
-
-      // Painted from the record, so a rebuild in a new language loses nothing.
-      setRowState(rec, rec.state);
-
-      list.appendChild(row);
-    }
+    for (var i = 0; i < photoBatch.length; i++) list.appendChild(queueRow(photoBatch[i]));
 
     list.hidden = false;
   }
@@ -4466,7 +4547,9 @@
         path: null,
         progress: 0,
         node: null,
-        stateEl: null
+        stateEl: null,
+        reasonEl: null,
+        fillEl: null
       });
     }
 
@@ -4534,7 +4617,15 @@
 
     if (!rec) return settleBatch();
 
+    /* Preparing and uploading are distinct states with distinct copy, because
+       the decode of a twelve megapixel photograph is a real second and a
+       control that says Sending while it is decoding is lying about which step
+       it is on. The counted sentence is the aggregate, and it is never
+       suppressed at one: a missing sentence at one file would be a second
+       layout. There is no aggregate bar, because two bars for one operation
+       are two claims and the second one always lies. */
     setUploaderState(uploader, 'preparing');
+    setUploaderStatus('photos.status.preparing', { i: rec.slot, n: photoBatchTotal });
     setRowState(rec, 'preparing');
 
     downscaleToJpeg(rec.file, maxEdgePx(), jpegQuality(), function (blob, errKey) {
@@ -4556,9 +4647,12 @@
       rec.path = path;
 
       setUploaderState(uploader, 'uploading');
+      setUploaderStatus('photos.status.uploading', { i: rec.slot, n: photoBatchTotal });
       setRowState(rec, 'uploading');
+      setRowProgress(rec, 0);
 
-      uploadObject(path, blob, function () { }, function (out) {
+      // The per-file fraction reaches exactly one row's fill, as a scale.
+      uploadObject(path, blob, function (fraction) { setRowProgress(rec, fraction); }, function (out) {
         if (!out.ok) {
           setRowState(rec, 'failed', out.code === 'NETWORK' ? 'photos.err.network' : 'photos.err.server', null);
           return runNextFile();
@@ -4567,7 +4661,9 @@
         // Storage first, then the row (D-19).
         insertPhotoRow(photoIdent, path, function (result) {
           if (result === 'ok') {
+            // The archive has answered, so and only so does the bar reach the end.
             setRowState(rec, 'done', null, null);
+            setRowProgress(rec, 1);
             identity.setPhotoCount(identity.photoCount() + 1);
             refreshPhotosState();
           } else if (result === 'limit') {
@@ -4624,11 +4720,19 @@
     else if (state === 'partial') setUploaderStatus('photos.status.partial', { ok: ok, bad: bad });
     else setUploaderStatus(null);
 
-    /* One reason shared by every unlanded row is named. Several reasons become
-       the counted sentence, because three sentences stacked in an assertive
-       region is three interruptions for one event. */
+    /* One reason shared by every unlanded row is named. Several reasons do not
+       stack: three sentences in an assertive region is three interruptions for
+       one event, and each row already carries its own reason in writing.
+
+       On partial the counted sentence is already in the polite line, so the
+       assertive line stays silent rather than repeating it. The same sentence
+       announced twice, once politely and once assertively, is a stutter, and
+       it is the defect this control is most likely to produce because both
+       regions can honestly claim that sentence. Where nothing landed the
+       polite line is empty, so the assertive line has to carry the count. */
     if (!bad) setUploaderAlert(null);
     else if (!mixed && oneKey) setUploaderAlert(oneKey, oneVals);
+    else if (state === 'partial') setUploaderAlert(null);
     else setUploaderAlert('photos.status.partial', { ok: ok, bad: bad });
 
     /* The language render that was skipped mid batch happens once, here, and
