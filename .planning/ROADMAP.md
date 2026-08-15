@@ -145,7 +145,7 @@ group with one more tap, and is never nudged again.
 - Shared album view with uploader names
 - Graceful unconfigured state
 
-**Plans:** 1/5 plans executed
+**Plans:** 2/5 plans executed
 
 Plans:
 **Wave 1**
@@ -154,7 +154,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 04-02-PLAN.md — The batch and the transcript: five at once, one in flight, a bar that does not claim more than it knows
+- [x] 04-02-PLAN.md — The batch and the transcript: five at once, one in flight, a bar that does not claim more than it knows
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
