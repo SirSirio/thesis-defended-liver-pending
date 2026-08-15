@@ -149,7 +149,7 @@ Source: `.planning/phases/03-enrollment-identity-and-the-group/03-REVIEW.md`, ru
 2026-08-15 over the gap-closure diff only (`app.js`, `config.js`, `styles.css`,
 `supabase/schema.sql`). Nine findings, **its own ID sequence**, unrelated to section 2's.
 
-The five that mattered were all **regressions introduced by plans 03-07, 03-08 and 03-09** — the
+The five that mattered were all **regressions introduced by plans 03-07, 03-08 and 03-09**: the
 gap closure broke things while closing things. All five are fixed and merged, each proved red
 against the pre-fix source before the fix was accepted:
 
@@ -164,12 +164,12 @@ against the pre-fix source before the fix was accepted:
 ### 3a. Declined for now, each with a reason
 
 These four are Info and were deliberately left out of the fix round's scope. Declined **for this
-round**, not decided forever — unlike section 2a, which records settled decisions.
+round**, not decided forever, unlike section 2a, which records settled decisions.
 
 **IN-01. `setWithdrawState` re-enables every button in `#enrol-body` with no memory of what was
 disabled before.** Declined for this round, and it moved while we were not fixing it: CR-03's fix
 revives the `'idle'` path, which no caller reached after 03-08, so IN-01 went from dead code to
-reachable. Still benign, because nothing on the return panel ships disabled — but that is a
+reachable. Still benign, because nothing on the return panel ships disabled, but that is a
 property of today's markup, not a guarantee. The moment any control there ships disabled, this
 becomes a real defect. Worth fixing in the same pass as IN-03.
 
@@ -192,5 +192,5 @@ place the heading in the tab order; it is untidy rather than wrong. Cheapest of 
 The **sixth-photo limit** (`photo_limit_reached`). CR-01's fix restored the trigger's ability to
 count, and probe F proves the trigger now runs. It does **not** prove the limit still refuses a
 sixth row, because proving that means writing five real photo rows, and no delete rule exists for
-anyone in this schema — nothing in the file could remove them again. **Phase 4 owns this proof and
+anyone in this schema, and nothing in the file could remove them again. **Phase 4 owns this proof and
 should carry it as an explicit task rather than assume it.**
