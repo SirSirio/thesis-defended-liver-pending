@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 4
+open_count: 6
 waived_count: 0
 fixed_count: 2
-total_count: 6
-last_updated: 2026-08-15T01:37:21.453Z
+total_count: 8
+last_updated: 2026-08-15T02:09:36.219Z
 ---
 
 # Broken Windows Ledger
@@ -21,6 +21,8 @@ last_updated: 2026-08-15T01:37:21.453Z
 | 4 | 03 | unrun-verify | .planning/phases/03-enrollment-identity-and-the-group/03-DEVICE-PASS.md |  | 03-04 Table C is unrun: the linkless success panel reading as deliberate rather than broken, both group CTAs opening WhatsApp on the first tap with a temporary local link, the bar going quiet after either one, and the social proof block at the threshold boundary, with the attendee list flag false, in Danish collation and with the Supabase host blocked, are all owed on real hardware | open |  | 2026-08-14T19:21:51.717Z |  |
 | 5 | 03 | unrun-verify | supabase/schema.sql |  | 03-04 ran its live attendees view contract check against the pre-migration view; the owner has not yet re-run supabase/schema.sql, so public.attendees is still unfiltered. Re-run the select=* projection probe after the migration to confirm the re-created view still projects only first_name, extra_guests and created_at | fixed |  | 2026-08-14T19:22:02.932Z | 2026-08-15T01:37:21.453Z |
 | 6 | 03 | deviation | .planning/phases/03-enrollment-identity-and-the-group/03-06-PLAN.md |  | Three of four executed plans found a verification gate that was itself broken rather than code that was wrong: 03-02 enrollmentReady assertion searched from index 0 and matched unrelated phase-1 code (vacuous), 03-03 for-select count could never be 0 because two pre-existing photo policies match, 03-04 live attendees view contract check cannot fail because PostgREST guarantees the asserted property. Each was narrowed to its stated intent and recorded. 03-06 re-runs every phase gate as one sweep, so a clean 03-06 result is only as strong as the corrected gates underneath it — 03-06 must verify gate anchoring, not just gate exit codes | open |  | 2026-08-14T19:26:10.363Z |  |
+| 7 | 03 | deviation | .planning/phases/03-enrollment-identity-and-the-group/03-05-PLAN.md |  | Fourth instance of the pattern entry 6 records: 03-05 task 2's 'withdraw branches present' gate cannot fail. Its condition is body.indexOf(k)<0 AND s.indexOf(k)<0, and PGRST202 was already present file-wide from plan 01's amendEnrollment, so the file-wide fallback satisfies it regardless of what withdrawEnrollment contains. Re-anchored and re-run scoped to the function body itself, which passes genuinely. 03-06 must check gate anchoring, not exit codes | open |  | 2026-08-15T02:09:21.234Z |  |
+| 8 | 03 | unrun-verify | .planning/phases/03-enrollment-identity-and-the-group/03-DEVICE-PASS.md |  | 03-05 human checks are unrun on real hardware: that an amendment and a withdrawal actually reached the database (only confirmable by reload and by the dashboard, because the site can never read the row back), that focus lands on the confirm control and Escape reverts it, that the Danish withdraw confirmation question renders on at most two lines at 320px without pushing the confirm control below the fold, that the amend-pending line reads as deliberate rather than as an error, and that the nudge bar stays down for the rest of the session after withdrawing | open |  | 2026-08-15T02:09:36.219Z |  |
 
 ````json
 [
@@ -95,9 +97,34 @@ last_updated: 2026-08-15T01:37:21.453Z
     "reason": "",
     "recorded_at": "2026-08-14T19:26:10.363Z",
     "resolved_at": null
+  },
+  {
+    "id": 7,
+    "kind": "deviation",
+    "phase": "03",
+    "file": ".planning/phases/03-enrollment-identity-and-the-group/03-05-PLAN.md",
+    "line": null,
+    "description": "Fourth instance of the pattern entry 6 records: 03-05 task 2's 'withdraw branches present' gate cannot fail. Its condition is body.indexOf(k)<0 AND s.indexOf(k)<0, and PGRST202 was already present file-wide from plan 01's amendEnrollment, so the file-wide fallback satisfies it regardless of what withdrawEnrollment contains. Re-anchored and re-run scoped to the function body itself, which passes genuinely. 03-06 must check gate anchoring, not exit codes",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-15T02:09:21.234Z",
+    "resolved_at": null
+  },
+  {
+    "id": 8,
+    "kind": "unrun-verify",
+    "phase": "03",
+    "file": ".planning/phases/03-enrollment-identity-and-the-group/03-DEVICE-PASS.md",
+    "line": null,
+    "description": "03-05 human checks are unrun on real hardware: that an amendment and a withdrawal actually reached the database (only confirmable by reload and by the dashboard, because the site can never read the row back), that focus lands on the confirm control and Escape reverts it, that the Danish withdraw confirmation question renders on at most two lines at 320px without pushing the confirm control below the fold, that the amend-pending line reads as deliberate rather than as an error, and that the nudge bar stays down for the rest of the session after withdrawing",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-15T02:09:36.219Z",
+    "resolved_at": null
   }
 ]
 ````
+
 
 
 
