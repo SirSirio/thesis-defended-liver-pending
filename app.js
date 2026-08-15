@@ -141,6 +141,13 @@
        collation, which is why it is in the chain at all. */
     renderSocialProof();
 
+    /* Beside social proof and for the same reason: non blocking, so its
+       position costs nothing, and a switch has to re-render its labels and its
+       album head. Deliberately not last, because measureNudge() owns that slot
+       and the reserve it measures must be taken after every string in the bar
+       has been rewritten, which nothing in the photos section touches. */
+    renderPhotos();
+
     /* Last, and after the sweep above has rewritten every string in the bar.
        Danish wraps the nudge copy onto a second line, which makes the bar
        taller, and a reserve measured before the rewrite would be a reserve for
@@ -1178,9 +1185,11 @@
   var IDENTITY_OK = newGuestId() !== null;
 
   /* The storage layout under the c03102. prefix, exactly: lang, enrolled,
-     wa_joined, guest_id, name, extra_guests, note. The first three were written
-     by phase 1 and are neither renamed nor repurposed, because live guests
-     already carry them on their devices.
+     wa_joined, guest_id, name, extra_guests, note, photo_count. The first three
+     were written by phase 1 and are neither renamed nor repurposed, because
+     live guests already carry them on their devices. photo_count was added by
+     phase 4 and is the soft half of the five per guest limit; the hard half is
+     the trigger in supabase/schema.sql section 4.
 
      enrolled is the string 1 and is cleared to the string 0, because
      isEnrolled() compares against that exact string and renderNudge() and
@@ -1209,6 +1218,18 @@
       store.set('enrolled', f.enrolled === false ? '0' : '1');
     },
 
+    /* The extra_guests treatment exactly: a decimal string in, parseInt base 10
+       out, and an isNaN default, so no float and no locale formatting ever
+       enters storage. */
+    photoCount: function () {
+      var n = parseInt(store.get('photo_count'), 10);
+      return isNaN(n) || n < 0 ? 0 : n;
+    },
+
+    setPhotoCount: function (n) {
+      store.set('photo_count', String(n == null ? 0 : n));
+    },
+
     /* Withdrawing clears the registration, not the identity (D-15). Forgetting
        the device clears both, and that is what this is for.
 
@@ -1225,6 +1246,8 @@
       store.remove('extra_guests');
       store.remove('note');
       store.remove('enrolled');
+      // Forgetting the device must not leave a submission tally behind.
+      store.remove('photo_count');
     }
   };
 
@@ -3599,6 +3622,614 @@
       if (bar.getAttribute('data-state') !== 'group') return;
       markGroupJoined();
     });
+  }
+
+  /* ======================================================================
+     PHOTOS: THE SECTION
+
+     A guest picks a photograph, the browser shrinks it, it goes to Supabase
+     Storage as an object, it gains a row in public.photos, and the album
+     below reads it back through public.album and paints a tile.
+
+     The write is two steps and the order is not symmetric. Storage first,
+     then the row (D-19). A failed storage write leaves nothing anywhere. A
+     failed row insert leaves an object nothing references, which is an
+     invisible orphan in a bucket the owner can see from the dashboard. That
+     is the cheaper of the two failures and it is accepted rather than
+     repaired, because the alternative is a row pointing at bytes that are
+     not there, which is a permanently broken tile in everyone's album.
+
+     Success is proved by reading public.album back, never by a status code
+     (D-27). The storage write answers 200 and the row insert answers 201, in
+     the same upload of the same photograph, which is exactly why nothing in
+     here is tested against a literal status.
+     ====================================================================== */
+
+  /* Clamped on read rather than trusted. An out of range quality is silently
+     ignored by the encoder and replaced with the browser's default, so a typo
+     in config.js produces larger files and no error anywhere. */
+  function jpegQuality() {
+    var q = (CFG.photos || {}).jpegQuality;
+    if (typeof q !== 'number' || !isFinite(q)) return 0.82;
+    return Math.min(1, Math.max(0, q));
+  }
+
+  function maxFileBytes() {
+    var mb = parseFloat((CFG.photos || {}).maxFileSizeMb);
+    if (isNaN(mb) || mb <= 0) mb = 12;
+    return mb * 1024 * 1024;
+  }
+
+  function maxEdgePx() {
+    var n = parseInt((CFG.photos || {}).maxEdgePx, 10);
+    if (isNaN(n) || n <= 0) return 1600;
+    return n;
+  }
+
+  /* Returns a copy KEY or null, the same contract validateName() and
+     validateNote() use, so a refusal survives a language switch without being
+     re-computed.
+
+     None of these three is a security control and it matters that nobody
+     later reads them as one. The key is public by design, so anyone can talk
+     to the API directly and skip every line below. The controls that actually
+     hold against a crafted request are the bucket's file_size_limit, which is
+     counted on the bytes that arrive, and the row level rules in
+     supabase/schema.sql. These checks protect a guest from picking the wrong
+     file, which is a different and equally real job.
+
+     All three run BEFORE the decode, deliberately (D-21, PH-07). A file too
+     large to decode is refused before it can exhaust the phone's memory, and
+     ordering the size check after a decode would be the whole protection
+     thrown away. */
+  function validateFile(file, maxBytes) {
+    if (!file || !file.size) return 'photos.err.empty';
+    if (String(file.type || '').indexOf('image/') !== 0) return 'photos.err.type';
+    if (file.size > maxBytes) return 'photos.err.size';
+    return null;
+  }
+
+  /* One decode, one draw, one encode, and then everything is released by hand.
+
+     There is no orientation code here and that is the point. image-orientation
+     defaults to from-image, both Chromium and WebKit honour it when an <img>
+     is drawn to a canvas, and naturalWidth/naturalHeight already report the
+     ORIENTED dimensions. A portrait photo reports portrait. Writing a rotation
+     on top of that turns every correct photo sideways, which is the bug it was
+     supposed to prevent, arriving through the code written to prevent it.
+
+     createImageBitmap would decode off the main thread, which is nicer. It
+     would also add a version floor: the imageOrientation value from-image is
+     only accepted from Safari 16, and Safari before 17.2 spelled the same
+     behaviour none. An enum a dictionary does not recognise throws, so the
+     safeguard costs more than the risk it covers. See 04-RESEARCH.md, THE
+     ORIENTATION REFINEMENT.
+
+     The settled flag mirrors sbRequest's invariant: the caller cannot be left
+     waiting. Errors surface as copy keys, matching the validator convention. */
+  function downscaleToJpeg(file, maxEdge, quality, done) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    var settled = false;
+
+    function finish(blob, errKey) {
+      if (settled) return;
+      settled = true;
+      /* Released before the callback, so the next file in the sequence starts
+         on a clean heap. canvas.width = 0 is the one people leave out and it
+         is the one that actually frees the backing store on WebKit. */
+      URL.revokeObjectURL(url);
+      img.src = '';
+      done(blob, errKey);
+    }
+
+    img.onerror = function () { finish(null, 'photos.err.decode'); };
+
+    img.onload = function () {
+      var w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h) return finish(null, 'photos.err.decode');
+
+      // Never upscale. A small photo stays small.
+      var scale = Math.min(1, maxEdge / Math.max(w, h));
+      var cw = Math.max(1, Math.round(w * scale));
+      var ch = Math.max(1, Math.round(h * scale));
+
+      var canvas = document.createElement('canvas');
+      canvas.width = cw;
+      canvas.height = ch;
+
+      var ctx = canvas.getContext('2d');
+      if (!ctx) return finish(null, 'photos.err.decode');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';   // Chromium and WebKit honour it, Firefox ignores it
+
+      try {
+        ctx.drawImage(img, 0, 0, cw, ch);
+      } catch (e) {
+        return finish(null, 'photos.err.decode');
+      }
+
+      canvas.toBlob(function (blob) {
+        /* null, or a blob so small it can only be a blank canvas, is terminal
+           for this file. Never retried: each retry re-decodes the full
+           resolution source, and the third attempt is where a phone gives up. */
+        if (!blob || blob.size < 256) {
+          canvas.width = canvas.height = 0;
+          return finish(null, 'photos.err.encode');
+        }
+        canvas.width = canvas.height = 0;
+        finish(blob, null);
+      }, 'image/jpeg', quality);
+    };
+
+    img.decoding = 'async';
+    img.src = url;
+  }
+
+  /* {yyyy-mm-dd}/{fresh-uuid}.jpg. The uuid is minted here per upload and has
+     nothing to do with guest_id.
+
+     supabase/schema.sql section 9 states why, and it is not a style
+     preference: the bucket is public, so a storage_path is every bit as
+     readable as a column, and public.album hands the path to anyone holding
+     the publishable key. A guest_id in a filename is the credential from
+     section 8 published through the view section 9 built to stop publishing
+     it, and renaming the object later does not un-publish it.
+
+     The date prefix costs nothing and makes the dashboard navigable, which is
+     the owner's only tool for cleanup.
+
+     STORAGE_PATH_RE below is this same contract read backwards. The two must
+     change together, in one commit: a shape change that lands without the
+     regex change makes every new photograph invisible, and there is no
+     migration available from a static page. */
+  function storagePath() {
+    var id = newGuestId();
+    /* No source of randomness at all. The file cannot be given a safe name, so
+       the path is refused rather than built from a weaker generator, which is
+       the same branch enrollment takes at the identical moment. */
+    if (!id) return null;
+
+    var d = new Date();
+    var day = d.getUTCFullYear() + '-' +
+              ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' +
+              ('0' + d.getUTCDate()).slice(-2);
+    return day + '/' + id + '.jpg';
+  }
+
+  /* The render time allowlist, anchored at both ends, and the other half of the
+     storagePath() contract above. Change one and you change both, together.
+
+     Two things it buys. A database supplied string stops being able to steer a
+     URL: the path is concatenated into both href and src, and without this it
+     could carry traversal segments, a query or a fragment. And the album is
+     clean on day one, because the research session's zz-research rows do not
+     match the shape and therefore never render, before the owner's cleanup
+     rather than after it. */
+  var STORAGE_PATH_RE = /^\d{4}-\d{2}-\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/;
+
+  function photoPublicUrl(storagePath) {
+    return sbUrl() + '/storage/v1/object/public/' + (CFG.photos || {}).bucket + '/' + storagePath;
+  }
+
+  /* The only XMLHttpRequest in this codebase, and the deliberate exception to
+     phase 3's fetch-only rule. The reason is one line long: fetch has no
+     upload progress event and never will, and an indeterminate spinner on a
+     ten second upload over party wifi is exactly the "is this broken?" moment
+     PH-05 was written against.
+
+     It copies four properties of sbRequest's contract and inherits none of
+     them, so it owes each one separately:
+       the key travels in apikey and in no other authentication header;
+       it resolves through a callback rather than throwing, so no call site
+         needs a catch;
+       a single settle guard, so the caller cannot be answered twice;
+       all four terminal handlers wired, because three of four is a control
+         that spins forever on the fourth.
+
+     cache-control is not decoration. Without it every album image is served
+     Cache-Control: no-cache and is refetched on every page view. With it the
+     served header is public, max-age=31536000. Verified on the wire.
+
+     Content-Type is set explicitly rather than read off the blob, because the
+     bucket's allowed_mime_types list is checked against what the uploader
+     declares and this is the one place that declaration is made. */
+  function uploadObject(path, blob, onProgress, done) {
+    var xhr = new XMLHttpRequest();
+    var settled = false;
+
+    function settle(out) { if (!settled) { settled = true; done(out); } }
+
+    xhr.open('POST', sbUrl() + '/storage/v1/object/' + (CFG.photos || {}).bucket + '/' + path, true);
+    xhr.setRequestHeader('apikey', sbKey());
+    xhr.setRequestHeader('Content-Type', 'image/jpeg');
+    xhr.setRequestHeader('cache-control', 'max-age=31536000');
+    xhr.timeout = 60000;   // a photograph on party wifi is not a 12 second request
+
+    xhr.upload.onprogress = function (e) {
+      if (e.lengthComputable && typeof onProgress === 'function') onProgress(e.loaded / e.total);
+    };
+
+    xhr.onload = function () {
+      /* 200, not 201. The photos row insert answers 201 and this answers 200,
+         in the same upload of the same photograph. Test the range, never a
+         literal: gating on the one exact status this endpoint happens to
+         answer today reports a written object as a lost one. */
+      if (xhr.status >= 200 && xhr.status < 300) return settle({ ok: true });
+      settle({ ok: false, status: xhr.status, code: classifyStorage(xhr) });
+    };
+
+    xhr.onerror   = function () { settle({ ok: false, status: 0, code: 'NETWORK' }); };
+    xhr.onabort   = function () { settle({ ok: false, status: 0, code: 'NETWORK' }); };
+    xhr.ontimeout = function () { settle({ ok: false, status: 0, code: 'NETWORK' }); };
+
+    xhr.send(blob);
+  }
+
+  /* Storage's classifier, and it is deliberately NOT shared with the PostgREST
+     path. A Storage error is not shaped like a PostgREST error: the outer HTTP
+     status is 400 for everything and the real one is a string inside the body,
+     { statusCode, error, message, code }, with code being a name such as
+     KeyAlreadyExists rather than a Postgres SQLSTATE. One classifier per
+     service, so neither can be handed the other's vocabulary. */
+  function classifyStorage(xhr) {
+    try {
+      var parsed = JSON.parse(xhr.responseText);
+      return parsed.statusCode || null;
+    } catch (e) { return null; }
+  }
+
+  /* Three outcomes, so the caller has three branches rather than nine:
+       ok      the photograph is indexed
+       limit   the guest is already at five
+       failed  anything else
+
+     Classified on the code field and never on the message string, which is
+     English, unstable, and embeds constraint names.
+
+     Prefer: return=minimal is not relaxed. return=representation answers 401
+     with code 42501 AND the row is not written, because section 9 revokes
+     select on public.photos from anon.
+
+     P0001 is raise_exception from the trigger in section 4 and it is never
+     retried with a fresh path. The trigger is BEFORE INSERT, so it fires ahead
+     of the unique constraint and a guest at five sees P0001 for a path
+     collision too. A retry loop there would upload bytes forever. */
+  function insertPhotoRow(ident, path, done) {
+    var row = { guest_id: ident.guest_id, name: ident.name, storage_path: path };
+
+    sbRequest('POST', '/rest/v1/' + (CFG.photos || {}).table, row, 'return=minimal')
+      .then(function (res) {
+        if (res.ok) return done('ok');
+        if (res.code === 'P0001') return done('limit');
+        done('failed');
+      });
+  }
+
+  /* ----------------------------------------------------------------------
+     THE ALBUM
+
+     renderSocialProof()'s shape, one for one, and for the same reasons: two
+     callers can have a read out at the same time (the language chain and the
+     post upload refetch, D-12), so the sequence token is claimed before the
+     request goes out and checked above the clear.
+     ---------------------------------------------------------------------- */
+
+  var albumSeq = 0;
+
+  function albumHead(state, n) {
+    var p = document.createElement('p');
+    p.className = 'album__head';
+
+    if (state === 'loading')     p.textContent = t('photos.album.loading');
+    else if (state === 'empty')  p.textContent = t('photos.album.empty');
+    else if (n === 1)            p.textContent = t('photos.album.count.one');
+    else                         p.textContent = t('photos.album.count.many').replace('{n}', String(n));
+
+    return p;
+  }
+
+  /* Every value below arrives from the database and every one of them goes in
+     through textContent or through a property, never through innerHTML. That
+     is the same discipline pendingBlock() applies to config.js values, and
+     here it is load bearing rather than tidy: this renders one guest's name
+     into every other guest's browser.
+
+     The tile is a plain anchor to the public URL. That is the deliberate non
+     lightbox (D-10): the browser's own image viewer already gives pinch zoom,
+     save and share for zero code and zero bytes.
+
+     Nothing splits a name here. public.album applies split_part server side,
+     so a surname is not there to render rather than being rendered and then
+     hidden. Asking the view for guest_id answers 42703. */
+  function albumTile(row) {
+    var url = photoPublicUrl(row.storage_path);
+
+    var a = document.createElement('a');
+    a.className = 'album__tile';
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.setAttribute('aria-label', t('photos.album.open').replace('{name}', String(row.first_name || '')));
+
+    var frame = document.createElement('span');
+    frame.className = 'album__frame';
+
+    var img = document.createElement('img');
+    img.loading = 'lazy';       // D-11
+    img.decoding = 'async';
+    img.alt = '';               // decorative; the anchor's accessible name carries the meaning
+    /* A frame with no photograph in it is worse than one fewer frame, so a
+       tile whose object 404s is hidden rather than shown as an empty box. */
+    img.onerror = function () { a.setAttribute('data-broken', '1'); };
+    img.src = url;
+
+    frame.appendChild(img);
+
+    var cap = document.createElement('span');
+    cap.className = 'album__by';
+    cap.textContent = row.first_name;
+
+    a.appendChild(frame);
+    a.appendChild(cap);
+    return a;
+  }
+
+  /* Read through public.album and never through public.photos. The view is
+     what applies the first name truncation and what does not carry guest_id.
+
+     Failure is silent and the whole block including the head is removed
+     (D-14). A guest can submit evidence without being able to read the
+     register, and the two are independent. There is no skeleton: a grid of
+     grey squares is a fabricated claim about content the site does not have. */
+  function renderAlbum(host) {
+    if (!host || !sbConfigured()) return;
+
+    var seq = ++albumSeq;
+
+    host.textContent = '';
+    host.appendChild(albumHead('loading', 0));
+
+    // 8000ms, matching social proof. Non blocking decoration; nobody waits on it.
+    sbRequest('GET',
+      '/rest/v1/album?select=first_name,storage_path,created_at&order=created_at.desc',
+      null, null, 8000)
+      .then(function (res) {
+        // A newer read is already out or has landed. Writing anything from
+        // here, the clear included, would replace a fresher answer.
+        if (seq !== albumSeq) return;
+        if (!stillMounted(host)) return;
+
+        host.textContent = '';
+
+        if (!res.ok || !Array.isArray(res.body)) return;   // silent, D-14
+
+        /* Filtered before anything is counted or concatenated, so a row whose
+           path does not match the shape is skipped silently AND excluded from
+           the head count. The two have to agree or the register lies. */
+        var rows = [];
+        for (var i = 0; i < res.body.length; i++) {
+          var r = res.body[i];
+          if (r && typeof r.storage_path === 'string' && STORAGE_PATH_RE.test(r.storage_path)) rows.push(r);
+        }
+
+        if (!rows.length) {
+          host.appendChild(albumHead('empty', 0));
+          return;
+        }
+
+        host.appendChild(albumHead('count', rows.length));
+
+        var grid = document.createElement('div');
+        grid.className = 'album';
+        rows.forEach(function (row) { grid.appendChild(albumTile(row)); });
+        host.appendChild(grid);
+      });
+  }
+
+  /* ----------------------------------------------------------------------
+     THE SECTION BODY
+     ---------------------------------------------------------------------- */
+
+  function setUploaderState(host, state) {
+    if (!host) return;
+    host.setAttribute('data-state', state);
+
+    var busy = (state === 'preparing' || state === 'uploading');
+    var btn = $('#photos-pick', host);
+    if (!btn) return;
+
+    btn.disabled = busy;
+    /* A disabled button on its own tells a screen reader nothing about why.
+       The label deliberately does not change: the status line below already
+       says what is happening and swapping the label too is the same sentence
+       twice. */
+    btn.setAttribute('aria-busy', busy ? 'true' : 'false');
+    btn.textContent = t('photos.cta');
+  }
+
+  function buildGatePanel() {
+    var panel = document.createElement('div');
+    panel.className = 'panel';
+
+    var h = document.createElement('h3');
+    h.className = 'sub-h';
+    h.textContent = t('photos.gate.title');
+
+    var lede = document.createElement('p');
+    lede.className = 'panel__lede';
+    lede.textContent = t('photos.gate.body');
+
+    /* Reuses hero.cta.enrol verbatim. "Go and register" is one intent, so it
+       carries one label everywhere on the page, and there is never a name
+       field here: D-18 forbids a second name prompt anywhere on the site. */
+    var cta = document.createElement('a');
+    cta.className = 'btn btn--primary';
+    cta.href = '#enrol';
+    cta.textContent = t('hero.cta.enrol');
+
+    panel.appendChild(h);
+    panel.appendChild(lede);
+    panel.appendChild(cta);
+    return panel;
+  }
+
+  function buildUploader() {
+    var box = document.createElement('div');
+    box.className = 'uploader';
+    box.setAttribute('data-state', 'idle');
+
+    var note = document.createElement('p');
+    note.className = 'uploader__note';
+    note.textContent = t('photos.permanent');
+    box.appendChild(note);
+
+    var acts = document.createElement('div');
+    acts.className = 'uploader__acts';
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn--primary';
+    btn.id = 'photos-pick';
+    btn.textContent = t('photos.cta');
+    acts.appendChild(btn);
+    box.appendChild(acts);
+
+    /* A separate sibling carrying the hidden attribute, never a label wrapping
+       the input. A native file input renders its own button label in the
+       BROWSER's language rather than the site's, which breaks LNG-06 the first
+       time a Danish guest with an English browser opens the section, and a
+       label cannot be disabled while bytes are in flight. */
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.id = 'photos-input';
+    input.multiple = true;
+    /* Exactly the image wildcard, and it is never extended. Adding image/heic,
+       .heic or .heif makes Safari 17 and later hand back an actual HEIC file,
+       where image/* alone receives an operating system converted JPEG, and
+       Android Chrome then cannot decode it. This looks like an omission and it
+       is the opposite. */
+    input.setAttribute('accept', 'image/*');
+    input.hidden = true;
+    box.appendChild(input);
+
+    // The button calls the input from inside its own click handler, which is a
+    // user gesture and is the supported pattern on both platforms.
+    btn.addEventListener('click', function () { input.click(); });
+    input.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(input.files || []);
+      // The value is cleared so picking the same file twice still fires change.
+      input.value = '';
+      if (files.length) runBatch(box, files);
+    });
+
+    return box;
+  }
+
+  /* Sequential, one file at a time (D-18), so a failure at file four leaves
+     files one to three genuinely uploaded rather than in an ambiguous partial
+     state, and so one decoded bitmap is alive at a time on a phone.
+
+     Validation runs across the WHOLE picked list before any decode, so a file
+     refused by validation never reaches the canvas and never reaches the
+     network.
+
+     Every branch terminates in a call to setUploaderState(), so no path can
+     leave the control locked. */
+  function runBatch(host, files) {
+    var maxBytes = maxFileBytes();
+    var accepted = [];
+
+    for (var i = 0; i < files.length; i++) {
+      if (!validateFile(files[i], maxBytes)) accepted.push(files[i]);
+    }
+
+    if (!accepted.length) { setUploaderState(host, 'idle'); return; }
+
+    var ident = identity.get();
+    var index = 0;
+    var landed = 0;
+
+    function next() {
+      if (index >= accepted.length) {
+        if (landed) {
+          identity.setPhotoCount(identity.photoCount() + landed);
+          // Read back through the view, which is what proves the write (D-27).
+          renderAlbum($('#photos-album'));
+        }
+        setUploaderState(host, 'idle');
+        return;
+      }
+
+      var file = accepted[index++];
+      setUploaderState(host, 'preparing');
+
+      downscaleToJpeg(file, maxEdgePx(), jpegQuality(), function (blob, errKey) {
+        if (errKey || !blob) return next();
+
+        var path = storagePath();
+        if (!path) return next();
+
+        setUploaderState(host, 'uploading');
+
+        /* The progress callback is wired here and has no bar to drive yet.
+           Plan 04-02 renders the transcript it feeds. */
+        uploadObject(path, blob, function () { }, function (out) {
+          if (!out.ok) return next();
+
+          // Storage first, then the row (D-19).
+          insertPhotoRow(ident, path, function (result) {
+            if (result === 'ok') landed++;
+            next();
+          });
+        });
+      });
+    }
+
+    next();
+  }
+
+  /* renderEnrollment()'s shape exactly: null-guard the host, compute one body
+     string through an ordered ladder, discard the static markup, write
+     data-body.
+
+     This plan ships three of the five branches and each is final. Plans 03 and
+     04 insert the closed and quota branches into this same ladder. */
+  function renderPhotos() {
+    var host = $('#photos-body');
+    if (!host) return;
+
+    var ident = identity.get();
+    var body;
+
+    /* Either credential blank, or a browser that cannot mint an identity at
+       all. Both get the inherited pending block and no album below it. */
+    if (!sbConfigured() || !IDENTITY_OK) body = 'pending';
+    /* Storage holding a guest_id but no name is not a registration. The album
+       renders the first token of name, and a guest with no name cannot be
+       attributed, so this is the gate rather than the control (D-01). */
+    else if (!ident.name || !ident.guest_id) body = 'gate';
+    else body = 'upload';
+
+    host.textContent = '';          // discards the static pending markup
+    host.setAttribute('data-body', body);
+
+    if (body === 'pending') {
+      host.appendChild(pendingBlock('photos.pending.title', 'photos.pending.body'));
+      return;
+    }
+
+    if (body === 'gate') host.appendChild(buildGatePanel());
+    else host.appendChild(buildUploader());
+
+    /* The album is present under the gate deliberately: it is what makes the
+       registration prompt persuasive. A guest who can see the evening
+       happening and is told they need a registration to add to it is a guest
+       who registers. */
+    var album = document.createElement('div');
+    album.id = 'photos-album';
+    host.appendChild(album);
+    renderAlbum(album);
   }
 
   /* ======================================================================

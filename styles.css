@@ -1855,6 +1855,14 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
      read and act on is worse than an instant change, and the error box is
      already reserved so nothing moves. */
   .panel { opacity: 1; transition: none; }
+
+  /* Written out rather than left to the clamp above, for the reason this whole
+     block exists: the clamp collapses a transition to one 0.01ms pass, and a
+     press-and-hold on a tile would be stranded at 0.98 for as long as the
+     thumb is down. The tap feedback survives as an instant state change on the
+     border instead, which is the honest answer at MOTION_INTENSITY 3. */
+  .album__tile { transition: none; }
+  .album__tile:active { transform: none; }
 }
 
 /* ==========================================================================
@@ -1948,3 +1956,131 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
    wrap, so the gap tightens by one step to absorb it. Bar height stays 65px. */
 .topnav a { white-space: nowrap; }
 .topnav { gap: var(--s-4); }
+
+/* ==========================================================================
+   PHOTOS: THE UPLOAD CONTROL AND THE ALBUM
+   --------------------------------------------------------------------------
+   Two blocks answering two separate questions, and the album is a departmental
+   contact sheet rather than a numbered evidence register (D-07). The
+   institutional register is carried by .album__head in the chrome above the
+   grid; the photographs get to be photographs.
+
+   Every colour is a token, every space is a token, and this block declares no
+   new custom property.
+   ========================================================================== */
+
+.uploader__note {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  margin: 0 0 var(--s-5);
+}
+
+.uploader__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+}
+
+/* The single most important control in the phase, so it clears the 44px floor
+   by a wide margin and goes wider still on a coarse pointer. */
+.uploader__acts .btn { min-height: 52px; }
+@media (pointer: coarse) {
+  .uploader__acts .btn { min-height: 56px; }
+}
+
+@media (max-width: 480px) {
+  .uploader__acts { display: block; }
+  .uploader__acts .btn { width: 100%; }
+}
+
+/* Two answers to two questions, at phase 2's sub-block rhythm. */
+#photos-album { margin-top: var(--s-7); }
+
+.album__head {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  margin: 0 0 var(--s-4);
+}
+
+/* Explicit breakpoints rather than auto-fill: auto-fill at a 1080px wrap and a
+   sensible phone minimum produces seven columns at desktop, which turns a
+   contact sheet into a mosaic of unreadable stamps. Two across at 320px is a
+   132px tile, which is a tappable thumbnail with room for a name under it. */
+.album {
+  display: grid;
+  gap: var(--s-2);
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 560px) {
+  .album { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 900px) {
+  .album {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--s-3);
+  }
+}
+
+.album__tile {
+  display: block;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  text-decoration: none;
+  transition: transform var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out);
+}
+
+/* A frame with no photograph in it is worse than one fewer frame. */
+.album__tile[data-broken] { display: none; }
+
+/* Gentler than .btn:active's 0.97, deliberately: 3% of a 258px tile is an 8px
+   lurch where 3% of a 56px button is 2px. */
+.album__tile:active { transform: scale(0.98); }
+
+@media (hover: hover) and (pointer: fine) {
+  .album__tile:hover { border-color: var(--ink-faint); }
+  .album__tile:hover .album__by { color: var(--ink); }
+}
+
+/* .map-slot's no-reflow box at a square ratio. The box exists before the image
+   does, so a slow tile is a --surface rectangle rather than a collapse and
+   nothing below moves as the grid streams in. */
+.album__frame {
+  display: block;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.album__frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A single line with an ellipsis, so a forty character first name cannot make
+   one tile taller than its row neighbours. The full name is in the anchor's
+   accessible name, so nothing is lost to assistive technology. */
+.album__by {
+  display: block;
+  padding: var(--s-2);
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--t-fast) var(--ease-out);
+}
