@@ -188,6 +188,13 @@
 
   function renderCountdown() {
     if (!els.root) return;
+    /* The six cached nodes below are dereferenced unguarded while els.sr and the
+       label are guarded, which is the file's defensive style applied to two
+       nodes out of eight. Every one of them is in index.html today, so this is
+       consistency rather than a live crash, and one guard beside the root check
+       is the whole of it: the function cannot render either of its two states
+       without these. */
+    if (!els.d || !els.h || !els.m || !els.s || !els.status || !els.note) return;
 
     var now = Date.now();
     var state = phase(now);
@@ -3213,9 +3220,7 @@
      lands. The day the owner fills the value in, one config line turns it on.
 
      No new class is introduced for the section. It is the existing section
-     scaffolding unchanged, and its CTA is a plain primary button rather than the
-     unused legacy class further down styles.css, which carries a side stripe
-     this phase has committed to not spreading to a new usage. */
+     scaffolding unchanged, and its CTA is a plain primary button. */
   function renderWhatsApp() {
     var section = $('#wa');
     var host = $('#wa-body');
