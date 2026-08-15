@@ -154,12 +154,15 @@ graceful placeholder:
 | WhatsApp group invite link | Group handoff after enrollment | Placeholder, section hidden until set |
 
 Supabase is fully set up. Credentials are in `config.js`, the schema is applied, and
-row level rules are verified against the live database. Nothing Supabase related
-blocks phase 3.
+row level rules are verified against the live database. Sections 7 and 8 (the
+`withdrawn` column and the `amend_enrollment` security definer function) were applied
+by the owner on 2026-08-15 and verified on the wire: the function answers `0` / HTTP 200
+for an unknown guest id, the `attendees` view still projects only first name, plus one
+count and joining date, and `enrollments` still returns `[]` to the publishable key.
 
-Outstanding cleanup: a test row named `ZZTEST DeleteMe` may still be in
-`enrollments`. Remove it with
-`delete from public.enrollments where name = 'ZZTEST DeleteMe';`
+The `ZZTEST DeleteMe` rows were removed by the owner on 2026-08-15 as the closing act of
+plan 03-06, and the removal was proved through the public view rather than the blocked
+table. No outstanding database cleanup.
 
 Concern: the DTU CourseBase joke lands hardest with classmates and may read as plain institutional design to relatives. Accepted deliberately. The practical information is legible regardless of whether the joke registers.
 

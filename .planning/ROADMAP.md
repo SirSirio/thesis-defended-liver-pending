@@ -95,7 +95,7 @@ time sensitive and photos are not.
 ENR-11, ENR-12, ENR-13, ID-01, ID-02, ID-03, ID-04, ID-05, ID-06, WA-01, WA-02, WA-03, WA-04,
 WA-05, WA-06, NDG-01, NDG-02, NDG-03, NDG-04, NDG-05, NDG-06, NDG-07, NDG-08
 
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans executed
 
 Plans:
 **Wave 1**
@@ -117,7 +117,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 03-06-PLAN.md — Closing sweep, the four nudge branches, the device sheet and the test-row cleanup
+- [x] 03-06-PLAN.md — Closing sweep, the four nudge branches, the device sheet and the test-row cleanup
 
 **Done when:** a guest on a phone enrolls in under 10 seconds, lands in the WhatsApp
 group with one more tap, and is never nudged again.
