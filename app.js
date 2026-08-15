@@ -3925,7 +3925,7 @@
          literal: gating on the one exact status this endpoint happens to
          answer today reports a written object as a lost one. */
       if (xhr.status >= 200 && xhr.status < 300) return settle({ ok: true });
-      settle({ ok: false, status: xhr.status, code: classifyStorage(xhr) });
+      settle({ ok: false, status: xhr.status, code: storageBodyStatus(xhr) });
     };
 
     xhr.onerror   = function () { settle({ ok: false, status: 0, code: 'NETWORK' }); };
@@ -3935,23 +3935,45 @@
     xhr.send(blob);
   }
 
-  /* Storage's classifier, and it is deliberately NOT shared with the PostgREST
-     path. A Storage error is not shaped like a PostgREST error: the outer HTTP
-     status is 400 for everything and the real one is a string inside the body,
-     { statusCode, error, message, code }, with code being a name such as
-     KeyAlreadyExists rather than a Postgres SQLSTATE. One classifier per
-     service, so neither can be handed the other's vocabulary. */
-  function classifyStorage(xhr) {
+  /* Storage's own error body, unpacked, and nothing else reads it.
+
+     The outer HTTP status is 400 for everything the service refuses, and the
+     real one is a string inside the body, { statusCode, error, message, code },
+     with code carrying a name such as KeyAlreadyExists rather than a Postgres
+     SQLSTATE. The message that travels beside it is deliberately not returned
+     from here: it is English, unstable, and it is a Supabase sentence, and no
+     Supabase sentence reaches a guest anywhere in this section. */
+  function storageBodyStatus(xhr) {
     try {
       var parsed = JSON.parse(xhr.responseText);
       return parsed.statusCode || null;
     } catch (e) { return null; }
   }
 
-  /* Three outcomes, so the caller has three branches rather than nine:
-       ok      the photograph is indexed
-       limit   the guest is already at five
-       failed  anything else
+  /* The first of two classifiers, and the two are deliberately not one.
+
+     The temptation to merge them is not a first-draft risk, it is a later
+     refactor that sees two small functions returning copy keys and folds them
+     together. They cannot be folded: one service answers an outer 400 for
+     every failure with the real status buried in a body, and the other answers
+     the real status with a Postgres code. A shared classifier would silently
+     mis-brand one of the two, and the branch it mis-brands is the limit.
+
+     No outer status literal is tested here, for the same reason. */
+  function classifyStorage(out) {
+    /* Supabase Storage, the object write. A synthesised NETWORK code is the
+       one outcome that means the bytes never arrived, which is a sentence a
+       guest can act on; everything else is the archive declining them, which
+       is one line and not a status. */
+    if (!out || out.code === 'NETWORK') return 'photos.err.network';
+    return 'photos.err.server';
+  }
+
+  /* The second classifier, for the other service, and three outcomes so the
+     caller has three branches rather than nine:
+       ok             the photograph is indexed
+       limit          the guest is already at the configured maximum
+       a photos.err.* key   anything else
 
      Classified on the code field and never on the message string, which is
      English, unstable, and embeds constraint names.
@@ -3960,19 +3982,33 @@
      with code 42501 AND the row is not written, because section 9 revokes
      select on public.photos from anon.
 
-     P0001 is raise_exception from the trigger in section 4 and it is never
-     retried with a fresh path. The trigger is BEFORE INSERT, so it fires ahead
-     of the unique constraint and a guest at five sees P0001 for a path
-     collision too. A retry loop there would upload bytes forever. */
+     The limit code is raise_exception from the trigger in section 4, and it is
+     never retried with a fresh path. The trigger is BEFORE INSERT, so it fires
+     ahead of the unique constraint and a guest at the maximum sees the same
+     code for a path collision too. A retry loop there would upload bytes
+     forever. hitQuota() is where that rule is enforced. */
+  function classifyPhotoInsert(res) {
+    /* PostgREST, the row insert. It answers the real status directly and
+       carries a Postgres SQLSTATE in code, which is the whole reason this is
+       not the same function as the Storage one above. */
+    if (!res) return 'photos.err.server';
+    if (res.ok) return 'ok';
+    if (res.code === 'P0001') return 'limit';
+    /* Anything else, and the object this row was meant to point at is already
+       in the bucket. That orphan is D-19's written accepted consequence and
+       not a defect: it appears in no view, no page and no URL anyone holds,
+       and the owner clears it from the dashboard. The alternative is a row
+       pointing at bytes that are not there, which is a permanently broken tile
+       in everyone's album, forever, with no delete path from the browser for
+       either half. */
+    return 'photos.err.server';
+  }
+
   function insertPhotoRow(ident, path, done) {
     var row = { guest_id: ident.guest_id, name: ident.name, storage_path: path };
 
     sbRequest('POST', '/rest/v1/' + (CFG.photos || {}).table, row, 'return=minimal')
-      .then(function (res) {
-        if (res.ok) return done('ok');
-        if (res.code === 'P0001') return done('limit');
-        done('failed');
-      });
+      .then(function (res) { done(classifyPhotoInsert(res)); });
   }
 
   /* ----------------------------------------------------------------------
@@ -4749,8 +4785,11 @@
 
       // The per-file fraction reaches exactly one row's fill, as a scale.
       uploadObject(path, blob, function (fraction) { setRowProgress(rec, fraction); }, function (out) {
+        /* The row names what happened to it and the batch carries on to the
+           next file rather than aborting: a dropped connection on file two is
+           not a verdict on files three, four and five. */
         if (!out.ok) {
-          setRowState(rec, 'failed', out.code === 'NETWORK' ? 'photos.err.network' : 'photos.err.server', null);
+          setRowState(rec, 'failed', classifyStorage(out), null);
           return runNextFile();
         }
 
@@ -4763,15 +4802,21 @@
             identity.setPhotoCount(identity.photoCount() + 1);
             refreshPhotosState();
           } else if (result === 'limit') {
-            /* The bytes went up, so this is not a failure: the submission was
-               declined. The local count was wrong and the register was right,
-               so the count self-heals to the maximum (D-19) rather than the
-               path being retried, which would upload bytes forever. */
+            /* The bytes went up, so this is not a failure and the copy must
+               not call it one: the submission was declined. The local count
+               was wrong and the register was right, so it self-heals to the
+               maximum (D-19) instead of the path being retried. */
             setRowState(rec, 'refused', 'photos.refuse.server', null);
             identity.setPhotoCount(photosMaxPerGuest());
             refreshPhotosState();
           } else {
-            setRowState(rec, 'failed', 'photos.err.server', null);
+            /* The object is up and the row is not, so this branch is where the
+               accepted orphan of D-19 is created. It is left exactly where it
+               is: nothing in the browser can remove it, it appears in no view,
+               no page and no URL anyone holds, and it is the cheaper of the
+               two asymmetric failures. A written accepted consequence, not a
+               defect to be repaired here. */
+            setRowState(rec, 'failed', result, null);
           }
           runNextFile();
         });
