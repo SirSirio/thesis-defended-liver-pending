@@ -4562,6 +4562,25 @@
     btn.className = 'btn btn--primary';
     btn.id = 'photos-pick';
     acts.appendChild(btn);
+
+    /* Exactly one retry control, however many rows failed. Five per row
+       buttons would be five targets for one intent, and the intent is one:
+       send again whatever did not land.
+
+       The ghost variant rather than the primary one, because the accent fill
+       in this section is reserved for exactly one filled button at a time and
+       the submit control owns it.
+
+       It is built once, here, and its presence is decided in the stylesheet by
+       the control's own state attribute. JavaScript writes one attribute and
+       CSS owns what is on the page, which is the same division setFormState()
+       set for the form and the queue rows kept. */
+    var retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'btn btn--ghost uploader__retry';
+    retry.id = 'photos-retry';
+    acts.appendChild(retry);
+
     box.appendChild(acts);
 
     /* A separate sibling carrying the hidden attribute, never a label wrapping
@@ -4609,6 +4628,7 @@
     // The button calls the input from inside its own click handler, which is a
     // user gesture and is the supported pattern on both platforms.
     btn.addEventListener('click', function () { input.click(); });
+    retry.addEventListener('click', function () { retryFailedFiles(); });
     input.addEventListener('change', function () {
       var files = Array.prototype.slice.call(input.files || []);
       // The value is cleared so picking the same file twice still fires change.
@@ -4639,6 +4659,12 @@
 
     var note = $('.uploader__note', uploader);
     if (note) note.textContent = t('photos.permanent');
+
+    /* The one place the retry's label is written, so there is exactly one
+       string for one intent in this section. A verb plus an object, never a
+       bare Retry, which reads as nothing out of context. */
+    var retry = $('.uploader__retry', uploader);
+    if (retry) retry.textContent = t('photos.retry.failed');
 
     setUploaderState(uploader, photoState);
 
@@ -4882,6 +4908,58 @@
       photoBatchPending = false;
       renderPhotos();
     }
+  }
+
+  /* One tap, and exactly the files that did not land are sent again.
+
+     The batch model is what makes this possible at all: failed and refused
+     never clear the selection, so the File objects are still alive and the
+     guest does not have to find the same three photographs in their camera
+     roll a second time.
+
+     Three record states and three different answers, and the difference
+     between them is the whole function:
+
+       done      left exactly as it is. A recorded row has a row in the
+                 register behind it, and re-sending it would upload a second
+                 object and count a second time against the limit. This is the
+                 double count the retry exists to not cause.
+       refused   left exactly as it is. A refusal is a decision rather than a
+                 transient fault: a decode failure is terminal for that file,
+                 and a quota refusal is terminal for the whole guest.
+       failed    reset to waiting, its reason cleared, its bar returned to the
+                 start, and re-driven.
+
+     The slots are renumbered across the retried rows only, so the counted
+     sentence reads "Sending 1 of 2" for a retry of two rather than continuing
+     a numbering the guest can no longer see. */
+  function retryFailedFiles() {
+    var uploader = photoUploader;
+    var again = 0, i, rec;
+
+    for (i = 0; i < photoBatch.length; i++) {
+      rec = photoBatch[i];
+      if (rec.state === 'done') continue;
+      if (rec.state === 'refused') continue;
+      if (rec.state !== 'failed') continue;
+
+      rec.slot = ++again;
+      rec.path = null;
+      setRowState(rec, 'waiting', null, null);
+      setRowProgress(rec, 0);
+    }
+
+    /* Nothing to retry means nothing happens, including no state change. The
+       control is gated on partial and failed in CSS, so this is unreachable
+       from a tap, and it is written anyway because a control that can be
+       called from anywhere owes a terminal answer for every input. */
+    if (!again) return;
+
+    photoBatchTotal = again;
+    setUploaderStatus(null);
+    setUploaderAlert(null);
+    setUploaderState(uploader, 'preparing');
+    runNextFile();
   }
 
   /* renderEnrollment()'s shape exactly: null-guard the host, compute one body
