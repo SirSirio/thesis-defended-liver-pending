@@ -238,6 +238,14 @@ None - no external service configuration required. The `amend_enrollment` functi
 - **Still owed after this plan:** everything on `03-DEVICE-PASS.md` Tables A to F. Gate G4 proves the retry branch is taken and labelled; whether the Danish question plus the retry label still fits two lines at 320px without pushing the confirm control below the fold is Table E's row and is unanswered (tracked above as coverage item D9). WINDOWS entries 2, 4, 8 and 11 are unchanged by this plan.
 - **No new stub, no skipped test, no unrun verify** was introduced by this plan.
 
+## Self-Check: PASSED
+
+- `app.js` exists and is the only source file changed across the plan (`git diff --name-only ac1b2ac..HEAD` returns `.planning/.../03-08-SUMMARY.md` and `app.js`, nothing else).
+- All four commits present: `2813ed5`, `204d588`, `a96c3e2`, `4acd53a`.
+- `.planning/phases/03-enrollment-identity-and-the-group/03-08-SUMMARY.md` exists on disk.
+- Working tree clean, no untracked files, no deletions in any commit.
+- `supabase/schema.sql`, `config.js`, `copy.js`, `STATE.md` and `ROADMAP.md` untouched, as required for the parallel wave.
+
 ---
 *Phase: 03-enrollment-identity-and-the-group*
 *Completed: 2026-08-15*
