@@ -48,10 +48,17 @@ and left in place deliberately. If a later reader disagrees with a decision, the
 argue with the reason, not to assume the item was forgotten.
 
 It accounts for **all nineteen findings** in
-`.planning/phases/03-enrollment-identity-and-the-group/03-REVIEW.md`, plus the two rows marked
-Info in `03-VERIFICATION.md`'s `## Anti-Patterns Found` table, one of which is not an item in the
-review's own numbering. Nothing is absent from the list, because a finding with no recorded
-disposition is indistinguishable from a finding that was dropped.
+`.planning/phases/03-enrollment-identity-and-the-group/03-REVIEW-pre-gap-closure.md`, plus the two
+rows marked Info in `03-VERIFICATION.md`'s `## Anti-Patterns Found` table, one of which is not an
+item in the review's own numbering. Nothing is absent from the list, because a finding with no
+recorded disposition is indistinguishable from a finding that was dropped.
+
+> **File reference corrected 2026-08-15.** When this section was written, that review was named
+> `03-REVIEW.md`. A second review ran afterwards, over the gap-closure diff, and took that name;
+> the review this ledger describes was renamed to `03-REVIEW-pre-gap-closure.md`. The two use
+> **separate ID sequences**, so `CR-01` means one thing here and a different thing in the newer
+> file. Section 3 below covers the newer review. Read the ID together with the file it came from,
+> never on its own.
 
 ### 2a. Declined, each with a reason
 
@@ -133,3 +140,57 @@ The device pass. `03-DEVICE-PASS.md` Tables A to F are unanswered and NDG-02 abo
 bar has never rendered on any device in the life of this site. That is not a review finding and it
 is not deferred work in the sense this file uses the word. It is owed work with a named artifact
 waiting for it.
+
+---
+
+## 3. Disposition ledger for the gap-closure code review
+
+Source: `.planning/phases/03-enrollment-identity-and-the-group/03-REVIEW.md`, run on
+2026-08-15 over the gap-closure diff only (`app.js`, `config.js`, `styles.css`,
+`supabase/schema.sql`). Nine findings, **its own ID sequence**, unrelated to section 2's.
+
+The five that mattered were all **regressions introduced by plans 03-07, 03-08 and 03-09** — the
+gap closure broke things while closing things. All five are fixed and merged, each proved red
+against the pre-fix source before the fix was accepted:
+
+| Finding | In one line | Disposition |
+|---|---|---|
+| **CR-01** | `revoke select on public.photos from anon` disabled the photo-limit trigger, so every anonymous photo insert failed with 42501 | **Fixed** `2d5a961`, applied to the live database and probe-verified |
+| **CR-02** | The withdrawal's mounted guard sat above the durable writes, so a confirmed withdrawal could be discarded on a language switch | **Fixed** `93f74fe` |
+| **CR-03** | The `pending` branch never lifted the body-wide freeze, leaving every panel control disabled until reload | **Fixed** `6ce6c93` |
+| **WR-01** | `calendarDaysUntil`'s catch degraded to arithmetic that reintroduced gap 3's corollary | **Fixed** `d6a2ac2` |
+| **WR-02** | The same guard shape on `handleSubmit`/`handleAmend` could drop a registration the database had accepted | **Fixed** `e84d93d` |
+
+### 3a. Declined for now, each with a reason
+
+These four are Info and were deliberately left out of the fix round's scope. Declined **for this
+round**, not decided forever — unlike section 2a, which records settled decisions.
+
+**IN-01. `setWithdrawState` re-enables every button in `#enrol-body` with no memory of what was
+disabled before.** Declined for this round, and it moved while we were not fixing it: CR-03's fix
+revives the `'idle'` path, which no caller reached after 03-08, so IN-01 went from dead code to
+reachable. Still benign, because nothing on the return panel ships disabled — but that is a
+property of today's markup, not a guarantee. The moment any control there ships disabled, this
+becomes a real defect. Worth fixing in the same pass as IN-03.
+
+**IN-02. `renderCountdown`'s new guard is broader than its own comment claims, and couples the two
+states.** Declined for this round. The guard is correct and strictly safer than what preceded it;
+the defect is that the comment describes something narrower than the code does, which is the same
+class of mistake as the false section 9 comment that let CR-01 ship for a day. Comment-only fix.
+
+**IN-03. `toast()`'s `requestAnimationFrame` handle is still unheld, one commit after the
+identical rule was applied to `nudgeShowFrame`.** Declined for this round, and the least
+comfortable of the four: 03-09 fixed exactly this shape for the nudge bar and did not carry it to
+the toast beside it. Pairs naturally with IN-01.
+
+**IN-04. `forgetIdentity` writes `tabindex="-1"` onto a static heading and never removes it.**
+Declined for this round. A stray `tabindex="-1"` on a heading is inert for a mouse and does not
+place the heading in the tab order; it is untidy rather than wrong. Cheapest of the four.
+
+### 3b. What is still unproven on the wire
+
+The **sixth-photo limit** (`photo_limit_reached`). CR-01's fix restored the trigger's ability to
+count, and probe F proves the trigger now runs. It does **not** prove the limit still refuses a
+sixth row, because proving that means writing five real photo rows, and no delete rule exists for
+anyone in this schema — nothing in the file could remove them again. **Phase 4 owns this proof and
+should carry it as an explicit task rather than assume it.**
