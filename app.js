@@ -3217,8 +3217,54 @@
 
   var deadlineMs = Date.parse((CFG.enrollment || {}).deadline);
 
-  function daysUntil(ms) {
-    return Math.ceil((ms - Date.now()) / 86400000);
+  /* One close test, two callers. It exists because the hero line and the bar
+     answer the same question and used to answer it differently: the hero line
+     asked whether the deadline had passed before saying anything, and the bar
+     asked only after it had already bucketed the days, so for a full day after
+     closing the hero line was hidden for being past while the bar was still
+     telling guests registration was open. One screen, two contradictory
+     statements, neither of them checkable by the guest. */
+  function deadlinePassed() {
+    return !isNaN(deadlineMs) && Date.now() > deadlineMs;
+  }
+
+  /* The day bucket, in calendar days rather than in 24 hour windows.
+
+     Every string in the ladder below makes a calendar claim: "closes today"
+     means the deadline falls on today's date, and "closes tomorrow" means it
+     falls on tomorrow's. So the number is built from the year, month and day
+     parts in Europe/Copenhagen, the same zone formatDate already pins, and it
+     counts the days a guest counts on a calendar.
+
+     The millisecond division it replaces could not make that claim. At 09:00 on
+     the closing date there are fifteen hours left, Math.ceil of that is 1, and
+     the bar said "closes tomorrow" on the last day there was.
+
+     The catch is the same shape formatDate uses and is there for the same
+     reason: on a platform that cannot answer the better question this degrades
+     to the old arithmetic rather than throwing. That fallback can still yield
+     negative zero, which is exactly the defect this region carried, and it is
+     harmless here only because deadlinePassed() runs above every caller. */
+  function calendarDaysUntil(ms) {
+    try {
+      var fmt = new Intl.DateTimeFormat('en-GB', {
+        year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Copenhagen'
+      });
+      var dayOf = function (at) {
+        var parts = fmt.formatToParts(new Date(at));
+        var y = 0, m = 0, d = 0;
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          if (p.type === 'year') y = Number(p.value);
+          else if (p.type === 'month') m = Number(p.value);
+          else if (p.type === 'day') d = Number(p.value);
+        }
+        return Date.UTC(y, m - 1, d);
+      };
+      return Math.round((dayOf(ms) - dayOf(Date.now())) / 86400000);
+    } catch (e) {
+      return Math.ceil((ms - Date.now()) / 86400000);
+    }
   }
 
   function formatDate(ms) {
@@ -3243,11 +3289,11 @@
     if (fact) fact.textContent = formatDate(deadlineMs);
 
     if (!el) return;
-    if (isEnrolled() || Date.now() > deadlineMs) { el.hidden = true; return; }
+    if (isEnrolled() || deadlinePassed()) { el.hidden = true; return; }
 
     el.textContent = t('hero.deadline').replace('{date}', formatDate(deadlineMs));
     el.hidden = false;
-    el.setAttribute('data-urgent', daysUntil(deadlineMs) <= 7 ? '1' : '0');
+    el.setAttribute('data-urgent', calendarDaysUntil(deadlineMs) <= 7 ? '1' : '0');
   }
 
   /* The bar has two states. Not enrolled, it asks you to enroll. Enrolled,
@@ -3269,13 +3315,34 @@
       // placeholder.
       if (!enrollmentReady()) { hideNudge(bar); return; }
 
-      var days = isNaN(deadlineMs) ? null : daysUntil(deadlineMs);
+      /* Closed, so the bar stops asking. Above the bucketing rather than below
+         it, which is the whole of this fix: the hero line asks this same
+         question through the same function, so the two surfaces cannot end up
+         describing the same fact differently on one screen. */
+      if (deadlinePassed()) { hideNudge(bar); return; }
+
+      /* What was wrong here, written down so the next reader does not have to
+         re-derive it. The bucket used to be Math.ceil((deadline - now) / a day).
+         Math.ceil of a small negative is negative zero, negative zero compares
+         equal to zero, so every deadline inside the twenty-four hours after
+         closing took the days === 0 branch and rendered "Registration closes
+         today." for a full day after registration closed.
+
+         The corollary was worse. No positive offset could produce zero under
+         that arithmetic, so the today branch was unreachable in the meaning its
+         string claims: it made a calendar claim that only ever printed once the
+         calendar day it named was over. The bucket is a calendar difference
+         now, so the branch renders on the day the deadline falls, which is what
+         the string says. */
+      var days = isNaN(deadlineMs) ? null : calendarDaysUntil(deadlineMs);
       var msg;
       if (days === null || days > 7) msg = t('nudge.enrol.text');
       else if (days > 1)             msg = t('nudge.enrol.soon').replace('{n}', days);
       else if (days === 1)           msg = t('nudge.enrol.last');
       else if (days === 0)           msg = t('nudge.enrol.today');
-      else { hideNudge(bar); return; }   // deadline passed, stop asking
+      // Defensive floor only. The close test above already covers every past
+      // deadline, so nothing reaches this in the shipped configuration.
+      else { hideNudge(bar); return; }
 
       bar.setAttribute('data-state', 'enrol');
       text.textContent = msg;

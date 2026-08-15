@@ -213,16 +213,49 @@ afterwards and the restoration is asserted by the phase gate. What this does **n
 is anything about how the bar looks or behaves on a screen; that is Table A's job and Table A is
 still empty.
 
-| `daysUntil(deadline)` | Expected | Result |
+| Condition on the deadline | Expected | Result |
 |---|---|---|
 | greater than 7 | `nudge.enrol.text` | **Pass (desk).** Deadline +30d, `daysUntil` 30, bar shown, `data-state="enrol"`, key requested `nudge.enrol.text`, rendered "You have not registered yet." |
 | greater than 1 | `nudge.enrol.soon` with the day count substituted | **Pass (desk).** Deadline +3.5d, `daysUntil` 4, bar shown, `data-state="enrol"`, key `nudge.enrol.soon`, rendered "Registration closes in 4 days." so `{n}` really substituted |
 | exactly 1 | `nudge.enrol.last` | **Pass (desk).** Deadline +12h, `daysUntil` 1, bar shown, `data-state="enrol"`, key `nudge.enrol.last`, rendered "Registration closes tomorrow." |
-| exactly 0 | `nudge.enrol.today` | **Pass (desk).** Deadline -1h, `daysUntil` 0, bar shown, `data-state="enrol"`, key `nudge.enrol.today`, rendered "Registration closes today." |
-| negative | the bar is hidden entirely | **Pass (desk).** Deadline -5d, `daysUntil` -5, `hideNudge` called, no `data-state` written, no copy key requested at all |
+| it falls on today's calendar date in Europe/Copenhagen, the clock some hours before it | `nudge.enrol.today`, and registration is still open | Deadline 23:59 local on the current date. Re-anchored by plan 03-09; see the note below. **Not yet re-run on a device.** |
+| negative, meaning the deadline has already passed | the bar is hidden entirely and **no copy key is requested at all** | **Pass (desk).** Deadline -5d, `daysUntil` -5, `hideNudge` called, no `data-state` written, no copy key requested at all |
 | any of the above, with `enrolled === '1'` | the bar shows the group state, or hides once `wa_joined` is set | **Pass (desk).** With `inviteUrl` null, the shipping state, the bar hides. With a temporary local link: not joined gives `data-state="group"`, keys `nudge.group.text` / `nudge.group.cta` and the href verbatim from config; with `wa_joined` at `'1'` the bar hides. The temporary link was removed again |
 | any of the above, after tapping dismiss | the bar stays down for the session and survives a language switch and an enrollment | **Pass (desk) for the dismissal, structural for the survival.** With the session flag set the bar hid on every combination run: unenrolled, enrolled, and enrolled with a link. The flag is read on the first line of `renderNudge()`, before both the enrolled branch and the readiness gate; it is assigned in exactly one place and never reset; and the language chain and `refreshEnrollmentState()` both re-enter through `renderNudge()`, so neither can bypass it. Not observed in a browser |
 | no path raises how often the bar appears | the escalation is in the copy only | **Pass (desk), structural.** `renderNudge()` has four call sites, all event driven: the language chain, `refreshEnrollmentState()`, the focusout restore, and `markGroupJoined()`. The file's one `setInterval` drives the countdown and never the bar, and the bar's one `setTimeout` is the 240ms hide teardown. There is no frequency variable to escalate |
+
+**Why the zero row was re-anchored, 2026-08-15, plan 03-09. This is a broken gate, written down
+rather than quietly corrected.**
+
+As originally performed the row read `exactly 0` in the condition column and was exercised with
+`enrollment.deadline` moved to **one hour in the past**. A deadline one hour in the past has
+already closed. The row recorded **Pass** because the shipped ladder really did render
+`nudge.enrol.today` there, and it did so for the worst possible reason: `daysUntil` was
+`Math.ceil((deadline - now) / 86400000)`, `Math.ceil` of a small negative is negative zero,
+negative zero compares equal to zero, and the `days === 0` branch fired for the whole
+twenty-four hours after registration closed. The row's expectation was therefore **read off the
+implementation rather than off intent**. What the row was supposed to test is the last day
+*before* closing, which is the calendar claim `nudge.enrol.today` actually makes, and which no
+positive offset could ever reach under that arithmetic.
+
+This is the **seventh instance** of the pattern `.planning/WINDOWS.md` entries 6, 7 and 9 record.
+It is also the one instance the phase's 43-case mutation sweep could not have caught: mutation
+testing proves a gate *can* fail, not that it is asserting the right thing. Break the ladder and
+this row goes red exactly as designed, because it was anchored to the ladder.
+
+The row is now stated as a calendar condition and anchored to a **positive** offset, a deadline
+at 23:59 local on the current date with the clock some hours before it, and its Result cell is
+cleared so it is re-run rather than inherited. The `negative` row's expectation gained the words
+"no copy key is requested at all", which is the statement the requirement makes and which cannot
+be satisfied by swapping one wrong string for another.
+
+**One further caution about the three rows left standing.** Their Result cells record what plan
+03-06 observed on 2026-08-15 against the millisecond `daysUntil`, which plan 03-09 has deleted in
+favour of a calendar-day difference in `Europe/Copenhagen`. The *expectations* are unchanged and
+still correct; the recorded *offsets* (+12h in particular) are no longer guaranteed to land in
+the bucket they landed in then. They are kept as the historical record of what was performed, not
+promoted as claims about the current code. Plan 03-09's gates D3 and its calendar-anchored
+supplement re-prove all four ladder branches plus the closed case against the current file.
 
 ---
 
