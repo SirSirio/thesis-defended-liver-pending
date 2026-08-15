@@ -145,7 +145,7 @@ group with one more tap, and is never nudged again.
 - Shared album view with uploader names
 - Graceful unconfigured state
 
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 **Wave 1**
@@ -162,7 +162,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 04-04-PLAN.md — Failure, retry, and the punchline: two classifiers, one retry, three routes to five
+- [x] 04-04-PLAN.md — Failure, retry, and the punchline: two classifiers, one retry, three routes to five
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
