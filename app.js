@@ -2556,6 +2556,11 @@
     if (edit) { handleAmend(form, fields, ident); return; }
 
     submitEnrollment(fields, ident).then(function (res) {
+      // The form this answer belongs to has left the document. Same reasoning
+      // as the withdrawal's guard: a continuation cannot report into a subtree
+      // nobody is looking at, and must not write module state from it either.
+      if (!stillMounted(form)) return;
+
       if (res.result === 'ok' || res.result === 'pending') {
         /* The registration exists in the database on both branches: the ok one
            wrote it, and the pending one proved it with a 409 before finding the
@@ -2613,6 +2618,9 @@
      banner is for a thing that did not work this time. */
   function handleAmend(form, fields, ident) {
     saveAmendment(fields, ident).then(function (res) {
+      // As above, and for the same reason.
+      if (!stillMounted(form)) return;
+
       if (res.result === 'ok') {
         amendPending = false;
         identity.save({
@@ -2758,6 +2766,24 @@
     return null;
   }
 
+  /* Whether a node is still part of the live document.
+
+     An async continuation runs in a world that may have been replaced entirely
+     between the request leaving and the answer arriving. When the node it was
+     written for has left the document, nothing it renders can be seen and
+     nothing it writes can be believed, so it must not run at all rather than
+     run into a detached subtree and report success into a void.
+
+     Degrades to true rather than throwing on a browser with no Node.contains,
+     because the consequence of the guard being absent is exactly the behaviour
+     this file shipped before it existed, and the consequence of it throwing is
+     a continuation that never reaches the state reset at its end. */
+  function stillMounted(node) {
+    if (!node) return false;
+    if (!document || typeof document.contains !== 'function') return true;
+    return document.contains(node);
+  }
+
   /* Step one. The confirmation takes over the row of the control that summoned
      it, so the receipt above and the forget control below both stay exactly
      where the guest last saw them, and nothing on the panel moves except the
@@ -2797,12 +2823,31 @@
   /* The block borrows the form's submitting grammar rather than inventing a
      second one: the control disables, its label swaps to the label the form
      already uses, the busy attribute goes on, and the same 2px bar sweeps
-     across the top of the block. No new component and no new copy key. */
+     across the top of the block. No new component and no new copy key.
+
+     The freeze is scoped to #enrol-body and not to the box, and the asymmetry
+     with setFormState is the whole point rather than an inconsistency. There
+     the form IS the entire body, so disabling the form leaves nothing else
+     reachable. Here the box is a sibling of the edit and the forget controls,
+     and each of those calls refreshEnrollmentState(), which clears #enrol-body
+     outright and tears this box out of the document while its request is still
+     on the wire. Freezing the box alone leaves every control that can break the
+     withdrawal live for the whole twelve second window.
+
+     Escape is deliberately untouched by the freeze. It is a key press rather
+     than a control, the block's own listener already declines while the state
+     is submitting, and the contract that the confirmation never expires on a
+     timer and reverts on Escape holds exactly as it did.
+
+     Falls back to the box when the host is missing, which keeps a caller in a
+     detached or half built body doing the narrower correct thing rather than
+     throwing. */
   function setWithdrawState(box, state) {
     box.setAttribute('data-state', state);
 
     var busy = (state === 'submitting');
-    $$('button', box).forEach(function (el) { el.disabled = busy; });
+    var body = $('#enrol-body');
+    $$('button', body || box).forEach(function (el) { el.disabled = busy; });
 
     var yes = $('#enrol-withdraw-yes', box);
     if (!yes) return;
@@ -2815,28 +2860,37 @@
 
      Between the tap and the answer there is a defined state, because a
      withdrawal that just sits there for twelve seconds on bad mobile data reads
-     as frozen, and the request carries the same unconditional abort every other
-     write in this phase carries, because one that hangs forever is worse than
-     one that fails. The block always terminates somewhere defined.
+     as frozen. The block always terminates somewhere defined, and two things
+     are what make that true rather than merely claimed. sbRequest races its own
+     timeout and settles whether or not the abort could take effect, so an
+     answer always arrives. And setWithdrawState freezes the whole panel, so no
+     control that could destroy this box is reachable while the answer is on its
+     way.
 
      Two of the four answers mean the guest is off the list, and both write the
      flag before the state that claims it is ever mounted. There is no path here
      where the interface tells somebody they have withdrawn while the database
      still counts them: that is the exact failure the schema change was made to
-     prevent, and it is prevented by reading the integer rather than the status.
+     prevent, and it is prevented by reading the integer rather than the status,
+     and by the mounted guard below, which is what stops a continuation from
+     writing a flag back onto a device whose owner has since asked to be
+     forgotten.
 
      The identity survives, and only the registration goes. The guest id and the
      name stay on the device because the photo album attributes pictures to
      them, and somebody who cannot come to this one may still have photographs
      from an earlier evening (D-15, ID-05).
 
-     The other two answers mean nothing was recorded. The block is replaced in
-     place by the line that already says the change was not recorded, says to
-     tell the host directly, and says the registration stands, all three of
-     which are true whether the function is missing or the request never left
-     the phone. Reused rather than given a key of its own, because a second
-     sentence saying the same thing in three languages is three more strings to
-     keep true. */
+     The last two answers are not one answer. A missing amend function means the
+     change cannot be recorded at all, so the block is replaced in place by the
+     line that says so, says to tell the host directly, and says the
+     registration stands, all three of which are true and none of which a retry
+     would change. A wire failure means it did not work this time, and the
+     recovery for that is to press again, so the confirmation keeps standing
+     with the retry label on it. That is the same split the form's own submit
+     path already makes, and this is the one request the file calls the one that
+     most needs to be believed, so it is the last place that split should be
+     collapsed. */
   function doWithdraw(btn) {
     var box = withdrawBox(btn);
     if (!box) return;
@@ -2847,6 +2901,14 @@
     setWithdrawState(box, 'submitting');
 
     withdrawEnrollment(ident).then(function (res) {
+      /* The panel was replaced under the request, by a language switch or by
+         anything else that re-rendered the body. Nothing this continuation
+         renders can be seen and nothing it writes can be believed, so it does
+         not run. This is what stops store.set('enrolled','0') below from
+         resurrecting a flag that forgetIdentity() has just removed, which
+         identity.clear names as the exact residue a guest asked to have gone. */
+      if (!stillMounted(box)) return;
+
       if (res.result === 'ok' || res.result === 'gone') {
         store.set('enrolled', '0');
 
@@ -2859,14 +2921,41 @@
         return;
       }
 
-      setWithdrawState(box, 'idle');
+      /* The flag first, then the line, exactly as the edit path's pending
+         branch does it. Written to module state rather than only into this row,
+         because the next render for any reason rebuilds the panel from scratch
+         and a decoration that lives only in the DOM evaporates there, taking
+         the explanation with it and handing the Withdraw button back to a guest
+         who would get the same non-answer from it. */
+      if (res.result === 'pending') {
+        amendPending = true;
 
-      var row = box.parentNode;
-      if (!row) return;
+        var row = box.parentNode;
+        if (!row) return;
 
-      row.textContent = '';
-      row.appendChild(amendPendingLine());
-      focusAmendPending(row);
+        row.textContent = '';
+        row.appendChild(amendPendingLine());
+        focusAmendPending(row);
+        return;
+      }
+
+      /* The wire failed. The confirmation stays exactly where it is, because
+         replacing it with a paragraph would take away the only way to withdraw
+         for the rest of the page's life over one bad moment of mobile data.
+         The question becomes the line that names the recovery, the control
+         becomes the retry label the form already uses for this same class of
+         failure, and focus moves onto it, which is where the guest's attention
+         is standing already. */
+      setWithdrawState(box, 'failure');
+
+      var q = $('.withdraw-confirm__q', box);
+      if (q) q.textContent = t('enrol.fail.body');
+
+      var yes = $('#enrol-withdraw-yes', box);
+      if (!yes) return;
+
+      yes.textContent = t('enrol.retry');
+      if (yes.focus) yes.focus();
     });
   }
 
