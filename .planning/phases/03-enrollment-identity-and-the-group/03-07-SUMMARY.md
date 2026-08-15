@@ -238,6 +238,22 @@ None. The owner's re-run succeeded with no error, which also means no existing r
 - **Do not add a SELECT policy to `public.enrollments`**, including via Supabase's one-click read-access template. D-02's one-way door and the privacy of the free-text note both stand on its absence.
 - `supabase/schema.sql` remains idempotent and safe to run again.
 
+## Self-Check: PASSED
+
+- `supabase/schema.sql` present
+- `config.js` present
+- `.planning/phases/03-enrollment-identity-and-the-group/COVERAGE.md` present
+- `.planning/phases/03-enrollment-identity-and-the-group/03-07-SUMMARY.md` present
+- Commit `a246dbc` present in history (task 2)
+- Commit `847c585` present in history (task 3 schema header plus this summary)
+- No file deletions in either commit
+- Task 2's automated gate re-run after the task 3 edit: `schema shape OK`
+- All five specified probes re-run independently after the human's step and reproduced verbatim, plus probe D
+
+## Known Stubs
+
+None. This plan wrote SQL and comments and rendered nothing.
+
 ---
 *Phase: 03-enrollment-identity-and-the-group*
 *Completed: 2026-08-15*
