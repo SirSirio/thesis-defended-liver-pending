@@ -2624,17 +2624,30 @@
     if (edit) { handleAmend(form, fields, ident); return; }
 
     submitEnrollment(fields, ident).then(function (res) {
-      // The form this answer belongs to has left the document. Same reasoning
-      // as the withdrawal's guard: a continuation cannot report into a subtree
-      // nobody is looking at, and must not write module state from it either.
-      if (!stillMounted(form)) return;
-
       if (res.result === 'ok' || res.result === 'pending') {
         /* The registration exists in the database on both branches: the ok one
            wrote it, and the pending one proved it with a 409 before finding the
            amend function missing. Storage is the only place a receipt can come
            from, so it is written on both, and the pending branch says plainly
-           in the panel that the change itself is not recorded yet. */
+           in the panel that the change itself is not recorded yet.
+
+           Written before any mounted test, and never behind one. A row that
+           exists in the database and nowhere on the device is the worst state
+           this file can produce: the guest is handed back an empty form with no
+           confirmation, no error and no banner, while the host is counting
+           them. refreshEnrollmentState() renders the receipt out of storage and
+           module state rather than out of this node, so it appears whether the
+           form survived or not.
+
+           Today no reachable sequence detaches the form here, and the reason is
+           worth writing down because it is a coupling and not an accident:
+           renderEnrollment's early exit keeps a standing #enrol-form across a
+           language switch whenever the selected body is the form and the mode
+           matches, which is exactly the state this continuation runs in, and
+           setFormState(form,'submitting') has disabled everything else in the
+           body. Change either of those and the guard below becomes reachable.
+           It is placed so that when that day comes it costs a repaint and not a
+           registration. */
         amendPending = (res.result === 'pending');
         identity.save({
           guest_id: ident.guest_id,
@@ -2643,13 +2656,17 @@
           note: fields.note,
           enrolled: true
         });
-
-        setFormState(form, 'success');
         successShown = true;
+
+        if (stillMounted(form)) setFormState(form, 'success');
         refreshEnrollmentState();
         focusPanelHeading('enrol-success-title');
         return;
       }
+
+      // The failure branch renders into the form and into nothing else, so a
+      // form that has left the document has nowhere to put the banner.
+      if (!stillMounted(form)) return;
 
       setFormState(form, 'failure');
       showAlert(form);
@@ -2686,9 +2703,11 @@
      banner is for a thing that did not work this time. */
   function handleAmend(form, fields, ident) {
     saveAmendment(fields, ident).then(function (res) {
-      // As above, and for the same reason.
-      if (!stillMounted(form)) return;
-
+      /* As above, and for the same reason. The two answers the database has
+         acted on write storage and module state first and unconditionally, and
+         then render from those, so neither can be lost to a form that was
+         replaced while the request was out. Only the state call on the old node
+         needs it to still be there. */
       if (res.result === 'ok') {
         amendPending = false;
         identity.save({
@@ -2700,7 +2719,7 @@
         });
 
         editing = false;
-        setFormState(form, 'idle');
+        if (stillMounted(form)) setFormState(form, 'idle');
         refreshEnrollmentState();
         toast(t('enrol.updated.toast'));
         focusAfterEdit();
@@ -2710,11 +2729,14 @@
       if (res.result === 'pending') {
         amendPending = true;
         editing = false;
-        setFormState(form, 'idle');
+        if (stillMounted(form)) setFormState(form, 'idle');
         refreshEnrollmentState();
         focusAmendPending(null);
         return;
       }
+
+      // And as above, the failure banner has nowhere to go without the form.
+      if (!stillMounted(form)) return;
 
       setFormState(form, 'failure');
       showAlert(form);
@@ -2963,11 +2985,12 @@
      Two of the four answers mean the guest is off the list, and both write the
      flag before the state that claims it is ever mounted. There is no path here
      where the interface tells somebody they have withdrawn while the database
-     still counts them: that is the exact failure the schema change was made to
-     prevent, and it is prevented by reading the integer rather than the status,
-     and by the mounted guard below, which is what stops a continuation from
-     writing a flag back onto a device whose owner has since asked to be
-     forgotten.
+     still counts them, and none the other way either, where the database has
+     dropped them and the panel still offers to edit their registration. That is
+     the exact failure the schema change was made to prevent, and it is
+     prevented by reading the integer rather than the status, and by writing
+     those two answers unconditionally rather than only when this box happened
+     to survive the wait.
 
      The identity survives, and only the registration goes. The guest id and the
      name stay on the device because the photo album attributes pictures to
@@ -2994,14 +3017,24 @@
     setWithdrawState(box, 'submitting');
 
     withdrawEnrollment(ident).then(function (res) {
-      /* The panel was replaced under the request, by a language switch or by
-         anything else that re-rendered the body. Nothing this continuation
-         renders can be seen and nothing it writes can be believed, so it does
-         not run. This is what stops store.set('enrolled','0') below from
-         resurrecting a flag that forgetIdentity() has just removed, which
-         identity.clear names as the exact residue a guest asked to have gone. */
-      if (!stillMounted(box)) return;
+      /* The two answers that mean the guest is off the list are handled before
+         any mounted test, and deliberately so. Neither of them writes into this
+         box: they write storage and module state, and then refreshEnrollmentState()
+         renders the withdrawn panel out of those, not out of this node. So they
+         are correct whether the box is still in the document or not.
 
+         Guarding them was worse than useless. The forget control cannot run
+         during the request, because setWithdrawState freezes every button in
+         #enrol-body for its duration, so the flag it used to guard against
+         cannot be resurrected by that route. What can still detach the box is a
+         language switch: the three language buttons live in the page header,
+         outside the freeze, and renderEnrollment's form preserving early exit
+         is gated on the form body, so the return panel is torn out and rebuilt.
+         Bailing out here on that ordinary action threw away a withdrawal the
+         database had already accepted and left the device saying "you are
+         registered" while the head count no longer counted the guest, which is
+         the invariant this function's header claims to have eliminated, running
+         the other way. */
       if (res.result === 'ok' || res.result === 'gone') {
         store.set('enrolled', '0');
 
@@ -3014,6 +3047,12 @@
         return;
       }
 
+      /* Below here every branch renders into this box and into nothing else, so
+         a box that has left the document has nowhere to put its answer. The
+         panel was rebuilt under the request and already carries the untouched
+         registration, which on these two branches is the truth. */
+      if (!stillMounted(box)) return;
+
       /* The flag first, then the line, exactly as the edit path's pending
          branch does it. Written to module state rather than only into this row,
          because the next render for any reason rebuilds the panel from scratch
@@ -3022,6 +3061,17 @@
          who would get the same non-answer from it. */
       if (res.result === 'pending') {
         amendPending = true;
+
+        /* Out of the freeze first, and this is not the dead call it used to be.
+           While the freeze was scoped to the box it was: the box was about to
+           be destroyed anyway. The freeze now covers the whole of #enrol-body,
+           so this is the only thing that hands the edit and the forget controls
+           back, and they are in sibling rows that survive the replacement
+           below. Without it this branch ends with every control on the panel
+           disabled for the rest of the page's life and no re-render scheduled
+           to rebuild them, recoverable only by reloading. It has to run above
+           the parentNode test too, because that test returns as well. */
+        setWithdrawState(box, 'idle');
 
         var row = box.parentNode;
         if (!row) return;
@@ -3271,10 +3321,19 @@
      the bar said "closes tomorrow" on the last day there was.
 
      The catch is the same shape formatDate uses and is there for the same
-     reason: on a platform that cannot answer the better question this degrades
-     to the old arithmetic rather than throwing. That fallback can still yield
-     negative zero, which is exactly the defect this region carried, and it is
-     harmless here only because deadlinePassed() runs above every caller. */
+     reason: a platform without IANA zone data or without formatToParts must
+     still get an answer rather than an exception. What it degrades is the zone,
+     from Copenhagen to the device's own, and nothing else. It is still a
+     calendar difference between two midnights, so it still answers the calendar
+     question every string in the ladder asks, it cannot return negative zero,
+     and it does not need deadlinePassed() above it to be harmless.
+
+     Degrading instead to the millisecond division this function replaced would
+     have reintroduced the whole defect on those platforms: a 24 hour window
+     cannot render "closes today" at all, and prints "closes tomorrow" on the
+     last day there is. A guest on an old browser would be shown the false
+     statement on the day the pressure is meant to peak, which is the outcome
+     that was rejected when deleting the today key was considered. */
   function calendarDaysUntil(ms) {
     try {
       var fmt = new Intl.DateTimeFormat('en-GB', {
@@ -3293,7 +3352,12 @@
       };
       return Math.round((dayOf(ms) - dayOf(Date.now())) / 86400000);
     } catch (e) {
-      return Math.ceil((ms - Date.now()) / 86400000);
+      var a = new Date(ms);
+      var b = new Date();
+      return Math.round((
+        Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()) -
+        Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())
+      ) / 86400000);
     }
   }
 
