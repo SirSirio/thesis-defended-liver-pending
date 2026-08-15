@@ -2963,11 +2963,12 @@
      Two of the four answers mean the guest is off the list, and both write the
      flag before the state that claims it is ever mounted. There is no path here
      where the interface tells somebody they have withdrawn while the database
-     still counts them: that is the exact failure the schema change was made to
-     prevent, and it is prevented by reading the integer rather than the status,
-     and by the mounted guard below, which is what stops a continuation from
-     writing a flag back onto a device whose owner has since asked to be
-     forgotten.
+     still counts them, and none the other way either, where the database has
+     dropped them and the panel still offers to edit their registration. That is
+     the exact failure the schema change was made to prevent, and it is
+     prevented by reading the integer rather than the status, and by writing
+     those two answers unconditionally rather than only when this box happened
+     to survive the wait.
 
      The identity survives, and only the registration goes. The guest id and the
      name stay on the device because the photo album attributes pictures to
@@ -2994,14 +2995,24 @@
     setWithdrawState(box, 'submitting');
 
     withdrawEnrollment(ident).then(function (res) {
-      /* The panel was replaced under the request, by a language switch or by
-         anything else that re-rendered the body. Nothing this continuation
-         renders can be seen and nothing it writes can be believed, so it does
-         not run. This is what stops store.set('enrolled','0') below from
-         resurrecting a flag that forgetIdentity() has just removed, which
-         identity.clear names as the exact residue a guest asked to have gone. */
-      if (!stillMounted(box)) return;
+      /* The two answers that mean the guest is off the list are handled before
+         any mounted test, and deliberately so. Neither of them writes into this
+         box: they write storage and module state, and then refreshEnrollmentState()
+         renders the withdrawn panel out of those, not out of this node. So they
+         are correct whether the box is still in the document or not.
 
+         Guarding them was worse than useless. The forget control cannot run
+         during the request, because setWithdrawState freezes every button in
+         #enrol-body for its duration, so the flag it used to guard against
+         cannot be resurrected by that route. What can still detach the box is a
+         language switch: the three language buttons live in the page header,
+         outside the freeze, and renderEnrollment's form preserving early exit
+         is gated on the form body, so the return panel is torn out and rebuilt.
+         Bailing out here on that ordinary action threw away a withdrawal the
+         database had already accepted and left the device saying "you are
+         registered" while the head count no longer counted the guest, which is
+         the invariant this function's header claims to have eliminated, running
+         the other way. */
       if (res.result === 'ok' || res.result === 'gone') {
         store.set('enrolled', '0');
 
@@ -3013,6 +3024,12 @@
         focusPanelHeading('enrol-withdrawn-title');
         return;
       }
+
+      /* Below here every branch renders into this box and into nothing else, so
+         a box that has left the document has nowhere to put its answer. The
+         panel was rebuilt under the request and already carries the untouched
+         registration, which on these two branches is the truth. */
+      if (!stillMounted(box)) return;
 
       /* The flag first, then the line, exactly as the edit path's pending
          branch does it. Written to module state rather than only into this row,
