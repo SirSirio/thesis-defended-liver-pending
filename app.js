@@ -2776,18 +2776,43 @@
      else. Every key this phase writes goes, from storage and from the in memory
      map behind it, and what is left is an empty form with no residue.
 
-     Focus is deliberately not moved afterwards. The only focusable thing left
-     is the name field, and putting a caret in it would throw the soft keyboard
-     up in the face of the person the phone was just handed to, which is the
-     opposite of what was asked for. The toast is a polite live region and
-     announces the outcome without taking the screen. */
+     Focus is deliberately not moved afterwards, from the returning view. The
+     only focusable thing left there is the name field, and putting a caret in
+     it would throw the soft keyboard up in the face of the person the phone was
+     just handed to, which is the opposite of what was asked for. The toast is a
+     polite live region and announces the outcome without taking the screen.
+
+     That reasoning is about the form, and it is exactly why the withdrawn panel
+     needs a different answer. This control also stands on the withdrawn panel,
+     which 03-05 added after this function was written, and that panel has no
+     name field to avoid focusing. The panel is replaced underneath the button
+     the guest just pressed, so with nowhere to land focus falls to the document
+     body and the next Tab restarts at the top of the page, which is the one
+     outcome every path in this section is written to prevent. It lands on the
+     section heading instead, the same way this file hands focus to a
+     replacement rather than leaving it on a removed node. */
   function forgetIdentity() {
+    // Read before anything is cleared, because clearing it is the point.
+    var fromWithdrawn = withdrawnShown;
+
     identity.clear();
     successShown = false;
     amendPending = false;
     editing = false;
+    // The identity is gone, so there is no registration left to have withdrawn
+    // from. Left true, renderEnrollment re-selects the withdrawn body and
+    // rebuilds the panel under the control that was just pressed.
+    withdrawnShown = false;
     refreshEnrollmentState();
     toast(t('enrol.identity.cleared'));
+
+    if (fromWithdrawn) {
+      var head = $('#enrol .section__h');
+      if (head && head.focus) {
+        head.setAttribute('tabindex', '-1');
+        head.focus();
+      }
+    }
   }
 
   /* The closest lookup with the manual class check kept as its fallback, the
@@ -3440,12 +3465,28 @@
      the bar starts yielding to the keyboard. */
   var nudgeHideTimer = null;
 
+  /* The queued frame is held for the same reason the teardown timer above is,
+     and the trace is this one. Registering again re-renders: the guest has
+     withdrawn so they are not enrolled, the form has just been built so the
+     readiness gate is true, and a frame is queued to slide the bar in. The very
+     next statement focuses the name field, which dispatches focusin
+     synchronously, which hides the bar. Removing the attribute is a no-op,
+     because the frame that sets it has not run yet. It runs a frame later, the
+     bar slides in over the soft keyboard the focus call just raised, carrying a
+     message pointed at a form the guest is already typing into, and 240ms after
+     that it vanishes with no transition. */
+  var nudgeShowFrame = null;
+
   function showNudge(bar) {
     if (nudgeHideTimer) { clearTimeout(nudgeHideTimer); nudgeHideTimer = null; }
     bar.hidden = false;
     measureNudge();
     document.body.setAttribute('data-nudge', '1');
-    requestAnimationFrame(function () { bar.setAttribute('data-show', '1'); });
+    if (nudgeShowFrame !== null) cancelAnimationFrame(nudgeShowFrame);
+    nudgeShowFrame = requestAnimationFrame(function () {
+      nudgeShowFrame = null;
+      bar.setAttribute('data-show', '1');
+    });
   }
 
   /* R3. The reserve is released inside the timeout, after the bar has finished
@@ -3453,6 +3494,7 @@
      bar's whole height while the bar is still animating away, under the thumb
      that just tapped dismiss. */
   function hideNudge(bar) {
+    if (nudgeShowFrame !== null) { cancelAnimationFrame(nudgeShowFrame); nudgeShowFrame = null; }
     bar.removeAttribute('data-show');
     if (nudgeHideTimer) clearTimeout(nudgeHideTimer);
     nudgeHideTimer = setTimeout(function () {
