@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 03
-current_phase_name: enrollment-identity-and-the-group
+current_phase: 04
+current_phase_name: photos
 status: executing
 stopped_at: Phase 4 UI-SPEC approved
-last_updated: "2026-08-15T22:29:38.174Z"
-last_activity: 2026-08-15
-last_activity_desc: Phase 03 execution started
+last_updated: "2026-08-15T22:32:20.240Z"
+last_activity: 2026-08-16
+last_activity_desc: Phase 04 execution started
 progress:
   total_phases: 3
   completed_phases: 2
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-13)
 
 **Core value:** A guest standing outside the building in the dark finds the right door in under ten seconds.
-**Current focus:** Phase 03 — enrollment-identity-and-the-group
+**Current focus:** Phase 04 — photos
 
 ## Current Position
 
-Phase: 03 (enrollment-identity-and-the-group) — EXECUTING
-Plan: 1 of 9
-Status: Ready to execute
-Last activity: 2026-08-15 — Phase 03 execution started
+Phase: 04 (photos) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 04
+Last activity: 2026-08-16 — Phase 04 execution started
 
 Progress: [██████████] 100%
 

@@ -145,12 +145,12 @@ group with one more tap, and is never nudged again.
 - Shared album view with uploader names
 - Graceful unconfigured state
 
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Tracer: one picked photograph becomes an object, a row and a tile, plus the config and copy contract the whole phase reads from
+- [x] 04-01-PLAN.md — Tracer: one picked photograph becomes an object, a row and a tile, plus the config and copy contract the whole phase reads from
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
