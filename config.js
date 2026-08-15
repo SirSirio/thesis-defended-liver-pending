@@ -132,11 +132,18 @@ window.PARTY_CONFIG = {
 
      `showCountFrom` hides the confirmed total until it reaches this number,
      because "2 people are coming" persuades nobody.
+
+     `maxGuestsPerPerson` is also enforced in the database, which allows up to
+     4 (section 10 of supabase/schema.sql). That is the floor under this
+     number, not a second opinion: set this above 4 and registrations start
+     failing with a constraint error rather than being quietly accepted. If you
+     need more than 4, raise the bound in the schema file, re-run it in the
+     Supabase SQL editor, and then raise this.
      --------------------------------------------------------------------- */
 
   enrollment: {
     deadline: '2026-09-26T23:59:00+02:00',
-    maxGuestsPerPerson: 2,   // how many extra people one guest may bring
+    maxGuestsPerPerson: 2,   // how many extra people one guest may bring, max 4 (see above)
     showCountFrom: 8,        // hide the running total until it looks healthy
     showAttendeeList: true,  // first names only, never full names
   },

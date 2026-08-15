@@ -41,7 +41,10 @@ create table if not exists public.enrollments (
   guest_id     uuid not null unique,
 
   name         text not null check (char_length(trim(name)) between 1 and 60),
-  extra_guests smallint not null default 0 check (extra_guests between 0 and 10),
+  -- Section 10 is where this bound is explained and where it is kept in step
+  -- with config.js. A fresh database gets it right here; an existing one gets
+  -- it corrected there.
+  extra_guests smallint not null default 0 check (extra_guests between 0 and 4),
   note         text check (char_length(note) <= 500),
   lang         text check (lang in ('en', 'it', 'da')),
 
@@ -54,7 +57,9 @@ create index if not exists enrollments_created_at_idx
 
 -- Keep updated_at honest without trusting the browser to send it.
 create or replace function public.touch_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = ''
+as $$
 begin
   new.updated_at = now();
   return new;
@@ -88,15 +93,29 @@ create index if not exists photos_created_at_idx on public.photos (created_at de
 -- Honest description of the model, so nobody is surprised later.
 --
 -- There is no login, so the database cannot tell one visitor from another.
--- Identity is a random uuid held in the browser. Anyone who knows a guest_id
--- can edit that row, but guest ids are unguessable uuids that never appear on
--- the page. For a party guest list this is the right trade off. It would not
--- be for anything that matters.
+-- Identity is a random uuid held in the browser, the guest_id.
+--
+-- Since section 8, that id is the whole credential for changing a
+-- registration. Anyone holding one can rename, re-count, re-note or withdraw
+-- the guest it belongs to, and nothing else is asked for. It is a password
+-- with no username in front of it.
+--
+-- So the id has to stay unread. It is an unguessable uuid, the site does not
+-- render one into the page, and no read path in this file hands one out.
+-- Section 9 is what keeps that last part true, because any table that carries
+-- a guest_id and can be read is a table that gives the password away. For a
+-- party guest list this is the right trade off. It would not be for anything
+-- that matters.
 --
 -- What these policies do enforce:
 --   - Nobody can read the raw enrollments table, so notes stay private to the
 --     host. Public reads go through a view that exposes first names only.
---   - Nobody can delete photos or enrollments outright.
+--   - Nobody can read the raw photos table either, for the same reason and one
+--     more: it carries a guest_id. The album is read through the view in
+--     section 9.
+--   - Nobody can update or delete anything directly. Changing a registration
+--     goes through the function in section 8, and withdrawal is a flag rather
+--     than a removal.
 --   - The five photo limit is enforced in the database, not just in the UI.
 -- ============================================================================
 
@@ -109,13 +128,18 @@ create policy "anon can enroll"
   on public.enrollments for insert
   to anon with check (true);
 
--- Anyone holding a guest_id may amend that registration.
+-- Amending a registration moved to public.amend_enrollment in section 8, so
+-- the rule that used to stand here is dropped, and the drop stays in the file
+-- so a database that still carries the rule loses it on the next run.
+--
+-- It was worse than nothing. It let anonymous visitors change every row in
+-- this table to any values at all, and the only thing holding it still was the
+-- unrelated fact that nothing here can be read. Adding any read rule later,
+-- including the one Supabase offers as a single click, would have turned it in
+-- one step into anyone being able to rewrite every guest's name and note.
 drop policy if exists "anon can amend own enrollment" on public.enrollments;
-create policy "anon can amend own enrollment"
-  on public.enrollments for update
-  to anon using (true) with check (true);
 
--- Deliberately no SELECT policy on the raw table. Notes are for the host only,
+-- Deliberately no read rule on the raw table. Notes are for the host only,
 -- readable in the Supabase dashboard.
 
 -- Anyone may add a photo, up to the limit.
@@ -124,11 +148,14 @@ create policy "anon can add photos"
   on public.photos for insert
   to anon with check (true);
 
--- The album is public.
+-- The album moved to public.album in section 9, so the rule that used to read
+-- this table straight is dropped, and the drop stays in the file so a database
+-- that still carries the rule loses it on the next run.
+--
+-- Reading the album off this table handed out a guest_id, which section 8 had
+-- just turned into a credential, next to a full unsplit name, which is the one
+-- thing the view in section 5 exists to keep off the page.
 drop policy if exists "anon can view album" on public.photos;
-create policy "anon can view album"
-  on public.photos for select
-  to anon using (true);
 
 
 -- ============================================================================
@@ -139,7 +166,9 @@ create policy "anon can view album"
 -- ============================================================================
 
 create or replace function public.enforce_photo_limit()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = ''
+as $$
 declare
   current_count integer;
 begin
@@ -250,8 +279,10 @@ grant select on public.attendees to anon;
 -- private as they were.
 --
 -- Anyone who knows a guest_id can amend that registration. That is the same
--- trade already described in section 3 and it is unchanged: guest ids are
--- unguessable and never appear on the page.
+-- trade already described in section 3 and it is unchanged: the id is an
+-- unguessable uuid, the site does not render one into the page, and no read
+-- path in this file hands one out. Section 9 is what keeps that last part
+-- true, and it is not optional now that this function exists.
 -- ============================================================================
 
 -- What this function gives back is the security boundary. It returns a count
@@ -297,6 +328,84 @@ end $$;
 -- its arguments, and a list that does not match quietly affects nothing at all.
 revoke all on function public.amend_enrollment(uuid, text, smallint, text, text, boolean) from public;
 grant execute on function public.amend_enrollment(uuid, text, smallint, text, text, boolean) to anon;
+
+
+-- ============================================================================
+-- 9. THE ALBUM READ PATH
+-- ----------------------------------------------------------------------------
+-- The album is public. The id that says who uploaded is not, and neither is
+-- anybody's surname. Both of those live in the photos table, and the photos
+-- table is not the album, so the site reads the album through this view and
+-- never through the table underneath it. That is the same arrangement section
+-- 5 already uses for the guest list, applied at last to the other table.
+--
+-- A view is a stronger promise than a rule about rows. A rule says who may
+-- read a column. A view means the column is not there to ask for, so nothing
+-- anybody adds later can widen it by accident.
+--
+-- This view reads the table with its owner's rights rather than the visitor's,
+-- and that is the only reason the album can be shown at all. Change it to read
+-- with the visitor's rights and the album goes permanently and silently empty,
+-- because nobody can read the table underneath. Supabase will warn about the
+-- owner's rights in its own checks. That warning is expected here, for the
+-- same reason it is expected on the guest list view, and it is not a fault.
+--
+-- For phase 4, which will write the rows this view reads: the storage bucket
+-- in section 6 is public, so a storage_path is every bit as readable as a
+-- column. Put a guest_id inside a file name and you have published, straight
+-- through this view, the exact credential this section stopped publishing.
+-- Name the uploads something that says nothing.
+-- ============================================================================
+
+create or replace view public.album as
+  select
+    split_part(trim(name), ' ', 1) as first_name,
+    storage_path,
+    created_at
+  from public.photos;
+
+-- This grant sits on the line after the view rather than somewhere tidier,
+-- because create or replace keeps it and dropping the view takes it away, and
+-- that is far easier to remember when the two things are next to each other.
+grant select on public.album to anon;
+
+-- Reading, and only reading. Anonymous visitors keep the right to add a photo,
+-- which is how phase 4 will upload anything at all. Taking away more than the
+-- read here would take the upload with it, and nothing would notice until
+-- phase 4 was built and did not work.
+revoke select on public.photos from anon;
+
+
+-- ============================================================================
+-- 10. THE GUEST COUNT BOUND
+-- ----------------------------------------------------------------------------
+-- The site lets one guest bring a few extra people along. How many is
+-- enrollment.maxGuestsPerPerson in config.js, and this is the floor
+-- underneath it. Keep this bound at or above the config value: the site stops
+-- a guest at the config number, and the database stops anyone who goes around
+-- the site at this one. A bound that only exists in JavaScript is a
+-- suggestion, which is exactly the argument section 4 makes for the photo
+-- limit, and which nobody had made for its sibling.
+--
+-- Raise maxGuestsPerPerson above this bound and registrations start failing
+-- with a constraint error instead of being quietly accepted. Raise this bound
+-- first, then that one.
+--
+-- The bound is re-stated here with an alter rather than by editing section 1
+-- alone, because create table if not exists will not change a check on a table
+-- that already exists. The constraint is named in both halves on purpose, so
+-- the drop and the add cannot end up pointing at two different things.
+--
+-- The alter reads the rows already in the table and stops with an error if any
+-- of them holds more extra guests than the bound allows. That is correct and
+-- worth knowing while you are looking at the SQL editor: the offending row is
+-- somebody's real registration, and the answer is to talk to them rather than
+-- to lower the bound until the error goes away.
+-- ============================================================================
+
+alter table public.enrollments
+  drop constraint if exists enrollments_extra_guests_check,
+  add constraint enrollments_extra_guests_check check (extra_guests between 0 and 4);
 
 
 -- ============================================================================

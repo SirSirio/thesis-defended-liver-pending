@@ -54,8 +54,10 @@ Every row was settled by live probe against this project on 2026-08-14
 | 22 | Supabase Auth (`/auth/v1/*`) | **OPT-OUT** | Real authentication is explicitly out of scope for the whole project. `guest_id` is a capability token, not a credential, and `supabase/schema.sql` says so in a comment. |
 | 23 | Realtime / websocket subscriptions | **OPT-OUT** | A live headcount would hold a socket open on a phone for a number that is hidden below 8 anyway. The block is fetched once per render and its failure is silent (D-22). |
 | 24 | `@supabase/supabase-js` from a CDN | **OPT-OUT** | About 40KB gzipped on a page whose stated design target is a mid-range phone outdoors at night, in exchange for sugar over the same endpoint. It would not have fixed the blocker either, because the blocker is in Postgres, not in the client. |
+| 25 | `GET /rest/v1/photos` (select on the raw table) | **OPT-OUT** | Added by plan 03-07. The select grant is revoked from `anon` and the album is read through `public.album` instead. The table carries a `guest_id`, which section 8 turned into a bearer write credential, next to a full unsplit `name`. Probe-verified open at HTTP 200 on 2026-08-15 before the change; the acceptance is that it stops answering 200. Nothing in this phase or phase 4 may read this table directly. |
+| 26 | `GET /rest/v1/album?select=first_name,storage_path,created_at` | **OPT-OUT** | Added by plan 03-07 and **published, not consumed**. This phase creates the surface; phase 4 is its only consumer, so there is no call site here to integrate. The projection is the boundary: asking for `guest_id` returns `400` / `42703`, which is the only assertion about the column set that survives an empty table. |
 
-**Totals:** 24 capabilities enumerated, 6 `INTEGRATE`, 18 `OPT-OUT`.
+**Totals:** 26 capabilities enumerated, 6 `INTEGRATE`, 20 `OPT-OUT`.
 
 ---
 
@@ -73,7 +75,9 @@ Every row was settled by live probe against this project on 2026-08-14
    exposes, it exposes to anyone holding the publishable key. The narrower the view's contract,
    the less there is to get wrong later.
 
-## The one capability this phase adds to the API
+## The two capabilities this phase adds to the API
+
+### `public.amend_enrollment`
 
 `public.amend_enrollment(uuid, text, smallint, text, text, boolean) returns integer`, a
 `security definer` function with `set search_path = ''`, `revoke all ... from public` and
@@ -82,3 +86,20 @@ it touches only the row whose `guest_id` was passed in, it never returns row con
 return type is the boundary. Any change to its signature or return type is a security-relevant
 change. A definer function that returned `setof enrollments` would hand every note to anyone who
 can guess a uuid, which leaks strictly more than the SELECT policy D-02 rejected.
+
+### `public.album`
+
+`public.album`, a view over `public.photos` projecting `first_name`, `storage_path` and
+`created_at`, with `grant select ... to anon` and `revoke select on public.photos from anon`
+beside it. Added by plan 03-07 to close gap 1 of `03-VERIFICATION.md`.
+
+Its **projection is the boundary in exactly the way the function's return type is**. The
+function cannot hand back a note because its return type is `integer`; the view cannot hand back
+a `guest_id` or a surname because neither column is in its select list. In both cases the limit
+is structural rather than a predicate somebody can widen later, and in both cases changing that
+one line is a security change and has to be reviewed as one. A view that grew a `guest_id`
+column would publish a bearer write credential for every uploader, which is the same failure a
+definer function returning `setof enrollments` would be.
+
+The table underneath keeps its insert grant, and only its insert grant. Phase 4 writes to
+`public.photos` and reads from `public.album`, never the reverse.
