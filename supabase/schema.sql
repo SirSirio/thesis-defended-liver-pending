@@ -37,16 +37,25 @@
 -- answers, and a registration bringing five extra people is now refused by the
 -- guest count bound.
 --
--- NOT YET APPLIED, unlike every paragraph above it: section 4's photo limit
--- function was corrected on 2026-08-15 to run with its owner's rights, because
--- section 9's revoke had left it unable to read the table it counts, and every
--- anonymous photo insert was being refused with error 42501. That correction
--- is in this file and is NOT in the live database. Run the whole file again to
--- apply it, then prove it on the wire rather than by reading: a POST to
--- /rest/v1/photos with the publishable key must answer 201 and not 401, and a
--- sixth photo under one guest_id must still be refused with
--- photo_limit_reached. Until both of those are seen, treat anonymous photo
--- upload as broken in the live project.
+-- Section 4's photo limit function was corrected on 2026-08-15 to run with its
+-- owner's rights, and the correction was applied to the same project the same
+-- day. Section 9's revoke had left that function unable to read the table it
+-- counts, so every anonymous photo insert was being refused with error 42501,
+-- for a day, while every read probe in the phase passed. Nothing noticed
+-- because no probe ever posted a photo.
+--
+-- Verified on the wire, not by reading: a POST to /rest/v1/photos with the
+-- publishable key now reaches the not-null check on name and is refused with
+-- error 23502, where before the correction the same request was refused with
+-- 42501 before any column was looked at. That is the whole difference between
+-- a trigger that can count and one that cannot, and it is provable without
+-- writing a row, which is why it is the probe recorded here.
+--
+-- One half of section 4 is still unproven on the wire: that a sixth photo
+-- under one guest_id is refused with photo_limit_reached. Proving it means
+-- writing five real rows, and nothing in this file can delete them again,
+-- because no delete rule exists for anyone. Phase 4 owns that proof, and it
+-- should carry it as an explicit task rather than assume it.
 -- ============================================================================
 
 
