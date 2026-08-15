@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 7
+open_count: 8
 waived_count: 0
 fixed_count: 4
-total_count: 11
-last_updated: 2026-08-15T02:36:16.101Z
+total_count: 12
+last_updated: 2026-08-15T11:22:53.828Z
 ---
 
 # Broken Windows Ledger
@@ -26,6 +26,7 @@ last_updated: 2026-08-15T02:36:16.101Z
 | 9 | 03 | deviation | .planning/phases/03-enrollment-identity-and-the-group/03-06-PLAN.md |  | Fifth and sixth instances of the pattern entries 6 and 7 record, both found by 03-06's own sweep. (a) The plan inherited 03-03's uncorrected 'for select' literal count, which can never return 0 because two pre-existing album policies match and the phase forbids touching them: vacuous. (b) The plan's own Table G parse slices from '## Table G' to end of file, so it also demands the device pass Outcome table, which is the phone's record and cannot be filled at a desk: over broad, never satisfiable by the task that owns it. Both re-anchored to their stated intent and re-run green; no source was bent. All 43 gate cases in the closing sweep were then mutation tested and 43 of 43 go red when the thing they protect is broken, so this phase's headline number is 43 passed AND capable of failing rather than 43 passed | open |  | 2026-08-15T02:35:54.234Z |  |
 | 10 | 03 | unmet-truth | styles.css |  | Three touch targets are declared 4px under the UI contract: .field__input, .field__select (line 1287) and .seg > span (line 1384) all carry min-height 48px with no coarse-pointer override, while 03-UI-SPEC.md Touch Target Geometry asks 52px at a coarse pointer for the text input, the guest-count segment and the select overflow branch. 48px clears the 44px floor so it is a shortfall against the phase's own stricter target rather than an accessibility failure, and it has been the shipped state since 03-01 rather than being introduced by a later plan. Deliberately not fixed at phase close with the device pass unrun; recorded in the phase's deferred-items.md and in the Declared column of Table D on 03-DEVICE-PASS.md, and the right moment to fix it is the same moment Table D is answered | open |  | 2026-08-15T02:36:04.731Z |  |
 | 11 | 03 | unrun-verify | .planning/phases/03-enrollment-identity-and-the-group/03-DEVICE-PASS.md |  | Phase 03 closes human_needed rather than passed. Table G is complete, filled at the desk by moving config and driving the shipped renderNudge; Tables A to F are entirely unrun because 03-06 had no browser of any kind, and each now carries a desk note saying what the desk could and could not establish. The requirement IDs that stay unchecked on that account are NDG-01 and NDG-02 (the bar pinned to a real screen at all, and its clearance over the countdown, the address and the video: the phase's highest risk item, never rendered on any device), ENR-09 and ENR-10 (a field error described on focus, a submit failure announced immediately, and the airplane-mode failure state, all of which need a real assistive stack and a real phone), DEL-02 and DEL-03 (both platforms, mid-range phone, mobile data), DSG-05's observed half, and WA-02, WA-03, WA-04 and WA-06 (the whole group handoff, which additionally waits on the owner supplying whatsapp.inviteUrl). Entries 2, 4 and 8 name the per-plan rows; this entry names the per-ID consequence. Corrected at the 03-06 task 2 close: the first form of this entry omitted NDG-01, WA-04 and WA-06, and the 03-06 summary had ENR-10 in its satisfied list while this entry had it pending, which is the kind of disagreement that lets an ID get ticked twice over | open |  | 2026-08-15T02:36:16.101Z |  |
+| 12 | 03 | deviation | .planning/phases/03-enrollment-identity-and-the-group/03-DEVICE-PASS.md |  | Seventh instance of the pattern entries 6, 7 and 9 record, plus three more found in the gap-closure plans themselves. (a) The seventh, found by 03-VERIFICATION.md rather than by any sweep: Table G's 'exactly 0' row was exercised with a deadline of -1h and recorded Pass, so its expectation was derived from the implementation it was meant to test. daysUntil returned -0 for every deadline inside 24h past, and -0 === 0, so the row asserted the bug. 03-09 re-anchored it to a positive offset and recorded that the old expectation was unreachable. This is the instance the 43-case mutation sweep could not catch, because mutation testing proves a gate CAN fail, not that it asserts the right thing. (b) 03-08-PLAN.md task 3's P1 harness omits sbConfigured from the evaluated slice's free variables, so it throws ReferenceError before asserting anything, against any version of the code. Fixed in the harness only, so the PLAN file still carries the broken command. (c) 03-09-PLAN.md task 2's gate builds a fake nudge bar with no getAttribute, so it throws before printing a result. Same shape, also fixed in the harness only. (d) 03-09-PLAN.md's D3 gate is hour-dependent: it pins the deadline at now+8h, which is only 'today' in Europe/Copenhagen when run before about 16:00. It ran at 13:06 and passed verbatim, but a re-run later in the day goes red against correct code. That is the bug this very plan exists to close, in mirror image. Any verifier re-running the plan's gate after 16:00 should expect a false red on the +8h and +30h rows; a calendar-anchored supplement was added beside it. Standing lesson across all seven: a re-runnable gate must be checked for whether it CAN pass and CAN fail for its stated reason, not merely executed | open |  | 2026-08-15T11:22:53.828Z |  |
 
 ````json
 [
@@ -160,9 +161,22 @@ last_updated: 2026-08-15T02:36:16.101Z
     "reason": "",
     "recorded_at": "2026-08-15T02:36:16.101Z",
     "resolved_at": null
+  },
+  {
+    "id": 12,
+    "kind": "deviation",
+    "phase": "03",
+    "file": ".planning/phases/03-enrollment-identity-and-the-group/03-DEVICE-PASS.md",
+    "line": null,
+    "description": "Seventh instance of the pattern entries 6, 7 and 9 record, plus three more found in the gap-closure plans themselves. (a) The seventh, found by 03-VERIFICATION.md rather than by any sweep: Table G's 'exactly 0' row was exercised with a deadline of -1h and recorded Pass, so its expectation was derived from the implementation it was meant to test. daysUntil returned -0 for every deadline inside 24h past, and -0 === 0, so the row asserted the bug. 03-09 re-anchored it to a positive offset and recorded that the old expectation was unreachable. This is the instance the 43-case mutation sweep could not catch, because mutation testing proves a gate CAN fail, not that it asserts the right thing. (b) 03-08-PLAN.md task 3's P1 harness omits sbConfigured from the evaluated slice's free variables, so it throws ReferenceError before asserting anything, against any version of the code. Fixed in the harness only, so the PLAN file still carries the broken command. (c) 03-09-PLAN.md task 2's gate builds a fake nudge bar with no getAttribute, so it throws before printing a result. Same shape, also fixed in the harness only. (d) 03-09-PLAN.md's D3 gate is hour-dependent: it pins the deadline at now+8h, which is only 'today' in Europe/Copenhagen when run before about 16:00. It ran at 13:06 and passed verbatim, but a re-run later in the day goes red against correct code. That is the bug this very plan exists to close, in mirror image. Any verifier re-running the plan's gate after 16:00 should expect a false red on the +8h and +30h rows; a calendar-anchored supplement was added beside it. Standing lesson across all seven: a re-runnable gate must be checked for whether it CAN pass and CAN fail for its stated reason, not merely executed",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-15T11:22:53.828Z",
+    "resolved_at": null
   }
 ]
 ````
+
 
 
 
