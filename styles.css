@@ -2041,9 +2041,32 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   .uploader__acts .btn { min-height: 56px; }
 }
 
+/* The batch retry exists in exactly two of the eight control states, and the
+   control's own attribute decides that rather than a class toggle in
+   JavaScript: the same [data-state] gating idiom .sweep already uses, so the
+   button is built once and the stylesheet owns whether it is on the page.
+
+   Absent in the other six deliberately. In idle there is nothing to retry, and
+   a permanently visible second button beside the submit control would read as
+   two equal choices where there is one. */
+.uploader__retry { display: none; }
+.uploader[data-state="partial"] .uploader__retry,
+.uploader[data-state="failed"] .uploader__retry { display: inline-flex; }
+
+/* Secondary standing, so the touch table gives it the plain 48px floor and
+   52px on a coarse pointer rather than the submit control's 52 and 56. It is
+   reachable and clearly a button; it is not the happy path. */
+.uploader__acts .uploader__retry { min-height: 48px; }
+@media (pointer: coarse) {
+  .uploader__acts .uploader__retry { min-height: 52px; }
+}
+
 @media (max-width: 480px) {
   .uploader__acts { display: block; }
   .uploader__acts .btn { width: 100%; }
+  /* The flex gap stops applying the moment the row stops being a flex row, so
+     the stacked spacing is stated rather than inherited. Same 16px token. */
+  .uploader__acts .btn + .btn { margin-top: var(--s-4); }
 }
 
 /* The polite line. Its box is reserved in every state, which is the whole
@@ -2184,6 +2207,13 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
 
 /* Two answers to two questions, at phase 2's sub-block rhythm. */
 #photos-album { margin-top: var(--s-7); }
+
+/* The quota body needs no component of its own: it is the panel, sub-heading
+   and lede phase 3 already shipped. The one thing it does need is the same
+   48px to the album that every other body gets, and its lede is the last node
+   in it, so the lede's own trailing 24px would stack on top and open a 72px
+   hole exactly where the punchline should sit above the evening. */
+#photos-body[data-body="full"] .panel__lede { margin-bottom: 0; }
 
 .album__head {
   font-family: var(--font-mono);

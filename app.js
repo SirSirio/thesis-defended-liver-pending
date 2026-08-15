@@ -3925,7 +3925,7 @@
          literal: gating on the one exact status this endpoint happens to
          answer today reports a written object as a lost one. */
       if (xhr.status >= 200 && xhr.status < 300) return settle({ ok: true });
-      settle({ ok: false, status: xhr.status, code: classifyStorage(xhr) });
+      settle({ ok: false, status: xhr.status, code: storageBodyStatus(xhr) });
     };
 
     xhr.onerror   = function () { settle({ ok: false, status: 0, code: 'NETWORK' }); };
@@ -3935,23 +3935,45 @@
     xhr.send(blob);
   }
 
-  /* Storage's classifier, and it is deliberately NOT shared with the PostgREST
-     path. A Storage error is not shaped like a PostgREST error: the outer HTTP
-     status is 400 for everything and the real one is a string inside the body,
-     { statusCode, error, message, code }, with code being a name such as
-     KeyAlreadyExists rather than a Postgres SQLSTATE. One classifier per
-     service, so neither can be handed the other's vocabulary. */
-  function classifyStorage(xhr) {
+  /* Storage's own error body, unpacked, and nothing else reads it.
+
+     The outer HTTP status is 400 for everything the service refuses, and the
+     real one is a string inside the body, { statusCode, error, message, code },
+     with code carrying a name such as KeyAlreadyExists rather than a Postgres
+     SQLSTATE. The message that travels beside it is deliberately not returned
+     from here: it is English, unstable, and it is a Supabase sentence, and no
+     Supabase sentence reaches a guest anywhere in this section. */
+  function storageBodyStatus(xhr) {
     try {
       var parsed = JSON.parse(xhr.responseText);
       return parsed.statusCode || null;
     } catch (e) { return null; }
   }
 
-  /* Three outcomes, so the caller has three branches rather than nine:
-       ok      the photograph is indexed
-       limit   the guest is already at five
-       failed  anything else
+  /* The first of two classifiers, and the two are deliberately not one.
+
+     The temptation to merge them is not a first-draft risk, it is a later
+     refactor that sees two small functions returning copy keys and folds them
+     together. They cannot be folded: one service answers an outer 400 for
+     every failure with the real status buried in a body, and the other answers
+     the real status with a Postgres code. A shared classifier would silently
+     mis-brand one of the two, and the branch it mis-brands is the limit.
+
+     No outer status literal is tested here, for the same reason. */
+  function classifyStorage(out) {
+    /* Supabase Storage, the object write. A synthesised NETWORK code is the
+       one outcome that means the bytes never arrived, which is a sentence a
+       guest can act on; everything else is the archive declining them, which
+       is one line and not a status. */
+    if (!out || out.code === 'NETWORK') return 'photos.err.network';
+    return 'photos.err.server';
+  }
+
+  /* The second classifier, for the other service, and three outcomes so the
+     caller has three branches rather than nine:
+       ok             the photograph is indexed
+       limit          the guest is already at the configured maximum
+       a photos.err.* key   anything else
 
      Classified on the code field and never on the message string, which is
      English, unstable, and embeds constraint names.
@@ -3960,19 +3982,33 @@
      with code 42501 AND the row is not written, because section 9 revokes
      select on public.photos from anon.
 
-     P0001 is raise_exception from the trigger in section 4 and it is never
-     retried with a fresh path. The trigger is BEFORE INSERT, so it fires ahead
-     of the unique constraint and a guest at five sees P0001 for a path
-     collision too. A retry loop there would upload bytes forever. */
+     The limit code is raise_exception from the trigger in section 4, and it is
+     never retried with a fresh path. The trigger is BEFORE INSERT, so it fires
+     ahead of the unique constraint and a guest at the maximum sees the same
+     code for a path collision too. A retry loop there would upload bytes
+     forever. hitQuota() is where that rule is enforced. */
+  function classifyPhotoInsert(res) {
+    /* PostgREST, the row insert. It answers the real status directly and
+       carries a Postgres SQLSTATE in code, which is the whole reason this is
+       not the same function as the Storage one above. */
+    if (!res) return 'photos.err.server';
+    if (res.ok) return 'ok';
+    if (res.code === 'P0001') return 'limit';
+    /* Anything else, and the object this row was meant to point at is already
+       in the bucket. That orphan is D-19's written accepted consequence and
+       not a defect: it appears in no view, no page and no URL anyone holds,
+       and the owner clears it from the dashboard. The alternative is a row
+       pointing at bytes that are not there, which is a permanently broken tile
+       in everyone's album, forever, with no delete path from the browser for
+       either half. */
+    return 'photos.err.server';
+  }
+
   function insertPhotoRow(ident, path, done) {
     var row = { guest_id: ident.guest_id, name: ident.name, storage_path: path };
 
     sbRequest('POST', '/rest/v1/' + (CFG.photos || {}).table, row, 'return=minimal')
-      .then(function (res) {
-        if (res.ok) return done('ok');
-        if (res.code === 'P0001') return done('limit');
-        done('failed');
-      });
+      .then(function (res) { done(classifyPhotoInsert(res)); });
   }
 
   /* ----------------------------------------------------------------------
@@ -4477,6 +4513,43 @@
     return panel;
   }
 
+  /* The quota body, and it is the phase. The roadmap's done-when sentence ends
+     here: the sixth photograph is refused with a joke rather than an error.
+
+     A sub-heading and a lede, in the existing panel grammar, and nothing else.
+     No button, no queue, no line inviting the guest to contact the host, and
+     above all no remaining count reading zero, because a zero would be a
+     number where the joke goes. It is a course requirement satisfied rather
+     than a wall hit, and the register is the whole difference between the joke
+     landing and an error message wearing a costume (D-23).
+
+     It is not an assertive region and it does not take focus. It is reached
+     two ways and neither is an event that needs announcing on its own: at page
+     load it is simply the state of the section, and mid batch it is reached
+     after the alert line has already announced the refusal assertively, where
+     a focus move would announce the same fact twice and read as a stutter.
+
+     It is a .panel, so it mounts at zero opacity and the ladder's data-show
+     line is what makes it visible. That line is deliberately in the ladder
+     rather than in the builders, so this body could not ship with the defect
+     the registration gate shipped with and had repaired. */
+  function quotaPanel() {
+    var panel = document.createElement('div');
+    panel.className = 'panel';
+
+    var h = document.createElement('h3');
+    h.className = 'sub-h';
+    h.textContent = t('photos.full.title');
+
+    var lede = document.createElement('p');
+    lede.className = 'panel__lede';
+    lede.textContent = t('photos.full.body');
+
+    panel.appendChild(h);
+    panel.appendChild(lede);
+    return panel;
+  }
+
   function buildUploader() {
     var box = document.createElement('div');
     box.className = 'uploader';
@@ -4526,6 +4599,25 @@
     btn.className = 'btn btn--primary';
     btn.id = 'photos-pick';
     acts.appendChild(btn);
+
+    /* Exactly one retry control, however many rows failed. Five per row
+       buttons would be five targets for one intent, and the intent is one:
+       send again whatever did not land.
+
+       The ghost variant rather than the primary one, because the accent fill
+       in this section is reserved for exactly one filled button at a time and
+       the submit control owns it.
+
+       It is built once, here, and its presence is decided in the stylesheet by
+       the control's own state attribute. JavaScript writes one attribute and
+       CSS owns what is on the page, which is the same division setFormState()
+       set for the form and the queue rows kept. */
+    var retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'btn btn--ghost uploader__retry';
+    retry.id = 'photos-retry';
+    acts.appendChild(retry);
+
     box.appendChild(acts);
 
     /* A separate sibling carrying the hidden attribute, never a label wrapping
@@ -4573,6 +4665,7 @@
     // The button calls the input from inside its own click handler, which is a
     // user gesture and is the supported pattern on both platforms.
     btn.addEventListener('click', function () { input.click(); });
+    retry.addEventListener('click', function () { retryFailedFiles(); });
     input.addEventListener('change', function () {
       var files = Array.prototype.slice.call(input.files || []);
       // The value is cleared so picking the same file twice still fires change.
@@ -4603,6 +4696,12 @@
 
     var note = $('.uploader__note', uploader);
     if (note) note.textContent = t('photos.permanent');
+
+    /* The one place the retry's label is written, so there is exactly one
+       string for one intent in this section. A verb plus an object, never a
+       bare Retry, which reads as nothing out of context. */
+    var retry = $('.uploader__retry', uploader);
+    if (retry) retry.textContent = t('photos.retry.failed');
 
     setUploaderState(uploader, photoState);
 
@@ -4749,8 +4848,11 @@
 
       // The per-file fraction reaches exactly one row's fill, as a scale.
       uploadObject(path, blob, function (fraction) { setRowProgress(rec, fraction); }, function (out) {
+        /* The row names what happened to it and the batch carries on to the
+           next file rather than aborting: a dropped connection on file two is
+           not a verdict on files three, four and five. */
         if (!out.ok) {
-          setRowState(rec, 'failed', out.code === 'NETWORK' ? 'photos.err.network' : 'photos.err.server', null);
+          setRowState(rec, 'failed', classifyStorage(out), null);
           return runNextFile();
         }
 
@@ -4763,20 +4865,70 @@
             identity.setPhotoCount(identity.photoCount() + 1);
             refreshPhotosState();
           } else if (result === 'limit') {
-            /* The bytes went up, so this is not a failure: the submission was
-               declined. The local count was wrong and the register was right,
-               so the count self-heals to the maximum (D-19) rather than the
-               path being retried, which would upload bytes forever. */
-            setRowState(rec, 'refused', 'photos.refuse.server', null);
-            identity.setPhotoCount(photosMaxPerGuest());
-            refreshPhotosState();
+            /* The bytes went up, so this is not a failure and the copy must
+               not call it one: the submission was declined. The local count
+               was wrong and the register was right, so it self-heals to the
+               maximum (D-19) instead of the path being retried. */
+            hitQuota(rec, 'photos.refuse.server');
           } else {
-            setRowState(rec, 'failed', 'photos.err.server', null);
+            /* The object is up and the row is not, so this branch is where the
+               accepted orphan of D-19 is created. It is left exactly where it
+               is: nothing in the browser can remove it, it appears in no view,
+               no page and no URL anyone holds, and it is the cheaper of the
+               two asymmetric failures. A written accepted consequence, not a
+               defect to be repaired here. */
+            setRowState(rec, 'failed', result, null);
           }
           runNextFile();
         });
       });
     });
+  }
+
+  /* The single self-healing response to the register being full, and the only
+     one of the three routes to five that arrives from the wire.
+
+     The local count is the affordance and the database trigger is the floor.
+     When the two disagree the floor is right, so the count is set to the
+     configured maximum rather than incremented, and the ladder's quota branch
+     takes over when the batch settles. Self-healing rather than a dead end
+     (D-19).
+
+     It never re-enters the driver and never mints a second object key for the
+     same record. The trigger is BEFORE INSERT, so it fires ahead of the unique
+     constraint and a guest at the maximum sees the same code for a path
+     collision too: a retry with a fresh path would upload bytes forever.
+
+     The copy it is handed must never say the upload failed, because it did
+     not. The bytes were accepted and the submission was declined, and saying
+     otherwise makes the site lie about work the guest's phone actually did. */
+  function hitQuota(rec, reasonKey) {
+    // The configured photos.maxPerGuest, through the one reader of it and
+    // never a literal, because two parses of one value drift apart on a typo.
+    identity.setPhotoCount(photosMaxPerGuest());
+
+    if (rec) setRowState(rec, 'refused', reasonKey, null);
+
+    /* Every file still waiting is refused here rather than sent one at a time
+       and declined one at a time. The register is full and is not going to
+       become less full inside this batch, so at most one upload is wasted per
+       storage reset. They are refused by name in their own rows, which is
+       where D-15's requirement that the extras are named is honoured. */
+    var waiting = [], i;
+    for (i = 0; i < photoBatch.length; i++) {
+      if (photoBatch[i].state === 'waiting') waiting.push(photoBatch[i]);
+    }
+    for (i = 0; i < waiting.length; i++) {
+      setRowState(waiting[i], 'refused', 'photos.refuse.extra', { n: waiting.length });
+    }
+
+    /* The figure and nothing else. Deliberately not refreshPhotosState(),
+       which also refetches the album: D-12 gives the album exactly one
+       trigger, a photograph landing, and nothing landed here. */
+    if (photoUploader) {
+      var fig = $('.uploader__count', photoUploader);
+      if (fig) fig.textContent = String(photosRemaining());
+    }
   }
 
   /* The batch settles. The terminal control state is computed from the
@@ -4831,12 +4983,79 @@
     else if (state === 'partial') setUploaderAlert(null);
     else setUploaderAlert('photos.status.partial', { ok: ok, bad: bad });
 
+    /* Two of the three routes to five land here, and they land the same way.
+       An overflow batch that filled the allowance and a server refusal that
+       healed the count both leave the stored count at the maximum, so the
+       ladder is asked again rather than a state being written by hand. The
+       third route needs nothing at all: at page load the quota body is simply
+       what the ladder finds.
+
+       The flip happens at settle rather than the instant the count reaches the
+       maximum, so the guest sees the transcript of the batch they just
+       submitted finish before the file closes over it. */
+    if (identity.photoCount() >= photosMaxPerGuest()) {
+      photoBatchPending = false;
+      return renderPhotos();
+    }
+
     /* The language render that was skipped mid batch happens once, here, and
        this is the only place the flag is cleared. */
     if (photoBatchPending) {
       photoBatchPending = false;
       renderPhotos();
     }
+  }
+
+  /* One tap, and exactly the files that did not land are sent again.
+
+     The batch model is what makes this possible at all: failed and refused
+     never clear the selection, so the File objects are still alive and the
+     guest does not have to find the same three photographs in their camera
+     roll a second time.
+
+     Three record states and three different answers, and the difference
+     between them is the whole function:
+
+       done      left exactly as it is. A recorded row has a row in the
+                 register behind it, and re-sending it would upload a second
+                 object and count a second time against the limit. This is the
+                 double count the retry exists to not cause.
+       refused   left exactly as it is. A refusal is a decision rather than a
+                 transient fault: a decode failure is terminal for that file,
+                 and a quota refusal is terminal for the whole guest.
+       failed    reset to waiting, its reason cleared, its bar returned to the
+                 start, and re-driven.
+
+     The slots are renumbered across the retried rows only, so the counted
+     sentence reads "Sending 1 of 2" for a retry of two rather than continuing
+     a numbering the guest can no longer see. */
+  function retryFailedFiles() {
+    var uploader = photoUploader;
+    var again = 0, i, rec;
+
+    for (i = 0; i < photoBatch.length; i++) {
+      rec = photoBatch[i];
+      if (rec.state === 'done') continue;
+      if (rec.state === 'refused') continue;
+      if (rec.state !== 'failed') continue;
+
+      rec.slot = ++again;
+      rec.path = null;
+      setRowState(rec, 'waiting', null, null);
+      setRowProgress(rec, 0);
+    }
+
+    /* Nothing to retry means nothing happens, including no state change. The
+       control is gated on partial and failed in CSS, so this is unreachable
+       from a tap, and it is written anyway because a control that can be
+       called from anywhere owes a terminal answer for every input. */
+    if (!again) return;
+
+    photoBatchTotal = again;
+    setUploaderStatus(null);
+    setUploaderAlert(null);
+    setUploaderState(uploader, 'preparing');
+    runNextFile();
   }
 
   /* renderEnrollment()'s shape exactly: null-guard the host, compute one body
@@ -4880,12 +5099,14 @@
        renders the first token of name, and a guest with no name cannot be
        attributed, so this is the gate rather than the control (D-01). */
     else if (!ident.name || !ident.guest_id) body = 'gate';
-    /* THE QUOTA BRANCH GOES HERE, fourth, and plan 04-04 inserts it:
-         else if (identity.photoCount() >= photosMaxPerGuest()) body = 'full';
-       Its body is a .panel and the album stays below it, so it needs no new
-       handling further down beyond its own builder. The position is named
-       rather than left to be worked out, because the ladder's order is the
-       contract: unconfigured, closed, not registered, quota, upload. */
+    /* Fourth, and above the control rather than inside it: at the maximum
+       there is no control to be in a state, so the whole of it is replaced
+       rather than disabled. A disabled primary button sitting under a joke is
+       a broken control; an absent one is a closed file. The album stays below
+       it, so a guest can still look at the evening they simply cannot add to.
+       The ladder's order is the contract: unconfigured, closed, not
+       registered, quota, upload. */
+    else if (identity.photoCount() >= photosMaxPerGuest()) body = 'full';
     else body = 'upload';
 
     host.textContent = '';          // discards the static pending markup
@@ -4934,6 +5155,9 @@
 
     if (body === 'gate') {
       host.appendChild(buildGatePanel());
+    } else if (body === 'full') {
+      // Falls through to the album below, deliberately, unlike the closed body.
+      host.appendChild(quotaPanel());
     } else {
       var box = buildUploader();
       host.appendChild(box);
