@@ -36,6 +36,17 @@
 -- earlier ones were proved again on the way past: the amend function still
 -- answers, and a registration bringing five extra people is now refused by the
 -- guest count bound.
+--
+-- NOT YET APPLIED, unlike every paragraph above it: section 4's photo limit
+-- function was corrected on 2026-08-15 to run with its owner's rights, because
+-- section 9's revoke had left it unable to read the table it counts, and every
+-- anonymous photo insert was being refused with error 42501. That correction
+-- is in this file and is NOT in the live database. Run the whole file again to
+-- apply it, then prove it on the wire rather than by reading: a POST to
+-- /rest/v1/photos with the publishable key must answer 201 and not 401, and a
+-- sixth photo under one guest_id must still be refused with
+-- photo_limit_reached. Until both of those are seen, treat anonymous photo
+-- upload as broken in the live project.
 -- ============================================================================
 
 
@@ -173,10 +184,26 @@ drop policy if exists "anon can view album" on public.photos;
 -- ----------------------------------------------------------------------------
 -- The UI also counts, but a limit that only exists in JavaScript is a
 -- suggestion. This makes the sixth upload fail in the database.
+--
+-- This function counts the rows in the table it guards, so it has to be able
+-- to read that table. Section 9 takes the read away from anonymous visitors,
+-- and a trigger function without its owner's rights runs as whoever issued the
+-- insert, which for a request from the site is the anonymous role. Without
+-- security definer below, every anonymous upload therefore fails with error
+-- 42501 before the row is ever written, and the failure looks like a rule
+-- about inserts rather than like a missing read.
+--
+-- Re-granting the read to anonymous visitors is not the alternative fix. It
+-- would hand back the guest_id and the full name that section 9 exists to keep
+-- off the page, and it would not even work: section 3 drops the last select
+-- rule on this table, so a count made with the visitor's rights would be
+-- filtered by row security down to zero for every guest, forever, and the
+-- limit would stop being a limit while still appearing to be one.
 -- ============================================================================
 
 create or replace function public.enforce_photo_limit()
 returns trigger language plpgsql
+security definer            -- it reads the table it guards, and anon cannot
 set search_path = ''
 as $$
 declare
@@ -192,6 +219,12 @@ begin
 
   return new;
 end $$;
+
+-- The same discipline section 8 applies to its own definer function: take the
+-- default away before handing anything back. Nothing can call this one by name
+-- in any case, because it errors outside a trigger, but the file should have
+-- one rule about definer functions and no exceptions to it.
+revoke all on function public.enforce_photo_limit() from public;
 
 drop trigger if exists photos_limit on public.photos;
 create trigger photos_limit
@@ -379,10 +412,22 @@ create or replace view public.album as
 -- that is far easier to remember when the two things are next to each other.
 grant select on public.album to anon;
 
--- Reading, and only reading. Anonymous visitors keep the right to add a photo,
--- which is how phase 4 will upload anything at all. Taking away more than the
--- read here would take the upload with it, and nothing would notice until
--- phase 4 was built and did not work.
+-- Reading, and only reading. The insert rule in section 3 and the insert
+-- privilege behind it are untouched, so anonymous visitors keep the right to
+-- add a photo, which is how phase 4 will upload anything at all.
+--
+-- What this line does take away is the read the photo limit trigger needs.
+-- That trigger counts the rows in this table, and a trigger runs with the
+-- rights of whoever issued the insert unless it is told otherwise, so with the
+-- read gone the count is refused and the insert fails with error 42501 before
+-- anything is written. The earlier version of this comment claimed the revoke
+-- could not reach the upload path. It could, it did, and nothing noticed
+-- because no probe ever posted a photo. Section 4 answers it, at the trigger
+-- rather than here, by giving that one function its owner's rights.
+--
+-- So this line is safe to keep only while section 4 carries security definer.
+-- Remove it there and the album read is closed while the upload path silently
+-- goes with it.
 revoke select on public.photos from anon;
 
 
