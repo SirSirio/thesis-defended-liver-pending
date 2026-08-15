@@ -3040,6 +3040,17 @@
       if (res.result === 'pending') {
         amendPending = true;
 
+        /* Out of the freeze first, and this is not the dead call it used to be.
+           While the freeze was scoped to the box it was: the box was about to
+           be destroyed anyway. The freeze now covers the whole of #enrol-body,
+           so this is the only thing that hands the edit and the forget controls
+           back, and they are in sibling rows that survive the replacement
+           below. Without it this branch ends with every control on the panel
+           disabled for the rest of the page's life and no re-render scheduled
+           to rebuild them, recoverable only by reloading. It has to run above
+           the parentNode test too, because that test returns as well. */
+        setWithdrawState(box, 'idle');
+
         var row = box.parentNode;
         if (!row) return;
 
