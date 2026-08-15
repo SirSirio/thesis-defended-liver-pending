@@ -1,379 +1,334 @@
 ---
 phase: 03-enrollment-identity-and-the-group
-reviewed: 2026-08-15T00:00:00Z
+reviewed: 2026-08-15T11:32:50Z
 depth: standard
-files_reviewed: 6
+scope: "gap closure only, git diff ac1b2ac..HEAD -- app.js config.js styles.css supabase/schema.sql"
+files_reviewed: 4
 files_reviewed_list:
   - app.js
   - config.js
-  - copy.js
-  - index.html
   - styles.css
   - supabase/schema.sql
 findings:
-  critical: 2
-  warning: 10
-  info: 7
-  total: 19
+  critical: 3
+  warning: 2
+  info: 4
+  total: 9
 status: issues_found
 ---
 
-# Phase 3: Code Review Report
+# Phase 3 gap closure: Code Review Report
 
-**Reviewed:** 2026-08-15
+**Reviewed:** 2026-08-15T11:32:50Z
 **Depth:** standard
-**Files Reviewed:** 6
+**Files Reviewed:** 4 (471 insertions / 79 deletions)
 **Status:** issues_found
 
 ## Summary
 
-Six files, ~2,100 new lines in `app.js`, ~750 in `styles.css`, two new schema sections.
-The house disciplines that were claimed hold up under direct check:
+Sixteen of the nineteen prior findings are genuinely closed, and I checked each one against
+the shipped file rather than against the summaries:
 
-- **No markup strings anywhere.** `innerHTML`, `outerHTML`, `insertAdjacentHTML`,
-  `document.write`, `eval` and `new Function` return zero hits across `app.js`,
-  `index.html`, `config.js` and `copy.js`. Every guest-supplied value reaches the DOM
-  through `textContent` (`recordRow` app.js:1900, `buildRecord` app.js:1914). The read
-  path for social proof (`renderSocialProof` app.js:2399 → `recordRow` → `dd.textContent`)
-  is clean. **No XSS found.**
-- **`guest_id` does not leak into the DOM, a URL, or a log.** It travels only in a POST
-  body (`sbRequest` app.js:1264). `amend_enrollment` is `volatile`, so PostgREST refuses
-  GET and the uuid never lands in a query string. No `console.*` calls exist in any
-  reviewed file.
-- **Copy is complete.** Automated diff of `copy.js` against every key used in `app.js`
-  and `index.html`: zero keys missing from `en`, zero missing from `it` or `da`, zero
-  `{token}` mismatches across the three tables.
-- **`amend_enrollment` is correctly shaped as a definer function.** `set search_path = ''`
-  with `public.enrollments` fully qualified; the only unqualified callables (`coalesce`,
-  `nullif`, `now()` via the trigger) resolve through the always-implicit `pg_catalog`. It
-  returns `integer` and never a row. The revoke/grant pair repeats the argument list
-  verbatim and matches the signature.
+| Prior ID | State in this tree |
+|---|---|
+| CR-02 `photos` read path | closed for **reading** (`public.album` + `revoke select`), **but see CR-01 below**: the same revoke breaks the write path |
+| WR-01 `daysUntil` `-0` | closed. `deadlinePassed()` is `Date.now() > deadlineMs`, byte-equal to what `renderDeadline` used before, and it is called **above** the bucketing in `renderNudge`. I reproduced the calendar ladder at twelve offsets: `-1h/-12h/-23.9h` now hide the bar, `+2h/+8h/+15h` give `0`, `+30h` gives `1`, `+3.5d` gives `3`. The two surfaces agree. |
+| WR-02 amend policy | closed, and the `drop policy if exists` correctly survives in the file |
+| WR-03 toast hide timer | closed, both handles compared against `null` |
+| WR-04 `amendPending` | closed |
+| WR-05 NETWORK vs PGRST202 | closed, split correctly |
+| WR-06 `forgetIdentity` | closed, fourth flag reset and focus landing both present |
+| WR-07 `nudgeShowFrame` | closed. No half-shown state: `hideNudge` cancels the frame *and* still runs its 240ms teardown, so the bar always ends `hidden` with `data-nudge` released. No path leaves a cancelled frame with the handle still set. |
+| WR-08 `AbortController` | closed. `Promise.race` against a **resolving** timeout; the executor runs synchronously so `timer` is assigned before use; `wire` carries its own `.catch` so the race can never reject; `clearTimeout` runs on both outcomes. A browser with `fetch` and no `AbortController` settles as `NETWORK` at 12s. |
+| WR-09 `proofSeq` | closed, and checked above `host.textContent = ''`, which is the correct placement |
+| WR-10 `extra_guests` | closed at 4/4, documented at both sites, and the `drop constraint if exists` / `add constraint` pair is name-matched and idempotent across repeated runs |
+| IN-02 `.group-cta` | deleted; zero references across all three files |
+| IN-04 `res.ok` | closed; 409 still reaches its own test |
+| IN-05 `search_path` | added to both remaining functions |
+| IN-07 `renderCountdown` | guard added (see IN-02 below for its shape) |
+| IN-01, IN-03, IN-06, `enrol.withdrawn.body` | declined by 03-09 with reasons; **not re-raised here** |
 
-What did not hold up is the interaction *between* the plans, which is where both
-BLOCKERs and most WARNINGs sit. Two findings deserve naming up front:
+Schema idempotency holds under a second and third whole-file run: every new statement in
+sections 9 and 10 is `create or replace` / `grant` / `revoke` / `drop … if exists` + `add`,
+the `ALTER TABLE` drop subcommand is processed before the add subcommand in the same
+statement, and section 1's inline check on a fresh database is auto-named
+`enrollments_extra_guests_check`, which is exactly the name section 10 drops and re-adds.
 
-1. **The in-flight withdrawal is not isolated from the panel it lives in.** Every claim
-   in the 03-05 header comment — "the block always terminates somewhere defined", "there
-   is no path here where the interface tells somebody they have withdrawn while the
-   database still counts them" — is falsifiable by tapping a *second, still-enabled*
-   control on the same panel while the first request is out. See CR-01.
-2. **Section 8 turned `guest_id` into a bearer write credential, and section 3 publishes
-   it.** `photos` has an unrestricted anon SELECT policy exposing `guest_id` and a full
-   `name`. The schema's own stated model ("guest ids are unguessable uuids that never
-   appear on the page") stops being true the moment phase 4 writes a row. See CR-02.
+What did not hold up is, again, the interaction between the fixes. All three Critical
+findings below are **regressions introduced by the gap closure itself**, not survivals from
+before it:
+
+1. The revoke that closed the read path also closes the read the photo-limit trigger needs,
+   so anonymous photo INSERT — the one privilege 03-07 says it deliberately preserved — is
+   now refused. (CR-01)
+2. The mounted guard added to protect the withdrawal continuation now throws away a
+   **confirmed** withdrawal, leaving the device saying "you are registered" while the
+   database says withdrawn. Before this diff that same sequence behaved correctly. (CR-02)
+3. Widening the freeze from the box to the whole body while deleting the call that released
+   it leaves every control in `#enrol-body` permanently disabled on the `pending` branch.
+   (CR-03)
+
+---
 
 ## Critical Issues
 
-### CR-01: In-flight withdrawal is not isolated — the panel's other controls stay live, and every failure branch downstream is unsound
+### CR-01: `revoke select on public.photos from anon` disables the photo-limit trigger, so every anonymous photo INSERT will now fail
 
-**File:** `app.js:2801-2871` (with `app.js:2690-2695`, `app.js:2715-2722`, `app.js:2614-2646`)
+**File:** `supabase/schema.sql:386` (the revoke), with `supabase/schema.sql:178-199` (the trigger function), `supabase/schema.sql:168` (the dropped SELECT policy), `supabase/schema.sql:382-385` (the comment that asserts the opposite)
 
 **Issue:**
-`setWithdrawState()` disables only the buttons *inside* the confirmation box:
+Section 4's limit is enforced by a trigger function that **reads the table it guards**:
 
-```js
-$$('button', box).forEach(function (el) { el.disabled = busy; });   // app.js:2805
-```
-
-`box` is the `.withdraw-confirm`. The return panel's other three controls — **Change your
-registration** (`data-action="edit"`, app.js:2200), **Forget my details on this device**
-(`data-action="forget"`, app.js:2214) — are siblings in `.panel__row` / `.panel__acts` and
-stay enabled for the whole 12-second request window. This is asymmetric with the submit
-path, where `setFormState` disables `$$('input, select, textarea, button', form)`
-(app.js:1834) and the form *is* the entire body, so nothing else is reachable.
-
-Each of the three live controls calls `refreshEnrollmentState()` → `renderEnrollment()` →
-`host.textContent = ''` (app.js:2348), which detaches the whole panel including the
-in-flight box. `doWithdraw`'s continuation (app.js:2849) then runs unconditionally against
-module state and storage without re-checking that the box is still mounted. Three distinct
-defects fall out:
-
-**(a) The failure branch becomes completely invisible.** After teardown, `box.parentNode`
-is still the (now detached) `.panel__row`, so the guard `if (!row) return;` passes:
-
-```js
-setWithdrawState(box, 'idle');       // writes to a detached node
-var row = box.parentNode;            // detached .panel__row — truthy
-row.textContent = '';
-row.appendChild(amendPendingLine()); // appended into a detached subtree
-focusAmendPending(row);              // .focus() on a detached node is a no-op
-```
-
-The error message is rendered into a subtree that is not in the document, and focus drops
-to `<body>`. On a network failure, `PGRST202`, a non-2xx, or a malformed body, the guest
-receives **no signal of any kind** — the exact silent-failure class this whole phase was
-built to eliminate.
-
-**(b) The success branch resurrects storage the guest just asked to have cleared.** Tap
-Confirm withdrawal → tap Forget my details on this device. `forgetIdentity()`
-(app.js:2715) runs `identity.clear()`, removing `enrolled` from localStorage *and* from
-`store.mem`. The withdrawal then resolves `ok` and runs `store.set('enrolled', '0')`
-(app.js:2851), writing `c03102.enrolled = "0"` straight back onto the device, and sets
-`withdrawnShown = true` so the guest who was shown an empty form is thrown onto "You are
-unregistered". This directly violates the invariant documented at `identity.clear`
-(app.js:1205-1214): *"a flag left sitting at the string 0 is residue: it is a record that
-this device was once used to register, which is exactly the fact they asked to have
-removed."*
-
-**(c) Two contradictory RPCs race the same row.** Tap Confirm withdrawal → tap Change your
-registration → submit the edit. `handleAmend` → `saveAmendment` → `amendEnrollment` sends
-`p_withdrawn: false` (app.js:1343) while the withdrawal RPC carrying `p_withdrawn: true`
-(app.js:1404) is still out. The database keeps whichever `UPDATE` commits last; the UI
-keeps whichever promise settles last. These are independent. The result is a device that
-says "You are unregistered" while `withdrawn = false` in the table, or the reverse — the
-precise outcome the header comment at app.js:2821-2826 asserts is unreachable.
-
-**Fix:** Freeze the whole enrollment body for the duration of the request, and make the
-continuation a no-op if the box it belongs to was torn down.
-
-```js
-function setWithdrawState(box, state) {
-  box.setAttribute('data-state', state);
-  var busy = (state === 'submitting');
-
-  // The whole body, not just the box: the edit, forget and again controls are
-  // siblings of this box and every one of them tears it down mid request.
-  var body = $('#enrol-body');
-  $$('button, a.enrol-act', body || box).forEach(function (el) {
-    if (busy) el.setAttribute('disabled', 'disabled'); else el.removeAttribute('disabled');
-  });
+```sql
+create or replace function public.enforce_photo_limit()
+returns trigger language plpgsql
+set search_path = ''          -- added by this diff
+as $$
+declare current_count integer;
+begin
+  select count(*) into current_count
+    from public.photos                       -- <— needs SELECT on public.photos
+   where guest_id = new.guest_id;
   ...
-}
+```
 
-function doWithdraw(btn) {
-  var box = withdrawBox(btn);
-  if (!box) return;
-  if (box.getAttribute('data-state') === 'submitting') return;
+It is **not** `security definer`. A PostgreSQL trigger function without `security definer`
+executes with the privileges of the role that issued the statement, which for a PostgREST
+request is `anon`. Section 9 then does:
 
-  var ident = identity.get();
-  setWithdrawState(box, 'submitting');
+```sql
+revoke select on public.photos from anon;      -- schema.sql:386
+```
 
-  withdrawEnrollment(ident).then(function (res) {
-    // The panel was replaced under us (language switch, or a control that
-    // escaped the freeze). Nothing this continuation writes can be believed
-    // and nothing it renders can be seen, so it must not run.
-    if (!document.contains(box)) return;
+So `POST /rest/v1/photos` as `anon` fires `photos_limit`, the trigger's `select count(*)`
+is evaluated as `anon`, and it raises `42501 permission denied for table photos`. The insert
+never lands. This is not speculative about whether the grant was direct: probe A in
+`03-07-SUMMARY.md` proves it was, because the revoke took effect and turned the read from
+`200 []` into `401 / 42501`. The same privilege the probe proves is gone is the one the
+trigger needs.
 
-    if (res.result === 'ok' || res.result === 'gone') { ... }
+The section 9 comment states the exact opposite, in as many words:
+
+```sql
+-- Reading, and only reading. Anonymous visitors keep the right to add a photo,
+-- which is how phase 4 will upload anything at all. Taking away more than the
+-- read here would take the upload with it, and nothing would notice until
+-- phase 4 was built and did not work.                        -- schema.sql:382-385
+```
+
+Nothing did notice. Neither the plan's five probes nor the two added beyond it ever issued a
+`POST /rest/v1/photos`; probe E exercised the *enrollments* insert instead. So the file's
+STATUS header (`schema.sql:30-38`) records sections 9 and 10 as "verified against the live
+database" while the one behaviour section 9 changed for phase 4 is unverified and, on this
+reading, broken.
+
+**There is a second defect underneath the first.** Dropping `anon can view album`
+(`schema.sql:168`) removed the only SELECT policy on `public.photos`. Even if someone
+"fixes" this by re-granting `select … to anon`, the trigger's `count(*)` would then be
+filtered by RLS with no SELECT policy to match, so it would return **0 for every guest,
+forever**, and the five-photo limit would be silently unenforceable — falsifying section 3's
+own bullet, "The five photo limit is enforced in the database, not just in the UI", and
+section 4's argument that "a limit that only exists in JavaScript is a suggestion".
+
+**Fix:** the function must read the table with its owner's rights, which is the same
+arrangement section 9 already reasons about for the view. It already carries the hardened
+`search_path` and already qualifies `public.photos`, so this is a one-word change plus the
+revoke that any definer function in this file gets:
+
+```sql
+create or replace function public.enforce_photo_limit()
+returns trigger language plpgsql
+security definer                 -- reads the table it guards, and anon cannot read it
+set search_path = ''
+as $$
+declare
+  current_count integer;
+begin
+  select count(*) into current_count
+    from public.photos
+   where guest_id = new.guest_id;
+
+  if current_count >= 5 then
+    raise exception 'photo_limit_reached';
+  end if;
+
+  return new;
+end $$;
+
+-- Same discipline as section 8: take the default away before handing it back.
+-- Nothing can call this by name anyway (it errors outside a trigger context),
+-- but the file should have one rule and no exceptions.
+revoke all on function public.enforce_photo_limit() from public;
+```
+
+`create or replace function` keeps the existing `photos_limit` trigger binding, so no
+trigger edit is needed.
+
+**Acceptance must be a wire probe, not a source gate** — this is exactly the class of claim
+03-07 was right to insist on proving:
+
+- `POST /rest/v1/photos` with the publishable key and a throwaway `guest_id` must answer
+  `201`, not `401 / 42501`.
+- Six inserts under one `guest_id`: the sixth must fail with `photo_limit_reached`, not
+  succeed. (Clean up the probe rows afterwards; `anon` cannot delete them, so this is an
+  owner step in the dashboard.)
+
+---
+
+### CR-02: the withdrawal's mounted guard discards a confirmed withdrawal, leaving the device saying "registered" while the database says withdrawn
+
+**File:** `app.js:3003` (the guard), with `app.js:3005-3015` (the branch it skips), `app.js:2938-2950` (the freeze), `app.js:2383-2389` (the early exit that does not cover this panel)
+
+**Issue:**
+`doWithdraw` now opens its continuation with an unconditional bail-out:
+
+```js
+withdrawEnrollment(ident).then(function (res) {
+  if (!stillMounted(box)) return;                 // app.js:3003
+
+  if (res.result === 'ok' || res.result === 'gone') {
+    store.set('enrolled', '0');                   // never reached
+    withdrawnShown = true; successShown = false; editing = false;
+    refreshEnrollmentState();
     ...
-  });
-}
 ```
 
-Guard the same way in `handleSubmit` / `handleAmend` (`if (!document.contains(form)) return;`)
-so a torn-down form cannot write module state either.
+The guard's stated purpose (`app.js:2997-3002`) is to stop `store.set('enrolled','0')` from
+resurrecting a flag `forgetIdentity()` has just removed. But 03-08's *other* fix — the
+body-wide freeze at `app.js:2943` — already makes that sequence unreachable: the forget
+control is a `<button>` inside `#enrol-body` and is `disabled` for the whole request. So the
+race the guard was written for cannot happen, and the only sequence that can still detach
+the box produces the wrong answer.
+
+**The reachable trigger is the language switch.** The three language buttons live in the
+page header (`index.html:69-71`), outside `#enrol-body`, so the freeze does not touch them.
+`setLanguage` → `applyLanguage` → `renderEnrollment` (`app.js:151-155`, `app.js:129`).
+`renderEnrollment` has a form-preserving early exit, but it is gated on `body === 'form'`
+(`app.js:2383`); the withdrawal confirmation lives in the **return** panel, so the exit does
+not apply and `host.textContent = ''` (`app.js:2391`) detaches the box.
+
+Trace it:
+
+1. Guest taps **Confirm withdrawal**. Body freezes. RPC leaves.
+2. Guest taps **DA** while waiting on mobile data. `#enrol-body` is rebuilt from storage —
+   still `enrolled = '1'` — so the **returning panel comes back showing their registration**.
+3. The RPC answers `1`. The database row now has `withdrawn = true`.
+4. `stillMounted(box)` is false. The continuation returns. `store.set('enrolled','0')` never
+   runs, `withdrawnShown` is never set, nothing re-renders.
+
+Final state: the host's head count no longer counts this guest, and the guest's screen says
+"You are registered" with an Edit and a Withdraw control under it. That is the invariant the
+function's own header comment claims to have eliminated, running in the other direction —
+`app.js:2963-2970` says "There is no path here where the interface tells somebody they have
+withdrawn while the database still counts them", and the mirror image is just as bad because
+it is the number the host buys food against.
+
+**This is a regression.** Before this diff the same three taps behaved correctly: the
+continuation wrote storage and called `refreshEnrollmentState()`, which renders from module
+state and storage rather than from the detached node, so the withdrawn panel appeared in the
+freshly rebuilt body. The guard traded a race the freeze had already closed for a wrong
+answer on an ordinary action.
+
+**Fix:** the guard belongs *below* the durable branch, not above it. Storage and module
+state are not attached to the DOM and are safe to write from a detached continuation; only
+the last two branches actually render into `box`.
+
+```js
+withdrawEnrollment(ident).then(function (res) {
+  /* The two answers that mean the guest is off the list write storage and module
+     state and then re-render from them, so they are correct whether or not the box
+     survived. The forget-resurrects-the-flag race this guard used to cover is closed
+     by the body-wide freeze in setWithdrawState, not by returning here. */
+  if (res.result === 'ok' || res.result === 'gone') {
+    store.set('enrolled', '0');
+
+    withdrawnShown = true;
+    successShown = false;
+    editing = false;
+
+    refreshEnrollmentState();
+    focusPanelHeading('enrol-withdrawn-title');
+    return;
+  }
+
+  /* The remaining two answers render into this box and only into this box, so a
+     box that has left the document has nowhere to put them. The panel was rebuilt
+     under us and carries the untouched registration already, which is the truth. */
+  if (!stillMounted(box)) return;
+
+  if (res.result === 'pending') { ... }
+  ...
+});
+```
 
 ---
 
-### CR-02: `guest_id` is a bearer write credential, and the `photos` policy publishes it (with full names) to every visitor
+### CR-03: the `pending` branch never lifts the body-wide freeze, so every control on the enrollment panel stays permanently disabled
 
-**File:** `supabase/schema.sql:73-79`, `supabase/schema.sql:128-131`, `supabase/schema.sql:263-299`
+**File:** `app.js:3023-3033`, with `app.js:2941-2943`
 
 **Issue:**
-Section 8 changed what a `guest_id` *is*. Before this phase, holding one bought nothing:
-the `anon can amend own enrollment` UPDATE policy cannot match rows (no SELECT policy), and
-there is no read path. After this phase, `amend_enrollment` is `security definer`, bypasses
-RLS, accepts `p_guest_id` as its only credential, and will rewrite `name`, `extra_guests`,
-`note`, `lang` and `withdrawn` on the matching row. `guest_id` is now a password.
-
-Section 3 hands that password out:
-
-```sql
-create table if not exists public.photos (
-  id           uuid primary key default gen_random_uuid(),
-  guest_id     uuid not null,          -- the amendment credential
-  name         text not null,          -- the FULL name, unsplit
-  storage_path text not null unique,
-  created_at   timestamptz not null default now()
-);
-
-create policy "anon can view album"
-  on public.photos for select
-  to anon using (true);                -- every column, every row, to anybody
-```
-
-`GET /rest/v1/photos?select=*` with the publishable key returns every uploader's
-`guest_id` and full `name`. The moment phase 4 writes its first row, anyone can:
-
-- withdraw arbitrary guests: `POST /rest/v1/rpc/amend_enrollment {"p_guest_id":"<harvested>","p_withdrawn":true}`
-- rewrite arbitrary guests' names and notes on the host's list
-- read every uploader's **full** name — the thing the `attendees` view (schema.sql:170-177)
-  exists solely to prevent, defeated by a sibling table with no projection at all
-
-Today the table is empty, so this is not yet exploitable — but it is a defect *in this
-file*, introduced by this phase's change to what a `guest_id` means, and it is armed by a
-phase-4 insert rather than by any further schema edit. The schema's own security statement
-at line 92-93 ("guest ids are unguessable uuids that **never appear on the page**") is
-already false as written.
-
-**Fix:** Mirror the `enrollments` / `attendees` pattern. Never expose `photos` directly.
-
-```sql
--- The album is public. The credential and the surname are not.
-drop policy if exists "anon can view album" on public.photos;
-
-create or replace view public.album as
-  select
-    split_part(trim(name), ' ', 1) as first_name,
-    storage_path,
-    created_at
-  from public.photos;
-
-grant select on public.album to anon;
-revoke select on public.photos from anon;
-```
-
-Then point phase 4's read at `/rest/v1/album`. Additionally, ensure phase 4 does not embed
-`guest_id` in `storage_path` — the bucket is public (schema.sql:184-196), so a path is as
-readable as a column.
-
-## Warnings
-
-### WR-01: `daysUntil()` returns `-0` for an expired deadline, so the bar nags "Registration closes today" for 24 hours after it closed
-
-**File:** `app.js:3070-3072`, `app.js:3122-3128`
-
-**Issue:** `Math.ceil` of a small negative number is `-0`, and `-0 === 0` is `true` in JS.
-Verified:
-
-| deadline offset | `daysUntil` | branch taken | message |
-|---|---|---|---|
-| +12 h (still open) | `1` | `days === 1` | "Registration closes **tomorrow**." |
-| −12 h (**closed**) | `-0` | `days === 0` | "Registration closes **today**." |
-| −23.9 h (**closed**) | `-0` | `days === 0` | "Registration closes **today**." |
-| −25 h | `-1` | `else` | hidden |
-
-Two consequences. First, for a full day after registration has closed the bar tells guests
-it is still open — while `renderDeadline()` (app.js:3096) correctly uses
-`Date.now() > deadlineMs` and has already hidden the hero line, so the two surfaces
-contradict each other on the same screen. Second, `nudge.enrol.today` is **unreachable in
-its intended meaning**: there is no positive offset that produces `0`, so the string only
-ever renders after the deadline has passed. Phase 3 is what made this path live —
-`enrollmentReady()` gated the whole bar off until `#enrol-form` existed.
-
-**Fix:** Close the deadline on the same test `renderDeadline()` uses, before bucketing days.
+03-08 did two things in the same commit that cancel each other out. It widened the freeze
+from the confirmation box to the whole body:
 
 ```js
-var left = isNaN(deadlineMs) ? null : deadlineMs - Date.now();
-if (left !== null && left <= 0) { hideNudge(bar); return; }   // closed, stop asking
-
-var days = left === null ? null : Math.ceil(left / 86400000);
-var msg;
-if (days === null || days > 7) msg = t('nudge.enrol.text');
-else if (days > 1)             msg = t('nudge.enrol.soon').replace('{n}', days);
-else                           msg = t('nudge.enrol.last');   // final 24 h
+var busy = (state === 'submitting');
+var body = $('#enrol-body');
+$$('button', body || box).forEach(function (el) { el.disabled = busy; });   // app.js:2941-2943
 ```
 
-Then either delete `nudge.enrol.today` from all three tables or re-derive it from the
-calendar date (`same local day as the deadline`), which is what the string actually claims.
+and it deleted the `setWithdrawState(box, 'idle')` that used to run at the top of the
+not-ok path, on the grounds (03-08-SUMMARY, Accomplishments) that it was "dead" work
+immediately before the row was destroyed. It *was* dead while the freeze was box-scoped —
+the box was about to be torn out anyway. Once the freeze covers the body it is the **only**
+call that re-enables the edit and forget controls, which are in different rows and are not
+torn out.
 
----
-
-### WR-02: `anon can amend own enrollment` grants unrestricted mass-write on every row and is now dead code held inert only by an unrelated missing policy
-
-**File:** `supabase/schema.sql:112-116`
-
-**Issue:**
-```sql
--- Anyone holding a guest_id may amend that registration.
-create policy "anon can amend own enrollment"
-  on public.enrollments for update
-  to anon using (true) with check (true);
-```
-
-The comment describes a per-guest rule; the policy implements no rule at all. It authorises
-anon to UPDATE **every row** with **any values**. The only thing stopping it today is that
-Postgres requires SELECT policies to evaluate an `UPDATE ... WHERE`, and there is no SELECT
-policy — an adjacent, unrelated fact. Section 8 replaced this policy's purpose entirely
-(the definer function bypasses RLS), so it is dead code *and* a loaded foot-gun: adding any
-SELECT policy on `enrollments` — a future host-facing feature, or Supabase's one-click
-"Enable read access for all users" template — converts it in one step into unauthenticated
-mass rewrite of every guest's name and note.
-
-**Fix:** Drop it. Nothing in `app.js` sends a PATCH to `/rest/v1/enrollments`; the only
-write paths are the POST insert (app.js:1318) and the RPC (app.js:1346, 1406).
-
-```sql
--- Superseded by public.amend_enrollment in section 8. An update sent straight
--- from the browser is the silent-success failure this design exists to avoid,
--- and a permissive policy left standing here becomes mass write access the day
--- anyone adds a select policy to this table.
-drop policy if exists "anon can amend own enrollment" on public.enrollments;
-```
-
----
-
-### WR-03: `toast()`'s inner hide timer is untracked, so a second toast fired inside the 260 ms fade window is killed on arrival
-
-**File:** `app.js:3283-3295`
-
-**Issue:** The outer timer is held and cleared; the nested one is not.
-
-```js
-if (toastTimer) clearTimeout(toastTimer);
-toastTimer = setTimeout(function () {
-  toastEl.removeAttribute('data-show');
-  setTimeout(function () { toastEl.hidden = true; }, 260);   // never cleared
-}, 2400);
-```
-
-A toast fired between t=2400 ms and t=2660 ms of a previous one sets `hidden = false` and
-`data-show="1"`, and then the stale inner timer fires and sets `hidden = true`
-(`[hidden] { display: none !important; }`, styles.css:101) — the new message vanishes
-without ever being read. Phase 3 is the first to make this reachable: it adds two toasts
-(`enrol.updated.toast` app.js:2629, `enrol.identity.cleared` app.js:2721) fired from
-controls that sit two rows apart on the same panel. It also breaks the file's own stated
-rule, applied correctly to `copyRevert` (app.js:746), `mapTimer` (app.js:712) and
-`nudgeHideTimer` (app.js:3240): *"One timer, held at module scope and cleared before it is set."*
-
-**Fix:**
-```js
-var toastTimer = null;
-var toastHideTimer = null;
-
-function toast(msg) {
-  if (!toastEl) return;
-  if (toastTimer)     { clearTimeout(toastTimer);     toastTimer = null; }
-  if (toastHideTimer) { clearTimeout(toastHideTimer); toastHideTimer = null; }
-
-  toastEl.textContent = msg;
-  toastEl.hidden = false;
-  requestAnimationFrame(function () { toastEl.setAttribute('data-show', '1'); });
-
-  toastTimer = setTimeout(function () {
-    toastTimer = null;
-    toastEl.removeAttribute('data-show');
-    toastHideTimer = setTimeout(function () {
-      toastHideTimer = null;
-      toastEl.hidden = true;
-    }, 260);
-  }, 2400);
-}
-```
-
----
-
-### WR-04: `doWithdraw`'s pending branch never sets `amendPending`, so the "not recordable" answer evaporates on the next render
-
-**File:** `app.js:2862-2869` (compare `app.js:2634-2641`)
-
-**Issue:** `handleAmend`'s pending branch sets `amendPending = true` before re-rendering,
-so `buildReturnPanel` (app.js:2198) keeps showing the line on every subsequent render.
-`doWithdraw`'s equivalent branch replaces the row in place and writes nothing to module
-state. The next render for any reason — a language switch, a later `refreshEnrollmentState()` —
-rebuilds the panel from scratch with `amendPending` still `false`, so the explanation
-disappears and the Withdraw button returns. The guest taps it, gets the same silent
-non-result, and has no way to learn that the function is missing rather than that their tap
-missed. It also means two different code paths disagree about what "the amend function is
-absent" persists as.
-
-**Fix:** Set the flag before re-rendering, and let the renderer own the placement.
+The `pending` branch now ends without ever leaving the `submitting` freeze:
 
 ```js
 if (res.result === 'pending') {
   amendPending = true;
   var row = box.parentNode;
+  if (!row) return;              // <— also returns frozen
+  row.textContent = '';
+  row.appendChild(amendPendingLine());
+  focusAmendPending(row);
+  return;                        // <— nothing re-enables anything, nothing re-renders
+}
+```
+
+Result: after a `PGRST202` withdrawal the guest is left on a panel whose **Change your
+registration** and **Forget my details on this device** buttons are `disabled` for the rest
+of the page's life, with no re-render scheduled to rebuild them. Only a reload recovers.
+`amendPending = true` is written to module state but nothing calls `refreshEnrollmentState()`
+to act on it.
+
+The `failure` branch is fine — `setWithdrawState(box, 'failure')` sets `busy = false` and
+releases everything — which is what makes the omission on the sibling branch a defect rather
+than a design.
+
+Reachability: `withdrawEnrollment` maps `404 / PGRST202` to `pending` (`app.js:1451`). The
+function is live today, but PGRST202 is what a **stale PostgREST schema cache** answers in
+the window after any schema re-run, and this project's stated deployment procedure is the
+owner pasting and re-running the whole schema file. It is also what every guest gets if the
+database is ever rebuilt from the file with a caching delay.
+
+**Fix:** release the freeze before replacing the row, and make the early `!row` exit release
+it too.
+
+```js
+if (res.result === 'pending') {
+  amendPending = true;
+
+  /* Out of the freeze first. The box is about to be destroyed, but the edit and
+     forget controls are in sibling rows and this is the only thing that hands
+     them back. */
+  setWithdrawState(box, 'idle');
+
+  var row = box.parentNode;
   if (!row) return;
+
   row.textContent = '';
   row.appendChild(amendPendingLine());
   focusAmendPending(row);
@@ -381,320 +336,208 @@ if (res.result === 'pending') {
 }
 ```
 
----
-
-### WR-05: A transient network failure during withdrawal permanently removes the only way to withdraw, with no retry
-
-**File:** `app.js:2840-2871`, copy key `enrol.amend.pending` (`copy.js:131`)
-
-**Issue:** `withdrawEnrollment` maps a network failure (`status: 0`, `code: 'NETWORK'`,
-app.js:1293) into the same terminal branch as `PGRST202`. The row is then replaced by
-`amendPendingLine()` — a `<p>`, not a control — and the Withdraw button is gone for the
-rest of the page's life. The copy says *"Changes cannot be recorded yet. Tell the host
-directly. Your registration stays as it is."*, which is correct for a missing function and
-actively wrong for a dropped packet on mobile data: the recovery is *retry*, and retry has
-just been taken away.
-
-This is asymmetric with the phase's own design elsewhere. The form's wire-failure state
-deliberately keeps the control and relabels it `enrol.retry` (app.js:1844), for a reason
-spelled out at app.js:2607-2613. Withdrawal, the single request the same comment calls "the
-one request that most needs to be believed" (app.js:2023), gets no retry at all.
-
-**Fix:** Split the two branches, which `withdrawEnrollment` already distinguishes.
-
-```js
-if (res.result === 'pending') { /* function missing → the static line, as today */ }
-
-// The wire failed. Keep the confirmation standing so the guest can press again.
-setWithdrawState(box, 'failure');
-var q = $('.withdraw-confirm__q', box);
-if (q) q.textContent = t('enrol.fail.body');   // "Check your connection and submit again."
-var yes = $('#enrol-withdraw-yes', box);
-if (yes) { yes.textContent = t('enrol.retry'); yes.focus(); }
-```
+This also revives the currently-dead `'idle'` label path inside `setWithdrawState`
+(`app.js:2948`), which no caller reaches after this diff.
 
 ---
 
-### WR-06: `forgetIdentity()` resets three of four session flags and drops focus to `<body>` when used from the withdrawn panel
+## Warnings
 
-**File:** `app.js:2715-2722`
+### WR-01: `calendarDaysUntil`'s catch degrades to arithmetic that reintroduces gap 3's corollary — "Registration closes tomorrow" on the last day there is
 
-**Issue:**
+**File:** `app.js:3295-3297`, with the claim at `app.js:3273-3277` and the ladder at `app.js:3367-3375`
+
+**Issue:** The fallback is the deleted `daysUntil` body verbatim:
+
 ```js
-function forgetIdentity() {
-  identity.clear();
-  successShown = false;
-  amendPending  = false;
-  editing       = false;      // withdrawnShown is not reset
-  refreshEnrollmentState();
-  toast(t('enrol.identity.cleared'));
+} catch (e) {
+  return Math.ceil((ms - Date.now()) / 86400000);
 }
 ```
 
-The withdrawn panel carries its own Forget control (app.js:2264), added by 03-05 after
-`forgetIdentity` was written by 03-04. From there, `withdrawnShown` stays `true`, so
-`renderEnrollment` re-selects `body = 'withdrawn'` (app.js:2325) and rebuilds the panel —
-destroying the button the guest just pressed. The comment justifying the missing focus move
-(app.js:2709-2714) reasons only about the form: *"The only focusable thing left is the name
-field, and putting a caret in it would throw the soft keyboard up."* On the withdrawn panel
-there is no name field; focus falls to `<body>` and the next Tab restarts at the top of the
-page. That is precisely the outcome app.js:2506-2509 says every path in this section must
-prevent.
+The comment above it says the fallback "can still yield negative zero … and it is harmless
+here only because `deadlinePassed()` runs above every caller." The negative-zero half of
+that is correct and I verified it: at `-1h`, `-12h` and `-23.9h` the fallback returns `-0`,
+and `deadlinePassed()` intercepts all three before the bucket is read. But the comment
+accounts for only half the defect this plan set out to close. Measured against the
+configured deadline `2026-09-26T23:59:00+02:00`:
+
+| offset from deadline | calendar path | fallback | fallback renders |
+|---|---|---|---|
+| `+2h` (closing day) | `0` → `nudge.enrol.today` | `1` | `nudge.enrol.last` — "closes **tomorrow**" |
+| `+8h` (closing day) | `0` → today | `1` | "closes **tomorrow**" |
+| `+15h` (closing day) | `0` → today | `1` | "closes **tomorrow**" |
+| `+30h` | `1` → "tomorrow" | `2` | `nudge.enrol.soon` — "**2 days** left" |
+| `+7.4d` | `7` | `8` | drops out of the urgent bucket entirely |
+
+So on any engine where the `try` throws — `Intl.DateTimeFormat` missing IANA zone data, or
+`formatToParts` absent (pre-2017 Safari, some Android WebViews and embedded browsers) — the
+bar prints "Registration closes tomorrow" on the actual closing day, and
+`nudge.enrol.today` becomes unreachable again. That is precisely the outcome 03-09's own
+key-decision rejected as "a second false statement printed on the day the pressure is meant
+to peak" when it declined to delete the key. The degradation quietly ships the thing the
+decision refused.
+
+The fallback does not need `Intl` to be a calendar difference. It only needs to stop
+dividing milliseconds:
 
 **Fix:**
 ```js
-function forgetIdentity() {
-  var fromWithdrawn = withdrawnShown;
-
-  identity.clear();
-  successShown  = false;
-  amendPending  = false;
-  editing       = false;
-  withdrawnShown = false;      // the identity is gone; there is no registration to have left
-  refreshEnrollmentState();
-  toast(t('enrol.identity.cleared'));
-
-  // The panel that held the control was rebuilt or replaced under it. The name
-  // field is deliberately not focused, so land on the section heading instead
-  // of dropping to the document body.
-  if (fromWithdrawn) {
-    var head = $('#enrol .section__h');
-    if (head) { head.setAttribute('tabindex', '-1'); head.focus(); }
-  }
-}
+    } catch (e) {
+      /* Still a calendar difference, in the device's own zone rather than in
+         Copenhagen, which is a shorter step than falling back to a 24 hour
+         window: a window bucket cannot render "closes today" at all, and prints
+         "closes tomorrow" on the last day there is. */
+      var a = new Date(ms);
+      var b = new Date();
+      return Math.round((
+        Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()) -
+        Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())
+      ) / 86400000);
+    }
 ```
+
+Then correct the comment above it: the fallback no longer yields negative zero and no longer
+depends on `deadlinePassed()` to be harmless, which is a stronger sentence than the one
+currently written.
 
 ---
 
-### WR-07: `hideNudge()` does not cancel `showNudge()`'s pending `requestAnimationFrame`, so `registerAgain()` slides the bar in over the keyboard and then snaps it away
+### WR-02: the same mounted-guard shape sits on `handleSubmit` and `handleAmend`, where firing it would silently drop a registration the database has already accepted
 
-**File:** `app.js:3226-3247`, `app.js:2878-2884`
+**File:** `app.js:2630`, `app.js:2690`
 
-**Issue:** `showNudge` schedules `data-show="1"` in a rAF; `hideNudge` removes the attribute
-synchronously and sets a 240 ms teardown, but the queued rAF is never cancelled. Trace
-`registerAgain()`:
+**Issue:** Both continuations open with `if (!stillMounted(form)) return;` above the branch
+that writes `identity.save({...})` and flips `successShown` / `amendPending`. If that guard
+ever fires, the row exists in the database and the device has no record of it: the guest is
+shown an empty registration form with no confirmation, no error and no banner, and the
+receipt they later see is stale.
 
-1. `refreshEnrollmentState()` → `renderNudge()`. The guest withdrew, so `enrolled` is `'0'`
-   and `enrollmentReady()` is now true (the form just rendered) → `showNudge(bar)` →
-   `bar.hidden = false`, rAF queued.
-2. `focusNameField()` fires `.focus()`, which dispatches `focusin` synchronously →
-   `hideNudge(bar)` → `removeAttribute('data-show')` (a no-op; it was never set) + 240 ms timer.
-3. Next frame: the stale rAF sets `data-show="1"` → the bar **slides in** over the keyboard
-   the focus call just raised.
-4. 240 ms later: `bar.hidden = true` → it disappears with no transition.
+Today the guard is **dead**, and dead for a reason that is not obvious from the call site:
+`renderEnrollment`'s early exit at `app.js:2383-2389` preserves a standing `#enrol-form`
+across a language switch whenever the selected body is `'form'` and the mode matches, which
+is exactly the state both continuations run in. Nothing else can re-render `#enrol-body`
+during a submit, because `setFormState(form,'submitting')` disables every control the body
+contains.
 
-The bar also carries the wrong message throughout ("You have not registered yet", pointed at
-a form the guest is already typing into), which is exactly what the `focusin` yield at
-app.js:2927-2939 was written to prevent.
+So this is latent rather than live — but it is latent on a coupling nobody wrote down. Any
+future change to the early-exit condition (a new body value, an extra reconciliation case, a
+mode that rebuilds) turns it into CR-02's exact failure on the insert path, which is the one
+request this file calls the most important branch in it.
 
-**Fix:** Hold the frame handle and cancel it, the same way the timers are handled.
-
-```js
-var nudgeShowFrame = null;
-
-function showNudge(bar) {
-  if (nudgeHideTimer)  { clearTimeout(nudgeHideTimer); nudgeHideTimer = null; }
-  bar.hidden = false;
-  measureNudge();
-  document.body.setAttribute('data-nudge', '1');
-  if (nudgeShowFrame) cancelAnimationFrame(nudgeShowFrame);
-  nudgeShowFrame = requestAnimationFrame(function () {
-    nudgeShowFrame = null;
-    bar.setAttribute('data-show', '1');
-  });
-}
-
-function hideNudge(bar) {
-  if (nudgeShowFrame) { cancelAnimationFrame(nudgeShowFrame); nudgeShowFrame = null; }
-  bar.removeAttribute('data-show');
-  ...
-}
-```
-
-Also move `focusNameField()` ahead of `refreshEnrollmentState()`'s nudge pass, or have
-`registerAgain()` set a flag the bar reads, so the bar is never asked to show in the tick
-the form takes focus.
-
----
-
-### WR-08: `sbRequest`'s timeout is a no-op without `AbortController`, and the promise then never settles — the submit button stays locked forever
-
-**File:** `app.js:1264-1295`
-
-**Issue:**
-```js
-var ctl = ('AbortController' in window) ? new AbortController() : null;
-var timer = setTimeout(function () { if (ctl) ctl.abort(); }, timeoutMs || 12000);
-```
-
-With no `AbortController`, the timer fires and does nothing. `fetch` hangs, neither `.then`
-nor `.catch` runs, and `handleSubmit`'s `setFormState(form, 'submitting')` (app.js:2554) is
-permanent: every input, the textarea and the submit button stay `disabled` with no recovery
-short of a reload. This falsifies two written invariants — *"never rejects, so ... no code
-path can leave the submit button locked"* (app.js:1246-1247) and *"Every branch of the
-submit path ends in a call to this, so no code path can leave the button locked"*
-(app.js:1828-1829). The same hole disables the withdraw confirmation permanently
-(app.js:2847). The affected population is small (fetch present, AbortController absent), but
-the fix is three lines and the invariant is load-bearing for the whole phase.
-
-**Fix:** Race the fetch against the timeout instead of depending on abort alone.
+**Fix:** apply the same reshaping as CR-02 — never guard a durable write, guard only the DOM
+work — and record the dependency at the call site:
 
 ```js
-function sbRequest(method, path, body, prefer, timeoutMs) {
-  var ctl = ('AbortController' in window) ? new AbortController() : null;
-  var ms = timeoutMs || 12000;
-  var timer = null;
-  var settled = false;
+    submitEnrollment(fields, ident).then(function (res) {
+      if (res.result === 'ok' || res.result === 'pending') {
+        amendPending = (res.result === 'pending');
+        identity.save({ ... });                 // durable, and correct detached
+        successShown = true;
 
-  var timeout = new Promise(function (resolve) {
-    timer = setTimeout(function () {
-      if (ctl) ctl.abort();
-      // Resolves regardless of whether the abort could take effect, so the
-      // request always terminates somewhere defined.
-      resolve({ ok: false, status: 0, code: 'NETWORK', body: null });
-    }, ms);
-  });
-  ...
-  return Promise.race([wire, timeout]).then(function (out) {
-    clearTimeout(timer);
-    return out;
-  });
-}
-```
+        // The form may have been replaced under us. refreshEnrollmentState()
+        // renders from storage and module state, not from this node, so the
+        // receipt appears either way; only the state call on the old node and
+        // the focus landing need it to still be here.
+        if (stillMounted(form)) setFormState(form, 'success');
+        refreshEnrollmentState();
+        focusPanelHeading('enrol-success-title');
+        return;
+      }
 
----
-
-### WR-09: `renderSocialProof()` has no in-flight guard, so a stale response can overwrite a fresher head count
-
-**File:** `app.js:2399-2462`
-
-**Issue:** The function is called from `applyLanguage()` (app.js:142) and from
-`refreshEnrollmentState()` (app.js:2382), with no dedup, no cancellation and no
-generation token. Each call issues an independent 8-second GET and, on settle,
-unconditionally does `host.textContent = ''` followed by an append. Two overlapping calls
-that resolve out of order leave the **older** response on screen. The reachable case is the
-one that matters: withdraw (fires request A, which will not include the withdrawing guest),
-then switch language within the round trip (fires request B). If A resolves last, the guest
-is shown a head count that still counts them — the same "device and database disagree"
-class the phase is built around, in the one widget whose entire job is to be believed.
-
-**Fix:** A monotonic token, checked before writing.
-
-```js
-var proofSeq = 0;
-
-function renderSocialProof() {
-  var host = $('#enrol-proof');
-  if (!host || !sbConfigured()) return;
-
-  var seq = ++proofSeq;
-  sbRequest('GET', '/rest/v1/attendees?select=first_name,extra_guests', null, null, 8000)
-    .then(function (res) {
-      if (seq !== proofSeq) return;   // a newer read is already out or already landed
-      host.textContent = '';
-      ...
+      if (!stillMounted(form)) return;   // the failure branch renders into the form
+      setFormState(form, 'failure');
+      showAlert(form);
     });
-}
 ```
 
 ---
-
-### WR-10: the `extra_guests` bound is enforced only in the UI — the database accepts five times the configured maximum
-
-**File:** `supabase/schema.sql:44`, `app.js:1443-1452`
-
-**Issue:** The column check is `between 0 and 10`; `config.js` sets
-`maxGuestsPerPerson: 2` and `clampGuests`/`readGuests` enforce that client side
-(app.js:2481). Nothing server side does. A hand-rolled POST or RPC with
-`extra_guests: 10` is accepted, and it lands in `attendees.extra_guests`, which is summed
-straight into the head count (app.js:2426) the host buys food against. This is the exact
-argument section 4 of the schema makes for the photo limit — *"a limit that only exists in
-JavaScript is a suggestion"* (schema.sql:137-138) — not applied to the sibling limit.
-
-**Fix:** Either tighten the check to the real capacity, or (better, since the value lives in
-`config.js`) document the divergence explicitly at both sites so a host who raises
-`maxGuestsPerPerson` above 10 does not get a 23514 they cannot diagnose:
-
-```sql
--- Keep this bound at or above config.js enrollment.maxGuestsPerPerson. It is the
--- server side floor under a limit the UI also enforces, exactly like the photo
--- limit in section 4: a bound that only exists in JavaScript is a suggestion.
-alter table public.enrollments
-  drop constraint if exists enrollments_extra_guests_check,
-  add  constraint enrollments_extra_guests_check check (extra_guests between 0 and 4);
-```
 
 ## Info
 
-### IN-01: `enrollmentReady()` re-implements `sbConfigured()` verbatim
+### IN-01: `setWithdrawState` re-enables every button in `#enrol-body` with no memory of what was disabled before
 
-**File:** `app.js:1241-1244`, `app.js:3161-3165`
-**Issue:** Both compute `Boolean(p.supabaseUrl && (p.supabaseKey || p.supabaseAnonKey))`.
-The comment at app.js:1238-1240 says the duplication exists so the two cannot disagree —
-but copy-paste is how they *will* disagree, and one already carries an extra clause.
-**Fix:** `function enrollmentReady() { return sbConfigured() && Boolean($('#enrol-form')); }`
+**File:** `app.js:2941-2943`
+**Issue:** The release is `el.disabled = busy` across the whole body, so any control that was
+legitimately disabled for an unrelated reason is silently switched on by a withdrawal
+finishing. Nothing on the return panel ships disabled today, so this is currently benign, but
+the freeze is the only place in the file that reaches outside its own component and it does
+so without saving state.
+**Fix:** mark what the freeze disabled and release only that —
+`el.setAttribute('data-frozen','1')` on the way in, and on the way out only clear `disabled`
+on elements carrying it.
 
-### IN-02: `.group-cta` is dead CSS
+### IN-02: `renderCountdown`'s new guard is broader than its own comment claims, and couples the two states
 
-**File:** `styles.css:1136-1145`
-**Issue:** Zero references in `app.js` or `index.html` (verified by grep). `app.js:3041-3043`
-explicitly names it "the unused legacy class further down styles.css" and routes around it.
-**Fix:** Delete the rule; the comment naming it can go with it.
+**File:** `app.js:191-197`
+**Issue:** The comment says "the function cannot render either of its two states without
+these", but the past/after state (`app.js:238-242`) touches only `els.status`, `els.note`,
+`els.sr` and the label; `els.d/h/m/s` are used solely by the counting state
+(`app.js:212-215`). A missing `els.d` now silently suppresses the after-party message too,
+which the pre-guard code would have rendered. All eight nodes exist in `index.html`, so this
+is comment accuracy plus a slightly over-broad early return, not a live defect — but comment
+accuracy is load-bearing in this file.
+**Fix:** either split the guard per state, or trim the sentence to what is true: "any one of
+these missing means the markup this function was written against is gone, and returning
+quietly is better than throwing halfway through a render."
 
-### IN-03: Five copy keys are defined in all three languages and never used
+### IN-03: `toast()`'s `requestAnimationFrame` handle is still unheld, one commit after the identical rule was applied to `nudgeShowFrame`
 
-**File:** `copy.js` (`hero.cta.location`, `footer.lang`, `lang.it`, `lang.en`, `lang.da`)
-**Issue:** 15 dead strings. `hero.cta.location` has no `data-i18n` in `index.html` (the hero
-ships `hero.cta.enrol` and `hero.cta.access`); the language switch buttons hardcode
-`EN`/`IT`/`DA` (index.html:69-71) rather than reading `lang.*`; no node carries
-`footer.lang`. Pre-existing, not introduced by this phase.
-**Fix:** Delete, or wire `lang.*` into the switch buttons' `aria-label`, which would also
-give the three-letter controls accessible names in the guest's own language.
+**File:** `app.js:3566`
+**Issue:** `requestAnimationFrame(function () { toastEl.setAttribute('data-show','1'); });` is
+fired and forgotten, while `showNudge`/`hideNudge` in the same diff now hold and cancel
+theirs, and the comment at `app.js:3548-3556` states the module-scope rule for the toast's
+*timers*. I could not construct a reachable half-state for the toast — both timers are
+cleared before either is set, so no stale hide can race a queued show — so this is
+consistency rather than a bug.
+**Fix:** hold `toastShowFrame` at module scope and cancel it beside the two timers, or add a
+sentence saying why the frame is deliberately not held here when it is held twenty lines
+above.
 
-### IN-04: `submitEnrollment` gates on an exact status while the other two wire functions gate on `res.ok`
+### IN-04: `forgetIdentity` writes `tabindex="-1"` onto a static heading and never removes it
 
-**File:** `app.js:1320` vs `app.js:1353`, `app.js:1411`
-**Issue:** `if (res.status === 201)` for the insert, `if (res.ok && ...)` for both RPCs. Any
-2xx other than 201 on the insert path (a proxy normalising, a PostgREST behaviour change)
-reports a written row as a failure. Not currently reachable, but the inconsistency is a
-future trap in the single most important branch in the file.
-**Fix:** `if (res.ok) return { result: 'ok' };` — `Prefer: return=minimal` guarantees no body
-to disambiguate anyway.
-
-### IN-05: `touch_updated_at()` and `enforce_photo_limit()` carry no `set search_path`
-
-**File:** `supabase/schema.sql:56-61`, `supabase/schema.sql:141-155`
-**Issue:** Both are invoker-rights, and `touch_updated_at` inherits `search_path = ''` when
-fired from inside `amend_enrollment`, so neither is exploitable today (`now()` and `count()`
-resolve through the always-implicit `pg_catalog`, and `public.photos` is qualified). But the
-file applies the hardening to exactly one of its three functions, which reads as selective
-rather than as a standard.
-**Fix:** Add `set search_path = ''` to both, then the file has one rule with no exceptions.
-
-### IN-06: `newGuestId()` is invoked at module load purely to compute a boolean, discarding a UUID
-
-**File:** `app.js:1171`
-**Issue:** `var IDENTITY_OK = newGuestId() !== null;` mints and throws away a v4 uuid on
-every page load, and couples the capability probe to the generator's return value rather
-than to the capability.
-**Fix:** `var IDENTITY_OK = typeof crypto !== 'undefined' && (typeof crypto.randomUUID === 'function' || typeof crypto.getRandomValues === 'function');`
-
-### IN-07: `renderCountdown` guards only `els.root` but dereferences six other cached nodes
-
-**File:** `app.js:189-236`
-**Issue:** `els.d`, `els.h`, `els.m`, `els.s`, `els.status` and `els.note` are used
-unguarded, while `els.sr` and the label *are* guarded. All exist in `index.html` today, so
-this is inconsistency rather than a live crash — but the file's defensive style is otherwise
-uniform (`renderSchedule`, `renderLocation`, `renderEnrollment` all null-check every node).
-Pre-existing.
-**Fix:** Add a single `if (!els.d || !els.status) return;` alongside the root check.
-
-Also in this bucket: `doWithdraw` calls `setWithdrawState(box, 'idle')` (app.js:2862)
-immediately before `row.textContent = ''` destroys `box` — dead work on the failure path.
-Resolved as part of CR-01.
+**File:** `app.js:2816-2822`
+**Issue:** `#enrol .section__h` is markup from `index.html:217`, not a node this file rebuilds,
+so the attribute persists for the rest of the session. The same idiom in `panelHeading`
+(`app.js:1985-1990`) is applied to nodes that are discarded on the next render, so this is the
+first place the attribute outlives its use. Harmless — `tabindex="-1"` does not enter the tab
+order — but it leaves the section heading programmatically focusable forever after one tap on
+a control most guests never press.
+**Fix:** remove it once focus has landed, `head.addEventListener('blur', function () {
+head.removeAttribute('tabindex'); }, { once: true })`, or state at the site that the residue is
+accepted.
 
 ---
 
-_Reviewed: 2026-08-15_
+## What is explicitly not a finding
+
+- The absence of a test suite, the `node -e` gate style, the ES5 idiom, the three deferred
+  48px touch targets, and the four items 03-09 declined with reasons (IN-01, IN-03, IN-06 and
+  the `enrol.withdrawn.body` wording on the `gone` branch). All locked or dispositioned.
+- `public.album`'s projection. I checked it three ways: `select=*` returns the three
+  projected columns only; an `order` or `filter` on `guest_id` is a `42703` because the
+  column is not in the view; and PostgREST cannot embed through to `public.photos` or
+  `public.enrollments` because `photos.guest_id` carries no foreign key for the relationship
+  detector to find. The view is a genuine trust boundary for reads.
+- The album view running with its owner's rights. `public.attendees` proves the same shape
+  works against an RLS-enabled base table with no SELECT policy, on this project, with a live
+  row.
+- Schema idempotency. Sections 9 and 10 survive repeated whole-file runs, including the
+  `drop constraint if exists` / `add constraint` pair (the drop subcommand is processed
+  before the add within one `ALTER TABLE`) and the `create or replace view` / `grant`
+  ordering (replace preserves the grant; the grant is adjacent anyway).
+- `deadlinePassed()`'s boundary. `Date.now() > deadlineMs` is the identical test
+  `renderDeadline` used before the change, so the two surfaces cannot disagree by a second.
+- `styles.css`. The `.group-cta` deletion is clean: zero references remain across
+  `styles.css`, `app.js` and `index.html`, and the removed section header left no orphaned
+  rules.
+- `config.js`. The comment is accurate: with `maxGuestsPerPerson` above 4 the DB answers
+  `23514`, `submitEnrollment` reads it as `failed`, and the guest gets the failure banner —
+  which is what the comment promises.
+
+---
+
+_Reviewed: 2026-08-15T11:32:50Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+_Scope: `git diff ac1b2ac..HEAD -- app.js config.js styles.css supabase/schema.sql`_
