@@ -1863,6 +1863,20 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
      border instead, which is the honest answer at MOTION_INTENSITY 3. */
   .album__tile { transition: none; }
   .album__tile:active { transform: none; }
+
+  /* The deliberate opposite of .sweep::after and .map-wait__bar::after above,
+     and the distinction is the reason both kinds of rule exist. Those bars
+     carry atmosphere, so they are parked. This one carries information: it is
+     reporting real bytes leaving a phone, and a guest who prefers reduced
+     motion still needs to know their photograph is moving.
+
+     So the transition goes and nothing else does. The bar keeps updating, in
+     steps rather than by interpolation, which is the honest reading of a
+     measurement taken at intervals in the first place. It is not parked at
+     full width, which would claim a completion that has not happened, and it
+     is not hidden, which would remove the only thing on the row that says the
+     file is in flight. */
+  .queue__fill { transition: none; }
 }
 
 /* ==========================================================================
@@ -1993,6 +2007,142 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   .uploader__acts { display: block; }
   .uploader__acts .btn { width: 100%; }
 }
+
+/* The polite line. Its box is reserved in every state, which is the whole
+   reason the min-height is here: without it the submit button and the album
+   below would step down 24px the moment a batch starts and step back up when
+   it ends, under the thumb that started it. Same no-reflow guarantee phase 2
+   gave the map slot and phase 3 gave the field error box. */
+.uploader__status {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  margin: var(--s-5) 0 0;
+  min-height: var(--s-5);
+}
+
+/* .form-alert's rationale, one for one: no border and no fill. A bordered red
+   box here would be the only card on the page and would read as a browser
+   error rather than as this site. */
+.uploader__alert {
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--accent-lit);
+  margin: var(--s-3) 0 0;
+  overflow-wrap: break-word;
+}
+
+/* --------------------------------------------------------------------------
+   The submission transcript.
+
+   One numbered entry per file, and the 2px table rule under each entry is that
+   file's progress bar. That is the one genuinely bespoke idea in this phase:
+   the institutional log line is the thing that fills up while the file moves,
+   so the control gains a progress indicator without gaining a component.
+   -------------------------------------------------------------------------- */
+
+.queue {
+  list-style: none;
+  margin: var(--s-3) 0 0;
+  padding: 0;
+}
+
+/* 12px above the text and 12px plus the bar's own 2px below it, so the optical
+   rhythm is even on both sides and the bar sits exactly where the row's
+   separating rule would have been. The reason wraps under the name rather than
+   beside it, because at 320px there is no beside. */
+.queue__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "n name state"
+    "n reason reason";
+  column-gap: var(--s-2);
+  row-gap: var(--s-1);
+  align-items: baseline;
+  padding: var(--s-3) 0 calc(var(--s-3) + 2px);
+}
+
+.queue__n {
+  grid-area: n;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Wraps anywhere rather than truncating with an ellipsis. A truncated file
+   name cannot be identified, and identification is this cell's only job: the
+   operating system hands back identical names for several camera roll picks,
+   so the numeral and the full name are together the only way a guest can tell
+   which of five rows is which. */
+.queue__name {
+  grid-area: name;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.queue__state {
+  grid-area: state;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+.queue__reason {
+  grid-area: reason;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--accent-lit);
+  overflow-wrap: break-word;
+}
+
+/* 2px in every state, and no rule anywhere changes that. It is the row's
+   separating rule as much as its progress track, so if it could grow or shrink
+   every row below it would step sideways mid-batch. */
+.queue__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--rule);
+  overflow: hidden;
+}
+
+/* Moved only by a horizontal scale from a left origin, never by width. Width
+   is a layout property, and a bar updated by every progress event would then
+   trigger layout on every event, on a phone, while that same phone is decoding
+   the next image. Linear, because the underlying quantity is linear and easing
+   a real measurement makes it lie. */
+.queue__fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--rule);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--t-fast) linear;
+}
+
+/* The .sweep gating idiom: one attribute, read by CSS, written by JS. In
+   flight the fill is the lit red, which is the only text-safe red and the same
+   choice the map waiting bar had to make. */
+.queue__row[data-state="uploading"] .queue__fill,
+.queue__row[data-state="recording"] .queue__fill { background: var(--accent-lit); }
+
+/* A completed entry, in muted ink at 5.56:1 against the track. Red here would
+   read as an alarm on the one row that went right. */
+.queue__row[data-state="done"] .queue__fill { background: var(--ink-dim); }
 
 /* Two answers to two questions, at phase 2's sub-block rhythm. */
 #photos-album { margin-top: var(--s-7); }
