@@ -1,10 +1,11 @@
 ---
 phase: 4
 slug: 04-photos
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-08-15
+reviewed_at: 2026-08-15
 ---
 
 # Phase 4 — UI Design Contract
@@ -192,6 +193,10 @@ literal pixel values are permitted, and this list is closed:
    rather than a spacing value.
 3. `1px` for hairlines, matching every existing hairline in the file.
 4. `aspect-ratio: 1 / 1` on `.album__frame`, which is a ratio and not a length.
+5. `calc(var(--s-3) + 2px)` — an effective 14px — as the queue row's bottom padding only. It is
+   derived from a token rather than authored as a literal, and the 2px it adds is the bar height
+   from entry 2, not a spacing decision. Recorded here so the "this list is closed" claim above
+   stays literally true, and so 14px is never read as licence for a 14px step elsewhere.
 
 ### Spacing decisions specific to this phase
 
@@ -458,6 +463,12 @@ read once, on a page the guest scrolled past three hours earlier.
 - **Below the frame in its own band, not overlaid.** See the rejected scrim in `## Color`. The band
   also gives the tile a fixed, computable height, which is what lets the grid rows stay level when
   one name is longer than another.
+- **This refines D-08, which says "overlay caption".** D-08's intent is that the name is on the tile
+  and always readable; its stated mechanism is an overlay. The mechanism cannot be verified at build
+  time, because contrast between a name and an arbitrary guest photograph is unknowable until the
+  photograph exists, and a scrim dark enough to guarantee it would darken every tile. The band keeps
+  D-08's intent and its requirement (PH-04) intact at a computed 7.15:1 and moves only the placement.
+  Recorded explicitly so a later reader sees a refinement with a reason, not drift.
 
 ---
 
@@ -1078,7 +1089,12 @@ rather than an exception.)*
 > silently drop them.** Both concern the album's relationship to the storage objects it points at,
 > which is the one place in the phase where the spec cannot settle the answer from documentation.
 
-**Resolution:** 48 resolved explicit · 9 resolved backstop · **2 unresolved**.
+**Resolution:** 52 resolved explicit · 11 resolved backstop · **2 unresolved**.
+
+> Re-run against the `ui-consideration-probe` engine after checker approval surfaced six applicable
+> cells this section had not authored — `partial` on E1, `overflow` on E5, E7 and E9, and
+> `zero-one-many` and `long-text` on E9. All six are now resolved above. Four are explicit; two are
+> backstop copy-length checks at 320px, matching the pattern the rest of the section already uses.
 
 Lift rule for the planner: `explicit` rows become plain `must_haves.truths` strings. `backstop` rows
 become flat-scalar items `{ statement: <the check>, verification: backstop }`. `unresolved` rows
@@ -1092,6 +1108,7 @@ become stated planner assumptions and must not be dropped.
 | loading | ✅ covered | Idle has no loading state. The status line's 24px box is reserved and empty, so nothing moves when a batch starts. |
 | error | ✅ covered | Idle carries no error. The alert node exists from first render, `hidden`, and is filled only when a batch produces a refusal or a failure. |
 | populated | ✅ covered | The button is `.btn.btn--primary` at 52px, 56px coarse, carrying `photos.cta`, full width at 480px and below. |
+| partial | ✅ covered | Idle reached after a partially failed batch shows the remaining count reflecting only the rows that actually landed, and the previous batch's queue is gone. The control returns to plain idle rather than carrying a residue of the last attempt, because the retry offer lives in the `partial` control state (E4) and expires when the guest picks a new batch. |
 | zero-one-many | ✅ covered | Exactly one submit control exists at any time. The quota state removes it from the DOM rather than disabling it. |
 | overflow | 🧪 backstop | The Danish `photos.cta` label ("Aflever fotografier") does not wrap the button onto a second line at 320px. |
 | long-text | 🧪 backstop | The Danish `photos.permanent` line renders on at most three lines at 320px without pushing the button below the fold when the section is scrolled to. |
@@ -1145,6 +1162,7 @@ become stated planner assumptions and must not be dropped.
 | partial | ✅ covered | Mid-batch overflow uploads what fits, refuses the rest by name in the queue rows, and flips to the quota body when the batch settles. |
 | loading | ✅ covered | The quota body has no loading state. It is reached from a stored count at render, or after a batch settles. |
 | zero-one-many | ✅ covered | A server `P0001` after a local count drift sets the local count to five, shows `photos.refuse.server` on that row, and flips to the quota body. It is never retried with a fresh path, because the `before insert` trigger fires ahead of the unique constraint and a guest at five sees `P0001` for a collision too. |
+| overflow | 🧪 backstop | The quota panel introduces no horizontal scroll at 320px in any of the three languages. It carries no control, no queue and no grid, so the only overflow axis is the copy itself, and the longest of the three bodies is the test case. |
 | long-text | 🧪 backstop | The Danish `photos.full.body` renders on at most four lines at 320px without the panel overflowing. |
 
 ### E6: Album grid
@@ -1168,6 +1186,7 @@ become stated planner assumptions and must not be dropped.
 | populated | ✅ covered | The empty line and the count line occupy the same slot, so the only thing that changes when the first photograph lands is that a grid appears below. |
 | loading | ✅ covered | See E9. |
 | error | ✅ covered | An empty album and a failed fetch are visually distinct: empty shows the line, failed shows nothing at all. |
+| overflow | ✅ covered | The empty state has no overflow axis: the grid container is not rendered at all when the row count is zero, and the register slot holds exactly one short string. There is no list to grow and no tile to widen, so no horizontal scroll is reachable from this state. |
 | long-text | 🧪 backstop | The Danish `photos.album.empty` holds one line at 320px. |
 
 ### E8: Unconfigured and closed bodies
@@ -1190,6 +1209,9 @@ become stated planner assumptions and must not be dropped.
 | empty | ✅ covered | No skeleton grid. A skeleton of N grey squares is a fabricated claim about content the site does not have, which is the same class of lie as a fake progress bar, and this project has refused that twice. |
 | error | ✅ covered | An 8 second timeout on the album fetch, matching phase 3's social proof read. On timeout the block is absent, silently. |
 | populated | ✅ covered | The loading line is replaced in place by the count line, and the grid arrives below it, growing the page downward into empty space rather than displacing anything the guest is touching. |
+| overflow | ✅ covered | The loading state renders one line and no grid, so it has no overflow axis. The tiles are not reserved in advance, which is the same refusal as the skeleton above: reserving N boxes would be a claim about a count the fetch has not returned yet. |
+| zero-one-many | ✅ covered | One line, always, regardless of how many rows are inbound. The loading state never guesses or pluralises a count, because the count is exactly the thing it does not know yet, and a guessed number that then corrects itself is worse than no number. |
+| long-text | 🧪 backstop | The Danish `photos.album.loading` holds one line at 320px in the register slot. |
 | partial | **⚠ unresolved** | **Planner must treat as assumption.** A tile whose object 404s is hidden via `img.onerror`, but the head line's count is computed from the fetched row count and therefore over-counts by the number of hidden tiles for as long as such rows exist. This window is real during the owner's cleanup of the research artifacts. Options for the planner: recount after all images settle (changes a number under the guest), or accept the disagreement and document it. Not decided here. |
 | loading | **⚠ unresolved** | **Planner must treat as assumption.** The album refetch fires immediately after a successful upload (D-12), and it is not established whether the just-written object is readable through the public read path at that instant or whether the guest's own tile can render broken for a few seconds. That is the single moment the phase is designed around. Candidate mitigations: delay the refetch by a short interval, or render the locally produced blob into the first tile until the fetched URL resolves. Not decided here, and worth a probe before the plan commits. |
 
