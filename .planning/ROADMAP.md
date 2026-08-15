@@ -145,7 +145,7 @@ group with one more tap, and is never nudged again.
 - Shared album view with uploader names
 - Graceful unconfigured state
 
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 **Wave 1**
@@ -158,7 +158,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 04-03-PLAN.md — The five bodies, the opening gate on the clock that already exists, and the count above the button
+- [x] 04-03-PLAN.md — The five bodies, the opening gate on the clock that already exists, and the count above the button
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
