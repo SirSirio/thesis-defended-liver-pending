@@ -1130,21 +1130,6 @@ body[data-nudge="1"] { padding-bottom: calc(var(--nudge-h, 76px) + var(--s-2)); 
 }
 
 /* --------------------------------------------------------------------------
-   WhatsApp handoff
-   -------------------------------------------------------------------------- */
-
-.group-cta {
-  display: block;
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--r-sm);
-  padding: var(--s-5);
-  max-width: 62ch;
-  text-decoration: none;
-}
-
-/* --------------------------------------------------------------------------
    Toast
    -------------------------------------------------------------------------- */
 
