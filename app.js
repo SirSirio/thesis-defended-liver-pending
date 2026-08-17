@@ -2503,6 +2503,15 @@
     // Registering changes the number the guest just changed, so it is re-read
     // here rather than only on the next load.
     renderSocialProof();
+    /* Last, and it belongs here for the same reason the two above do. The
+       photos ladder is a pure function of ident.name, ident.guest_id and the
+       stored photo count, and every enrollment control writes at least one of
+       those three. Without this call the gate stands after a registration and,
+       worse, the upload control stands after "forget this device": the next
+       pick would send bytes to the bucket under a null identity and leave an
+       orphan object per file. renderPhotos()'s mid batch skip guard makes it
+       safe to call at any moment. */
+    renderPhotos();
   }
 
   /* ======================================================================
@@ -4727,6 +4736,23 @@
     var i, rec;
 
     photoIdent = identity.get();
+
+    /* The second half of the identity guarantee, and it is deliberately not
+       the same half as the render fan out above. A control on the screen is
+       evidence of an identity that existed when it was painted; this is the
+       only place that reads the identity the bytes will actually be filed
+       under. If the two have drifted the batch is refused before a single file
+       is decoded, and the ladder is asked again so the guest lands on the gate
+       rather than watching five files be uploaded and then rejected by a not
+       null column. No row state is written and no queue is drawn, because
+       nothing was accepted: this is not a batch that failed, it is a batch
+       that never began. */
+    if (!photoIdent || !photoIdent.guest_id || !photoIdent.name) {
+      photoBatch = [];
+      renderPhotos();
+      return;
+    }
+
     photoBatch = [];
     setUploaderStatus(null);
     setUploaderAlert(null);
