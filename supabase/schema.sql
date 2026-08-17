@@ -51,11 +51,32 @@
 -- a trigger that can count and one that cannot, and it is provable without
 -- writing a row, which is why it is the probe recorded here.
 --
--- One half of section 4 is still unproven on the wire: that a sixth photo
--- under one guest_id is refused with photo_limit_reached. Proving it means
--- writing five real rows, and nothing in this file can delete them again,
--- because no delete rule exists for anyone. Phase 4 owns that proof, and it
--- should carry it as an explicit task rather than assume it.
+-- The other half of section 4 is proven too, as of 2026-08-15. Six inserts
+-- were executed against this project under a throwaway guest_id, with name set
+-- to ZZTEST DeleteMe, the same marker the previous cleanup used and the one the
+-- owner already recognises. The first five were accepted with 201 and an empty
+-- body. The sixth was refused with 400 and code P0001, which is
+-- raise_exception, carrying the trigger's own message photo_limit_reached. All
+-- five were then read back through public.album and all five were there, which
+-- is what makes this proof rather than a status code. A seventh insert under a
+-- different guest_id was accepted, so the limit is per identity and not global,
+-- which is what the site has always claimed it is.
+--
+-- The same probe surfaced an ordering fact worth writing down. The trigger in
+-- section 4 fires before insert, so it runs before the unique constraint on
+-- storage_path is evaluated. A guest already at five therefore receives P0001
+-- for a path collision as well, and cannot tell the two apart. The site treats
+-- that code as being at the limit, unconditionally, and never retries with a
+-- fresh path.
+--
+-- Section 6 was changed on 2026-08-16. The party-photos bucket record gains a
+-- byte counted size ceiling of three mebibytes and a list of one accepted
+-- declared type, and the insert updates an existing bucket instead of stepping
+-- over it. Section 6's own comment says which of those two is a control and
+-- which is hygiene, and does not describe either as the other. This paragraph
+-- describes the file and not the database: the bucket carries the two limits
+-- from the moment this file is run in the SQL editor and not before, and until
+-- then the bucket accepts what it has always accepted.
 -- ============================================================================
 
 
@@ -208,6 +229,13 @@ drop policy if exists "anon can view album" on public.photos;
 -- rule on this table, so a count made with the visitor's rights would be
 -- filtered by row security down to zero for every guest, forever, and the
 -- limit would stop being a limit while still appearing to be one.
+--
+-- The number below and photos.maxPerGuest in config.js agree today, and they
+-- have to move together, which is the same arrangement section 10 describes for
+-- the guest count bound. The site stops a guest at the config number and this
+-- is the floor underneath it. Raise the config value alone and the database
+-- refuses the sixth photograph anyway, so a guest is promised six and given
+-- five. Raise this one first, then that one.
 -- ============================================================================
 
 create or replace function public.enforce_photo_limit()
@@ -260,11 +288,47 @@ grant select on public.attendees to anon;
 
 -- ============================================================================
 -- 6. STORAGE BUCKET for the photos
+-- ----------------------------------------------------------------------------
+-- Two limits on the bucket record itself, and they are the only rules here that
+-- a crafted request cannot walk around. Everything the website checks before an
+-- upload protects a guest from picking the wrong file; none of it protects this
+-- bucket, because the key is public by design and anyone holding it can talk to
+-- the API directly.
+--
+-- The size ceiling is the real one. It is counted on the bytes that arrive, so
+-- it holds against anything, including a request that never went near the site.
+-- Three mebibytes, written below in bytes because that is what the column
+-- stores. That is roughly ten times what the website produces after it shrinks
+-- a photo, and small enough that nobody fills the free tier.
+--
+-- It is not the same number as photos.maxFileSizeMb in config.js and the two
+-- must not be reconciled into one. That one is twelve megabytes and it stops a
+-- phone from trying to decode something that would kill the tab, before the
+-- shrink. This one is three mebibytes and it stops this bucket from being
+-- filled, after the shrink. Two numbers, two jobs.
+--
+-- The type list is hygiene rather than a wall. Supabase checks the type the
+-- uploader DECLARES, not the bytes, so anyone can claim a photo and send
+-- something else. It still earns its line: it stops accidents and casual junk,
+-- and it keeps the album to one format, which is what the site produces anyway.
+-- It is not a control and nothing here should be written as if it were.
+--
+-- The insert below used to end by stepping silently over a bucket that already
+-- exists, which meant it applied nothing at all here, because this bucket has
+-- existed since the first run. So it updates instead, in the same idempotent
+-- shape section 7 uses for the withdrawn column.
+--
+-- One thing to know before you meet it: with a type list set, making a folder
+-- through the dashboard can be refused, because the empty placeholder file it
+-- creates is not a jpeg. Deleting is unaffected.
 -- ============================================================================
 
-insert into storage.buckets (id, name, public)
-values ('party-photos', 'party-photos', true)
-on conflict (id) do nothing;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('party-photos', 'party-photos', true, 3145728, array['image/jpeg'])
+on conflict (id) do update
+  set public             = excluded.public,
+      file_size_limit    = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "anon can upload party photos" on storage.objects;
 create policy "anon can upload party photos"
