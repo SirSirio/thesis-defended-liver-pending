@@ -231,27 +231,17 @@
     <div class="wrap">
       <h2 class="section__h" data-i18n="facts.heading">Course information</h2>
 
+      <!-- Twelve rows became four and a fold, and which four is the whole
+           decision. These are the rows that answer a question a guest actually
+           has: when, where, do I have to do anything, and by when. They are
+           never behind a disclosure and they are never below one.
+
+           The eight rows underneath are the joke. The joke is the point of
+           this site and it is not being cut, only folded, which is exactly
+           what a real course page does with the half nobody reads. Every id
+           travels with its row, so renderSchedule keeps writing to the same
+           four nodes it always did. -->
       <dl class="facts">
-        <div class="facts__row">
-          <dt data-i18n="facts.number">Course number</dt>
-          <dd class="mono" id="fact-number">03102</dd>
-        </div>
-        <div class="facts__row">
-          <dt data-i18n="facts.ects">Points (ECTS)</dt>
-          <dd data-i18n="facts.ects.value">5 (not transferable)</dd>
-        </div>
-        <div class="facts__row">
-          <dt data-i18n="facts.type">Course type</dt>
-          <dd data-i18n="facts.type.value">MSc, mandatory</dd>
-        </div>
-        <div class="facts__row">
-          <dt data-i18n="facts.language">Language of instruction</dt>
-          <dd data-i18n="facts.language.value">Italian, English and Danish</dd>
-        </div>
-        <div class="facts__row">
-          <dt data-i18n="facts.duration">Duration</dt>
-          <dd data-i18n="facts.duration.value">One evening (minimum)</dd>
-        </div>
         <div class="facts__row">
           <dt data-i18n="facts.schedule">Scheduled</dt>
           <dd class="mono" id="fact-schedule">3 October 2026, 16:00</dd>
@@ -259,18 +249,6 @@
         <div class="facts__row">
           <dt data-i18n="facts.location">Location</dt>
           <dd id="fact-location" data-i18n="facts.location.tbd">To be announced</dd>
-        </div>
-        <div class="facts__row">
-          <dt data-i18n="facts.prereq">Prerequisites</dt>
-          <dd data-i18n="facts.prereq.value">None. Attendance at the actual defence was not required either.</dd>
-        </div>
-        <div class="facts__row">
-          <dt data-i18n="facts.exam">Form of examination</dt>
-          <dd data-i18n="facts.exam.value">Continuous assessment, conducted informally</dd>
-        </div>
-        <div class="facts__row">
-          <dt data-i18n="facts.responsible">Responsible</dt>
-          <dd id="fact-host">Sirio</dd>
         </div>
         <div class="facts__row">
           <dt data-i18n="facts.registration">Registration</dt>
@@ -284,6 +262,53 @@
           <dd class="mono" id="fact-deadline">26 September 2026</dd>
         </div>
       </dl>
+
+      <!-- A native details, not a scripted accordion. It opens with no
+           JavaScript at all, it is in the tab order for free, a screen reader
+           already knows what it is, and browser find-in-page opens it to show
+           a match. Nothing here needed inventing. -->
+      <details class="fold">
+        <summary class="fold__sum">
+          <span data-i18n="facts.more">The rest of the course description</span>
+          <span class="fold__chev" aria-hidden="true"></span>
+        </summary>
+        <div class="fold__body">
+          <dl class="facts">
+            <div class="facts__row">
+              <dt data-i18n="facts.number">Course number</dt>
+              <dd class="mono" id="fact-number">03102</dd>
+            </div>
+            <div class="facts__row">
+              <dt data-i18n="facts.ects">Points (ECTS)</dt>
+              <dd data-i18n="facts.ects.value">5 (not transferable)</dd>
+            </div>
+            <div class="facts__row">
+              <dt data-i18n="facts.type">Course type</dt>
+              <dd data-i18n="facts.type.value">MSc, mandatory</dd>
+            </div>
+            <div class="facts__row">
+              <dt data-i18n="facts.language">Language of instruction</dt>
+              <dd data-i18n="facts.language.value">Italian, English and Danish</dd>
+            </div>
+            <div class="facts__row">
+              <dt data-i18n="facts.duration">Duration</dt>
+              <dd data-i18n="facts.duration.value">One evening (minimum)</dd>
+            </div>
+            <div class="facts__row">
+              <dt data-i18n="facts.prereq">Prerequisites</dt>
+              <dd data-i18n="facts.prereq.value">None. Attendance at the actual defence was not required either.</dd>
+            </div>
+            <div class="facts__row">
+              <dt data-i18n="facts.exam">Form of examination</dt>
+              <dd data-i18n="facts.exam.value">Continuous assessment, conducted informally</dd>
+            </div>
+            <div class="facts__row">
+              <dt data-i18n="facts.responsible">Responsible</dt>
+              <dd id="fact-host">Sirio</dd>
+            </div>
+          </dl>
+        </div>
+      </details>
     </div>
   </section>
 
@@ -297,14 +322,27 @@
       <h2 class="section__h" data-i18n="obj.heading">Learning objectives</h2>
       <p class="section__lede" data-i18n="obj.intro">A student who has met the objectives of the course will be able to:</p>
 
-      <ul class="objectives">
-        <li data-i18n="obj.1">Locate the correct entrance to the building on the first attempt</li>
-        <li data-i18n="obj.2">Congratulate the host without asking what the thesis was about</li>
-        <li data-i18n="obj.3">Identify at least three people they have never met before</li>
-        <li data-i18n="obj.4">Operate a quiz interface under non ideal conditions</li>
-        <li data-i18n="obj.5">Document the evening photographically, within the stated upload limit</li>
-        <li data-i18n="obj.6">Assess their own capacity accurately, and act on that assessment</li>
-      </ul>
+      <!-- Ships open, and app.js closes it below 901px. That direction is
+           deliberate: a phone gets the fold, a desktop gets the list, and a
+           browser where the script never ran gets the list too, which is the
+           behaviour this section had before. Failing open is the right way for
+           a disclosure to fail. -->
+      <details class="fold fold--obj" id="obj-fold" open>
+        <summary class="fold__sum">
+          <span data-i18n="obj.more">The six learning objectives</span>
+          <span class="fold__chev" aria-hidden="true"></span>
+        </summary>
+        <div class="fold__body">
+          <ul class="objectives">
+            <li data-i18n="obj.1">Locate the correct entrance to the building on the first attempt</li>
+            <li data-i18n="obj.2">Congratulate the host without asking what the thesis was about</li>
+            <li data-i18n="obj.3">Identify at least three people they have never met before</li>
+            <li data-i18n="obj.4">Operate a quiz interface under non ideal conditions</li>
+            <li data-i18n="obj.5">Document the evening photographically, within the stated upload limit</li>
+            <li data-i18n="obj.6">Assess their own capacity accurately, and act on that assessment</li>
+          </ul>
+        </div>
+      </details>
     </div>
   </section>
 

@@ -518,6 +518,22 @@
      who is mid sentence when it fires does not get the sentence moved.
      ====================================================================== */
 
+  /* The objectives list ships open and is closed here on a phone only, which
+     is the safe direction: a browser where this never runs shows the list,
+     which is what this section did before. A disclosure that fails open loses
+     nothing; one that fails closed hides content behind a control that may
+     also be broken.
+
+     Only touched once, on load. A guest who opens it and then rotates the
+     phone has made a decision and it is not re-made for them. */
+  function foldObjectivesOnPhone() {
+    var fold = $('#obj-fold');
+    if (!fold || !window.matchMedia) return;
+    try {
+      if (!window.matchMedia('(min-width: 901px)').matches) fold.removeAttribute('open');
+    } catch (e) { /* leave it open */ }
+  }
+
   var AWAKEN_AFTER_MS = 3000;
   var awakenTimer = null;
 
@@ -6512,6 +6528,7 @@
     wireSaveDate();
     wireNav();
     wireLightboxKeys();
+    foldObjectivesOnPhone();
     scheduleAwakening();
     applyLanguage();
     startClock();

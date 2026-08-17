@@ -2906,6 +2906,70 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
 }
 
 /* ==========================================================================
+   FOLDS
+
+   Native details and summary. No scripted accordion, because the native one
+   is already in the tab order, already announced correctly, and already
+   opened by the browser's own find-in-page when a match is inside it.
+   ========================================================================== */
+
+.fold { margin-top: var(--s-5); }
+
+.fold__sum {
+  display: flex; align-items: center; gap: var(--s-3);
+  min-height: 52px;
+  padding: var(--s-3) var(--s-4);
+  cursor: pointer;
+  list-style: none;                /* the default marker, removed twice over */
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  background: rgba(255, 255, 255, calc(0.03 + 0.02 * var(--glass)));
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  transition: color var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out);
+}
+.fold__sum::-webkit-details-marker { display: none; }
+
+@media (hover: hover) and (pointer: fine) {
+  .fold__sum:hover { color: var(--ink); border-color: var(--rule-lit); }
+}
+.fold__sum:active { transform: scale(0.995); }
+
+/* Two strokes rotated into a chevron, so there is no icon file and no
+   hand drawn path. Rotates a further 180 degrees when the fold is open. */
+.fold__chev {
+  margin-left: auto;
+  width: 9px; height: 9px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform var(--t-base) var(--ease-both);
+}
+details[open] > .fold__sum .fold__chev {
+  transform: rotate(225deg) translate(-2px, -2px);
+}
+
+/* The content is not height animated. details hides its own children when
+   closed, so a height transition needs script to hold it open through the
+   collapse, and height is not a property this project animates anyway. A
+   short fade and lift on open is honest about what it is and costs nothing. */
+.fold__body { padding-top: var(--s-2); }
+
+@media (prefers-reduced-motion: no-preference) {
+  details[open] > .fold__body {
+    animation: fold-in 280ms var(--ease-out) both;
+  }
+}
+
+@keyframes fold-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ==========================================================================
    THE GALLERY
 
    The album's own section. The grid above is kept and lifted rather than
