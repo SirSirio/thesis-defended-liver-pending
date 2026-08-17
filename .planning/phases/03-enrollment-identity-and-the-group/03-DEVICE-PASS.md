@@ -49,14 +49,14 @@ from plan 03-02 is what is being checked here, not the guess it replaces.
 
 | Check | iOS result | Android result | Note |
 |---|---|---|---|
-| With the bar shown, the countdown clock can be scrolled to a position where no part of it sits behind the bar | | | |
-| Same for `.addr__value`, the address line | | | |
-| Same for `.video-slot`, the door video slot | | | |
-| The footer's last line is fully visible at maximum scroll | | | |
-| At 320x568 | | | |
-| At 375x667 | | | |
-| At 390x844 | | | |
-| At 430x932 | | | |
+| With the bar shown, the countdown clock can be scrolled to a position where no part of it sits behind the bar | pass | pass | Owner, 2026-08-17. |
+| Same for `.addr__value`, the address line | pass | pass | Owner, 2026-08-17. |
+| Same for `.video-slot`, the door video slot | pass | pass | Owner, 2026-08-17. |
+| The footer's last line is fully visible at maximum scroll | pass | pass | Owner, 2026-08-17. |
+| At 320x568 | | | Not walked. See the attribution note below. |
+| At 375x667 | | | Not walked. |
+| At 390x844 | | | Not walked. |
+| At 430x932 | | | Not walked. |
 | iOS Safari only: scrolling collapses the browser toolbar and the reserve stays correct through the change | | n/a | |
 | Rotating to landscape and back re-measures, with no gap and no overlap left behind | | | |
 | Switching to Danish, whose nudge copy may wrap to two lines, re-measures the bar height | | | |
@@ -64,6 +64,23 @@ from plan 03-02 is what is being checked here, not the guess it replaces.
 | A toast fired after dismissing does not land underneath the bar | | | |
 
 **Desk note, 03-06.** Nothing in this table was answered at the desk and nothing in it can be.
+
+**Attribution note, 2026-08-17.** The four filled rows above are the owner's own pass on real iOS
+Safari and real Android Chrome, run against the live site and reported during UAT as
+`03-UAT.md` test 1. They are recorded at the granularity that was actually observed and no
+finer: the owner scrolled a real phone and confirmed that none of the three elements sits behind
+the bar and that the footer's last line is reachable.
+
+The remaining rows are deliberately left blank rather than inferred from that same "ok". The four
+viewport rows name specific sizes that were not individually walked, and rotation, the Danish
+two-line re-measure, the dismiss jump and the post-dismiss toast each test a distinct behaviour
+that a scroll-and-look pass does not exercise. Writing a result into a row the pass did not reach
+would defeat the purpose this sheet was created for, which its own opening paragraph states: a
+record checkable against something written rather than against somebody's recollection.
+
+This matters beyond bookkeeping. `03-02:T-03-09` and `03-06:T-03-38` are both high severity and
+both name this table as their evidence, so phase 03 stays blocked until the rows above carry
+results. See `03-SECURITY.md`.
 Every row depends on `env(safe-area-inset-bottom)`, which is 0 in a desktop browser, or on iOS
 Safari's collapsing toolbar, which does not exist there, and this executor had no browser of any
 kind. The structural half is gated and green: `--nudge-h` is written from `offsetHeight`, a
