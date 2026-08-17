@@ -505,7 +505,7 @@
   /* ======================================================================
      THE AWAKENING
 
-     For three seconds this is a DTU course page. Then it stops being one.
+     For five seconds this is a DTU course page. Then it stops being one.
 
      Deliberately here and not in motion.js. The morph is the site's identity
      rather than an embellishment on it, it is CSS from end to end, and it has
@@ -597,7 +597,7 @@
 
     /* A guest who has started touching the page has stopped reading the hero,
        so the joke has had its moment and holding the page stiff for the rest
-       of the three seconds is just a slower site.
+       of the five seconds is just a slower site.
 
        Deliberately not a scroll listener. This file bans those and the ban is
        worth keeping literal, even though a once-and-unhooked passive handler

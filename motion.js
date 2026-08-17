@@ -139,19 +139,44 @@
       }
     });
 
-    // The composure going, section by section. Half a degree, alternating.
-    // Small enough to feel wrong rather than to look broken.
-    $$('[data-zone="unhinged"]').forEach(function (sec, i) {
-      if (SPARED[sec.id]) return;
+    /* The composure goes in the LABELS, never in the content.
 
-      gsap.fromTo(sec,
-        { rotate: -0.35 * (i % 2 ? -1 : 1) },
-        {
-          rotate: 0.7 * (i % 2 ? -1 : 1),
-          ease: 'none',
-          scrollTrigger: { trigger: sec, start: 'top bottom', end: 'bottom top', scrub: 0.6 }
-        });
-    });
+       This used to rotate whole sections, and on the album that was plainly
+       wrong: a gallery is a grid of rectangles, and rotating rectangles does
+       not read as a page losing its nerve, it reads as broken alignment. The
+       one section that most needs to look deliberate was the one being pushed
+       out of true. It also made every tilted section wider than the viewport,
+       which is where the sideways scroll came from.
+
+       Type can lean and still be read; a photograph cannot. So the heading of
+       an unhinged section drifts off its baseline while everything underneath
+       it stays exactly where it was put. The institution loses its composure,
+       the information does not. That is DSG-04's actual claim, and rotating
+       the content was never a good reading of it. */
+    $$('[data-zone="unhinged"] .section__h, [data-zone="slipping"] .section__h')
+      .filter(function (h) {
+        // Location and Building access stay completely straight, headings
+        // included. They are the two sections read outdoors in the dark, and
+        // nothing about them should look like it is misbehaving.
+        var sec = h.closest('.section');
+        return !(sec && SPARED[sec.id]);
+      })
+      .forEach(function (h, i) {
+        var dir = i % 2 ? -1 : 1;
+        gsap.fromTo(h,
+          { rotate: -0.6 * dir, x: -3 * dir },
+          {
+            rotate: 1.4 * dir,
+            x: 5 * dir,
+            ease: 'none',
+            scrollTrigger: {
+              trigger: h.closest('.section') || h,
+              start: 'top bottom',
+              end: 'bottom top',
+              scrub: 0.6
+            }
+          });
+      });
   }
 
   /* Slipping: the objectives arrive slightly out of true and straighten as

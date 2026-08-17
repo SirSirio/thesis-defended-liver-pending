@@ -31,7 +31,7 @@
 
   /* Shape and surface. See THE AWAKENING below. These are the institutional
      values, which are the ones the page loads with and holds for three
-     seconds. DTU is a squared off brand and for those three seconds this is a
+     seconds. DTU is a squared off brand and for those five seconds this is a
      DTU page. --glass and --lift are 0, so every glass surface on the site is
      currently doing nothing at all. */
   --r-sm: 2px;
@@ -76,7 +76,7 @@
 /* ==========================================================================
    THE AWAKENING
 
-   The page loads as a DTU course page and stays one for three seconds. Squared
+   The page loads as a DTU course page and stays one for five seconds. Squared
    corners, flat surfaces, no glass, nothing moving. Long enough to read the
    course number and believe it. Then the mask slips and the whole thing morphs
    into something that is obviously not a university website.
@@ -131,7 +131,7 @@
    and below every word on the page, which works because nothing between here
    and <body> creates a stacking context.
 
-   Opacity is --glass, so for the first three seconds there is no mood lighting
+   Opacity is --glass, so for the first five seconds there is no mood lighting
    on the university's course page, and it fades up as part of the same morph
    that rounds the corners.
 

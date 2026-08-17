@@ -118,7 +118,7 @@ clamp max `6rem`.
 Added 2026-08-17 on the owner's instruction, and it supersedes the flat Shape Consistency Lock
 above rather than breaking it.
 
-The page loads as a DTU course page and stays one for **three seconds**: squared corners, flat
+The page loads as a DTU course page and stays one for **five seconds**: squared corners, flat
 surfaces, a hairline under a full-width bar, no ambient light. Long enough to read the course
 number and take it at face value. Then the mask slips and it morphs into something obviously not
 a university website: corners round, the bar becomes a floating glass pill, and two red masses
@@ -143,8 +143,17 @@ Rules that hold:
 - **Under `prefers-reduced-motion` the mask still slips, it just does not slide.** The reveal is
   the joke and it is kept; only the interpolation goes.
 - **Ambient light is DTU red only.** The secondary palette stays confined to transient motion
-  (confetti, particles). Ambient lighting is not transient. The scene is unchanged: a university
-  building at night, one red exit sign still lit.
+  (confetti, particles, the falling droplets). Ambient lighting is not transient. The scene is
+  unchanged: a university building at night, one red exit sign still lit.
+- **The morph is announced by a dispense**, because the host's thesis is modular automated liquid
+  dispensing: a peristaltic pump, a tube, a needle, and a droplet that the page transforms on the
+  impact of. Six nozzles keep dispensing afterwards, one per DTU secondary colour, fired in
+  sequence rather than at random because the thesis includes a dispense choreography simulator and
+  a scatter would be the wrong depiction.
+- **Content never leans. Labels do.** The degradation arc rotates section *headings*, never
+  sections. Type can lean and still be read; a photograph cannot, and rotating a gallery reads as
+  broken alignment rather than as a page losing its nerve. Location and Building access stay
+  perfectly straight, headings included.
 
 ## Attribution boundary
 
