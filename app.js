@@ -595,22 +595,16 @@
     // Armed so the drop lands on AWAKEN_AFTER_MS, not so it starts there.
     dispenseTimer = setTimeout(beginReveal, Math.max(0, AWAKEN_AFTER_MS - DISPENSE_LEAD_MS));
 
-    /* A guest who has started touching the page has stopped reading the hero,
-       so the joke has had its moment and holding the page stiff for the rest
-       of the five seconds is just a slower site.
+    /* There is deliberately no "wake early on first touch" shortcut here.
 
-       Deliberately not a scroll listener. This file bans those and the ban is
-       worth keeping literal, even though a once-and-unhooked passive handler
-       would do no per frame work. touchstart and pointerdown cover the phone
-       this is written for, and a desktop guest spinning a wheel simply gets
-       the morph on the timer, which is the behaviour anyway. */
-    var onFirstTouch = function () {
-      window.removeEventListener('touchstart', onFirstTouch);
-      window.removeEventListener('pointerdown', onFirstTouch);
-      beginReveal();
-    };
-    window.addEventListener('touchstart', onFirstTouch, { passive: true });
-    window.addEventListener('pointerdown', onFirstTouch, { passive: true });
+       There was one, and on a phone it defeated the whole sequence: the tap
+       that triggers a reload lands as a pointerdown on the newly loaded page,
+       so the morph fired the instant the guest refreshed and the five seconds
+       of straight faced DTU never happened. The owner reported exactly that.
+
+       The five seconds are the joke. Nothing may pre-empt them, and the
+       supposed benefit of the shortcut, saving an impatient guest three
+       seconds, was speculative where the damage was not. */
   }
 
   /* ======================================================================
@@ -622,6 +616,7 @@
      ====================================================================== */
 
   var navOpen = false;
+  var navPushed = false;
   var navShowFrame = null;
   var navReturnFocus = null;
 
@@ -684,6 +679,30 @@
     var gb = grid.getBoundingClientRect();
     var bb = box.getBoundingClientRect();
 
+    /* The tiles are mid entrance when this runs: they animate from
+       translateY(16px) to none, and getBoundingClientRect reports where a
+       thing is drawn, not where it was laid out. So the box was being placed
+       16px below the tile and never caught up, because the box has its own
+       transition and was already at rest by the time the tile finished.
+
+       Subtracting the tile's in flight translation gives its resting position,
+       which is the one the highlight has to agree with. Read from the computed
+       matrix rather than assumed, so it stays correct if the entrance changes. */
+    var shiftX = 0, shiftY = 0;
+    try {
+      var tf = window.getComputedStyle(box).transform;
+      if (tf && tf !== 'none') {
+        var n = tf.slice(tf.indexOf('(') + 1, tf.lastIndexOf(')')).split(',');
+        if (n.length === 6) {            // matrix(a,b,c,d,tx,ty)
+          shiftX = parseFloat(n[4]) || 0;
+          shiftY = parseFloat(n[5]) || 0;
+        } else if (n.length === 16) {    // matrix3d
+          shiftX = parseFloat(n[12]) || 0;
+          shiftY = parseFloat(n[13]) || 0;
+        }
+      }
+    } catch (e) { /* leave both at zero and place it where it is drawn */ }
+
     // Nothing has been laid out yet. Try again next frame rather than writing
     // a position that is known to be wrong.
     if (!bb.width || !bb.height) {
@@ -693,7 +712,9 @@
 
     spot.style.width = bb.width + 'px';
     spot.style.height = bb.height + 'px';
-    spot.style.transform = 'translate(' + (bb.left - gb.left) + 'px, ' + (bb.top - gb.top) + 'px)';
+    spot.style.transform = 'translate(' +
+      (bb.left - gb.left - shiftX) + 'px, ' +
+      (bb.top - gb.top - shiftY) + 'px)';
     spot.setAttribute('data-on', '1');
   }
 
@@ -719,6 +740,9 @@
        stylesheet rather than losing it. */
     document.body.style.overflow = 'hidden';
 
+    try { window.history.pushState({ c03102: 'index' }, ''); navPushed = true; }
+    catch (e) { navPushed = false; }
+
     if (navShowFrame !== null) { cancelAnimationFrame(navShowFrame); navShowFrame = null; }
     navShowFrame = requestAnimationFrame(function () {
       navShowFrame = null;
@@ -734,12 +758,22 @@
     if (first) first.focus();
   }
 
-  function closeNav(restoreFocus) {
+  function closeNav(restoreFocus, fromPop) {
     var toggle = $('#navtoggle');
     var menu = $('#navmenu');
     if (!toggle || !menu || !navOpen) return;
 
     navOpen = false;
+
+    /* Same history contract as the lightbox: the sheet is a screenful of
+       overlay, so the system back gesture has to dismiss it rather than
+       navigate the page behind it. */
+    if (navPushed && !fromPop) {
+      navPushed = false;
+      try { window.history.back(); } catch (e) { /* nothing to unwind */ }
+    } else {
+      navPushed = false;
+    }
 
     if (navShowFrame !== null) { cancelAnimationFrame(navShowFrame); navShowFrame = null; }
     menu.removeAttribute('data-show');
@@ -5082,7 +5116,9 @@
       : t('gallery.by.you');
   }
 
-  function lbShow(i) {
+  /* dir: +1 stepping forward, -1 back, 0 opening cold. It only picks which
+     side the new frame arrives from. */
+  function lbShow(i, dir) {
     if (!lbEl || !lbItems.length) return;
 
     // Wraps rather than stops. A gallery that dead ends at the last photo
@@ -5097,11 +5133,41 @@
     var count = $('.lb__count', lbEl);
 
     if (img) {
-      /* Cleared first so a slow photograph shows nothing rather than showing
-         the previous one under the new one's caption, which would attribute
-         somebody's picture to somebody else. */
+      /* The step, animated. It used to be a bare src swap, which on a phone
+         reads as the picture being yanked away rather than as moving through
+         an album.
+
+         The outgoing frame leaves in the direction of travel and the incoming
+         one arrives from the opposite side, so a swipe left and a swipe right
+         are visibly different gestures. Transform and opacity only.
+
+         Cleared before the new src so a slow photograph shows nothing rather
+         than showing the previous one under the new one's caption, which would
+         attribute somebody's picture to somebody else. */
+      var enterFrom = (dir || 0) * 26;
+
+      img.style.transition = 'none';
+      img.style.opacity = '0';
+      img.style.transform = 'translateX(' + enterFrom + 'px) scale(0.985)';
+
       img.removeAttribute('src');
       img.alt = '';
+
+      var settle = function () {
+        img.onload = null;
+        img.onerror = null;
+        requestAnimationFrame(function () {
+          // Back to the stylesheet's transition, then to rest.
+          img.style.transition = '';
+          img.style.opacity = '1';
+          img.style.transform = 'none';
+        });
+      };
+      // Either way it must end visible. A photograph that 404s should leave an
+      // empty frame, not an invisible one that never finishes arriving.
+      img.onload = settle;
+      img.onerror = settle;
+
       img.src = url;
     }
     if (link) link.href = url;
@@ -5119,7 +5185,19 @@
     if (count) count.hidden = !many;
   }
 
-  function lbClose() {
+  /* ANDROID BACK
+
+     An overlay that is not in the history stack is invisible to the system
+     back gesture, so pressing back navigated the page underneath while the
+     photograph stayed on top of it. The owner saw exactly that: it appeared to
+     go back for a moment and then the picture was still there.
+
+     So opening pushes an entry and popstate closes. The entry is consumed
+     again on a normal close, otherwise every photograph a guest looked at
+     would need a separate press of back to get out of the page. */
+  var lbPushed = false;
+
+  function lbClose(fromPop) {
     if (!lbEl || lbEl.hidden) return;
 
     lbEl.removeAttribute('data-show');
@@ -5134,6 +5212,17 @@
       try { lbReturnFocus.focus(); } catch (e) { /* detached */ }
     }
     lbReturnFocus = null;
+
+    /* Closed by a tap or Escape rather than by back, so the entry opening
+       pushed is still on the stack and has to be taken off. Without this the
+       guest would have to press back once per photograph they opened before
+       leaving the page. */
+    if (lbPushed && !fromPop) {
+      lbPushed = false;
+      try { window.history.back(); } catch (e) { /* nothing to unwind */ }
+    } else {
+      lbPushed = false;
+    }
   }
 
   function buildLightbox() {
@@ -5178,7 +5267,7 @@
       b.setAttribute('data-i18n', labelKey);
       b.setAttribute('data-i18n-attr', 'aria-label');
       b.appendChild(document.createTextNode(dir < 0 ? '‹' : '›'));
-      b.addEventListener('click', function () { lbShow(lbIndex + dir); });
+      b.addEventListener('click', function () { lbShow(lbIndex + dir, dir); });
       return b;
     }
 
@@ -5216,7 +5305,10 @@
       if (!p) { lbTouchX = null; return; }
       var dx = p.clientX - lbTouchX;
       lbTouchX = null;
-      if (Math.abs(dx) > 45) lbShow(lbIndex + (dx < 0 ? 1 : -1));
+      if (Math.abs(dx) > 45) {
+        var step = dx < 0 ? 1 : -1;
+        lbShow(lbIndex + step, step);
+      }
     }, { passive: true });
 
     document.body.appendChild(el);
@@ -5234,7 +5326,13 @@
 
     lbEl.hidden = false;
     document.body.style.overflow = 'hidden';
-    lbShow(i);
+
+    // Puts the overlay in the history stack so the system back gesture closes
+    // it instead of navigating the page underneath it.
+    try { window.history.pushState({ c03102: 'lightbox' }, ''); lbPushed = true; }
+    catch (e) { lbPushed = false; }
+
+    lbShow(i, 0);
 
     // The overlay's own strings, in the current language, every time.
     $$('[data-i18n]', lbEl).forEach(function (node) {
@@ -5253,14 +5351,24 @@
     if (close) close.focus();
   }
 
+  /* One handler for both overlays, and the order matters: the lightbox opens
+     on top of the index sheet's world, so if both are somehow open the
+     photograph is what back should dismiss first. */
+  function wireBackGesture() {
+    window.addEventListener('popstate', function () {
+      if (lbEl && !lbEl.hidden) { lbClose(true); return; }
+      if (navOpen) closeNav(true, true);
+    });
+  }
+
   function wireLightboxKeys() {
     document.addEventListener('keydown', function (e) {
       if (!lbEl || lbEl.hidden) return;
 
       var k = e.key;
       if (k === 'Escape' || k === 'Esc') { e.preventDefault(); lbClose(); return; }
-      if (k === 'ArrowRight') { e.preventDefault(); lbShow(lbIndex + 1); return; }
-      if (k === 'ArrowLeft')  { e.preventDefault(); lbShow(lbIndex - 1); return; }
+      if (k === 'ArrowRight') { e.preventDefault(); lbShow(lbIndex + 1, 1); return; }
+      if (k === 'ArrowLeft')  { e.preventDefault(); lbShow(lbIndex - 1, -1); return; }
 
       if (k !== 'Tab') return;
 
@@ -6652,6 +6760,7 @@
     wireSaveDate();
     wireNav();
     wireLightboxKeys();
+    wireBackGesture();
     foldObjectivesOnPhone();
     scheduleAwakening();
     applyLanguage();

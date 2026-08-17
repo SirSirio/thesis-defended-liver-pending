@@ -3409,6 +3409,12 @@ details[open] > .fold__sum .fold__chev {
   border-radius: var(--r-md);
   /* The photograph is the only thing in here that is allowed to be bright. */
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+
+  /* The step between photographs. app.js sets the from state and clears the
+     transition while it does, so this is only ever the settle. Transform and
+     opacity, so stepping through an album costs no layout. */
+  transition: opacity 240ms var(--ease-out),
+              transform 340ms var(--ease-out);
 }
 
 .lb__close {
