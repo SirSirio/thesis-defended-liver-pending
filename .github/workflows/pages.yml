@@ -1,0 +1,54 @@
+# Deploys the site to GitHub Pages on every push to main.
+#
+# Why this file exists: the repository had no workflow and no gh-pages branch,
+# and Pages had not rebuilt since 13 August despite many pushes. A Pages source
+# set to "GitHub Actions" with no workflow present deploys nothing, silently and
+# with no failed build to notice. This is the missing half.
+#
+# The site is hand-written static files served from the repository root. There
+# is no build step, no bundler and no dependency install, so the job uploads the
+# checkout as-is. A .nojekyll file at the root already disables Jekyll.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Lets you re-run a deploy from the Actions tab without pushing a commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time. cancel-in-progress is false on purpose: a half-finished
+# deploy that gets cancelled can leave the live site on an older commit than the
+# run that superseded it, which is the opposite of what queueing is for.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # The repository root. Same set of files the previous branch-based
+          # build served, so this changes what deploys, not what is published.
+          path: '.'
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
