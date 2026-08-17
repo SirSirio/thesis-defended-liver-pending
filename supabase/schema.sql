@@ -69,14 +69,32 @@
 -- that code as being at the limit, unconditionally, and never retries with a
 -- fresh path.
 --
--- Section 6 was changed on 2026-08-16. The party-photos bucket record gains a
--- byte counted size ceiling of three mebibytes and a list of one accepted
--- declared type, and the insert updates an existing bucket instead of stepping
--- over it. Section 6's own comment says which of those two is a control and
--- which is hygiene, and does not describe either as the other. This paragraph
--- describes the file and not the database: the bucket carries the two limits
--- from the moment this file is run in the SQL editor and not before, and until
--- then the bucket accepts what it has always accepted.
+-- Section 6 was changed on 2026-08-16 and applied to project aplaxdplwnnlezffatal
+-- on 2026-08-17. The party-photos bucket record carries a byte counted size
+-- ceiling of three mebibytes and a list of one accepted declared type, and the
+-- insert updates an existing bucket instead of stepping over it. Section 6's own
+-- comment says which of those two is a control and which is hygiene, and does
+-- not describe either as the other. The whole file was run rather than only the
+-- changed section, so the earlier ones were proved again on the way past.
+--
+-- Verified on the wire, not by reading. Four megabytes of arbitrary bytes,
+-- declared as a JPEG and posted straight at the storage API with the publishable
+-- key, were refused with 413 EntityTooLarge carried inside a 400 response, and a
+-- public read of that same path then answered 400 as well, so nothing landed.
+-- That second half is the half that matters: on this project a blocked read
+-- answers with an empty array and a blocked delete answers 204, so a status code
+-- alone is not evidence. A second upload declaring a plain text type was refused
+-- with 415 InvalidMimeType inside a 400 response. Neither request went anywhere
+-- near the site, which is what makes the size ceiling the only control this
+-- project has against a caller holding the publishable key, and the type list
+-- hygiene rather than a wall.
+--
+-- The same day the owner removed what three sessions of probing had left behind:
+-- every photos row carrying the ZZTEST DeleteMe marker, and the nine objects
+-- under the zz-research folder in the bucket. Proved through public.album rather
+-- than through the photos table, exactly as the phase 3 cleanup was proved: the
+-- view returned an empty array, and a public read of each of the nine objects
+-- answered 400.
 -- ============================================================================
 
 
