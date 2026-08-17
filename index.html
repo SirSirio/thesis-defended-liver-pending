@@ -23,14 +23,14 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 
-<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="assets/favicon.svg">
+<link rel="icon" href="assets/favicon.svg?v=1" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/favicon.svg?v=1">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Saira:wght@500;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=1">
 </head>
 
 <body>
@@ -50,7 +50,7 @@
       <!-- Official DTU White RGB lockup, unaltered, from designguide.dtu.dk.
            alt is empty on purpose: this link already carries an aria-label, so a
            described image here would announce the same thing twice. -->
-      <img class="mark__logo" src="assets/dtu-logo.png" width="27" height="40"
+      <img class="mark__logo" src="assets/dtu-logo.png?v=1" width="27" height="40"
            alt="" decoding="async">
       <span class="mark__badge" id="course-mark" aria-hidden="true">03102</span>
       <span class="mark__dept" data-i18n="nav.dept">Department of Graduation Studies</span>
@@ -351,8 +351,12 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="config.js"></script>
-<script src="copy.js"></script>
-<script src="app.js"></script>
+<!-- Versioned on purpose. Pages serves these with Cache-Control: max-age=600 and no
+     query, so without the ?v the documented "change one line on the night" escape
+     hatch does not reach a phone for up to ten minutes. Bump the number on any
+     deploy that has to land immediately. -->
+<script src="config.js?v=1"></script>
+<script src="copy.js?v=1"></script>
+<script src="app.js?v=1"></script>
 </body>
 </html>
