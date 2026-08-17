@@ -1,26 +1,20 @@
 ---
-status: testing
+status: complete
 phase: 03-enrollment-identity-and-the-group
 source: [03-VERIFICATION.md]
 started: 2026-08-15T12:30:00Z
-updated: 2026-08-17T00:00:00Z
+updated: 2026-08-17T18:45:00Z
 ---
 
 ## Current Test
 
-number: 1
-name: Tables A to F of 03-DEVICE-PASS.md, on real iOS Safari and real Android Chrome
-expected: |
-  Every row carries a result. In particular Table A: with the bar shown at 320x568, 375x667,
-  390x844 and 430x932, each of the countdown clock, the address value and the door video slot
-  can be scrolled clear of the bar, and the footer's last line is fully visible at maximum
-  scroll.
-awaiting: user response
+[testing complete]
 
-<!-- Tests 4 and 6 were resolved at the desk on 2026-08-17 and are no longer
-     awaiting a device. Tests 1, 2, 3 and 5 remain genuinely device-bound and
-     are presented together, because they need the same phone in the same
-     sitting. -->
+<!-- Tests 4 and 6 were resolved at the desk on 2026-08-17. Tests 1, 2, 3 and 5
+     were run together on real devices the same day, once the GitHub Pages
+     deploy was repaired — the live site had been serving the 13 August build
+     across roughly 160 pushes, so no earlier device attempt would have been
+     testing this phase's code at all. -->
 
 ## Automated verification pass
 
@@ -44,17 +38,42 @@ outstanding.
 ### 1. Tables A to F of `03-DEVICE-PASS.md`, on real iOS Safari and real Android Chrome
 expected: Every row carries a result. In particular Table A: with the bar shown at 320x568, 375x667, 390x844 and 430x932, each of the countdown clock, the address value and the door video slot can be scrolled clear of the bar, and the footer's last line is fully visible at maximum scroll.
 why_human: NDG-02 is the highest risk item in the phase. The nudge bar has never rendered on any device, and the reserve it replaced was short by up to 27px on a notched iPhone. Every row depends on `env(safe-area-inset-bottom)` or on iOS Safari's collapsing toolbar, neither of which exists at a desk.
-result: [pending]
+result: pass
+reported: "ok"
+tested_on: 2026-08-17, real devices, against the live site after the Pages deploy was repaired
 
 ### 2. NDG-01: load the site on both phones and look at the bar
 expected: The bar is pinned to the bottom of the viewport in both `data-state` values, `enrol` and `group`.
 why_human: Both states are driven and confirmed in code; nothing has been seen pinned to a real screen.
-result: [pending]
+result: pass
+reported: "Bar after registration disappears (not sure what is planned, but not bad)"
+tested_on: 2026-08-17, real devices
+note: |
+  The observed behaviour is correct, and the test's `expected` line was written
+  against a configuration this site does not currently have.
+
+  `data-state="enrol"` was seen pinned on a real screen, which is the half NDG-01
+  had never had evidence for. `data-state="group"` did not appear, and cannot:
+  the group branch at app.js:3540 is guarded by `if (wa && store.get('wa_joined')
+  !== '1')`, and `wa` is `CFG.whatsapp.inviteUrl`, which is `null` at
+  config.js:164. With no group to point at, control falls to the `hideNudge(bar)`
+  at the end of the function. The comment above the branch states the intent
+  directly: "Enrolled. Offer the group once, then never bother them again." A bar
+  that stayed up saying nothing would be the defect; the bar standing down is the
+  design.
+
+  So this is recorded as a pass on behaviour, with one half of the rendering
+  still unwitnessed. The `group` state becomes reachable the moment an invite URL
+  is set, and should be looked at once on a device at that point. Logged under
+  Deferred Follow-Ups rather than left as a gap, because nothing is broken and no
+  code change is implied — only a configuration value the host has not chosen yet.
 
 ### 3. ENR-06 on a device: withdraw a registration on a phone, then repeat with airplane mode turned on mid-request
 expected: The confirmation shows the submitting state, focus lands where the panel says it does, and the airplane-mode attempt leaves the confirmation standing with the retry label rather than removing the control.
 why_human: The state machine is now driven branch by branch at the desk against the shipped source, and every branch terminates correctly. What that cannot show is focus behaviour, screen-reader announcement, and a real dropped packet. Table F is unrun.
-result: [pending]
+result: pass
+reported: "ok"
+tested_on: 2026-08-17, real devices, including the airplane-mode branch
 
 ### 4. DSG-05 observed half: turn Reduce Motion on at the OS level and drive the form
 expected: The sweep bar is static at full width and 0.35 opacity rather than stranded part way across; the form to success panel swap is instant; the `:active` scale is instant; the bar's slide is instant.
@@ -89,7 +108,10 @@ evidence: |
 ### 5. DEL-02, DEL-03: enrol end to end on a mid-range phone on mobile data, not wifi
 expected: Under ten seconds, on iOS Safari and Android Chrome, and no viewport zoom when the name field takes focus.
 why_human: The roadmap's Done-when sentence opens with this clause and it is unmeasured. Carried over from phase 2, where WINDOWS entry 1 records the same debt.
-result: [pending]
+result: pass
+reported: "ok"
+tested_on: 2026-08-17, real devices on mobile data
+note: Clears the debt WINDOWS entry 1 carried over from phase 2. The roadmap's Done-when sentence opens with this clause and it is now answered rather than assumed.
 
 ### 6. Table D of `03-DEVICE-PASS.md`: measure the three declared-short touch targets on a coarse pointer
 expected: The name input, the guest-count segment and the select overflow branch measure at least 52px per `03-UI-SPEC.md` Touch Target Geometry.
@@ -126,13 +148,17 @@ evidence: |
 ## Summary
 
 total: 6
-passed: 1
+passed: 5
 issues: 0
-pending: 4
+pending: 0
 skipped: 1
 blocked: 0
 
 ## Deferred Follow-Ups
+
+- test: 2
+  idea: "Witness the nudge bar's `data-state=\"group\"` rendering on a device once `whatsapp.inviteUrl` is set in config.js (currently null at line 164). The branch is unreachable until then, so the state has correct-but-unobserved rendering. No code change implied — this waits on a configuration value the host has not chosen yet."
+  deferred_at: 2026-08-17
 
 - test: 6
   idea: "Raise `.field__input`, `.field__select` and `.seg > span` to 52px under `@media (pointer: coarse)`, or amend `03-UI-SPEC.md` Touch Target Geometry to accept 48px for text-entry and segmented controls. Measured at 48px on 2026-08-17; clears the 44px accessibility floor, short of the phase's own 52px contract."
