@@ -4113,15 +4113,22 @@
 
   var albumSeq = 0;
 
+  /* The sentence, separated from the node that carries it, because the count
+     can change after the node is in the document: a tile whose object 404s is
+     taken out of the layout, and a register that keeps claiming twelve above
+     eleven frames is the exact lie the pre-count filter below was written to
+     prevent. One function so the two readings cannot drift apart. */
+  function albumHeadText(state, n) {
+    if (state === 'loading') return t('photos.album.loading');
+    if (state === 'empty')   return t('photos.album.empty');
+    if (n === 1)             return t('photos.album.count.one');
+    return t('photos.album.count.many').replace('{n}', String(n));
+  }
+
   function albumHead(state, n) {
     var p = document.createElement('p');
     p.className = 'album__head';
-
-    if (state === 'loading')     p.textContent = t('photos.album.loading');
-    else if (state === 'empty')  p.textContent = t('photos.album.empty');
-    else if (n === 1)            p.textContent = t('photos.album.count.one');
-    else                         p.textContent = t('photos.album.count.many').replace('{n}', String(n));
-
+    p.textContent = albumHeadText(state, n);
     return p;
   }
 
@@ -4138,7 +4145,7 @@
      Nothing splits a name here. public.album applies split_part server side,
      so a surname is not there to render rather than being rendered and then
      hidden. Asking the view for guest_id answers 42703. */
-  function albumTile(row) {
+  function albumTile(row, onBroken) {
     var url = photoPublicUrl(row.storage_path);
 
     var a = document.createElement('a');
@@ -4156,8 +4163,15 @@
     img.decoding = 'async';
     img.alt = '';               // decorative; the anchor's accessible name carries the meaning
     /* A frame with no photograph in it is worse than one fewer frame, so a
-       tile whose object 404s is hidden rather than shown as an empty box. */
-    img.onerror = function () { a.setAttribute('data-broken', '1'); };
+       tile whose object 404s is hidden rather than shown as an empty box. The
+       head is told, because a tile taken out of the layout is a submission the
+       guest cannot see and the register must not go on counting it. Hiding it
+       in CSS and leaving the number alone broke the same invariant the filter
+       in renderAlbum() exists to hold. */
+    img.onerror = function () {
+      a.setAttribute('data-broken', '1');
+      if (typeof onBroken === 'function') onBroken();
+    };
     img.src = url;
 
     frame.appendChild(img);
@@ -4214,11 +4228,31 @@
           return;
         }
 
-        host.appendChild(albumHead('count', rows.length));
+        /* The head is held rather than appended and forgotten, because the
+           count it states is not final until every object has answered. The
+           filter above removes a row whose PATH is wrong; this removes a row
+           whose OBJECT is gone, which is the documented cleanup path when the
+           owner clears something from the dashboard. Both have to reach the
+           number or the register lies.
+
+           Rewritten in place, never re-appended, so a language tap or a newer
+           read is still the only thing that replaces this node. If one has
+           already replaced it the write lands on a node nobody can see, which
+           is the same harmless no-op the upload driver relies on. */
+        var shown = rows.length;
+        var head = albumHead('count', shown);
+        host.appendChild(head);
+
+        function tileBroken() {
+          shown--;
+          head.textContent = shown > 0
+            ? albumHeadText('count', shown)
+            : albumHeadText('empty', 0);
+        }
 
         var grid = document.createElement('div');
         grid.className = 'album';
-        rows.forEach(function (row) { grid.appendChild(albumTile(row)); });
+        rows.forEach(function (row) { grid.appendChild(albumTile(row, tileBroken)); });
         host.appendChild(grid);
       });
   }
