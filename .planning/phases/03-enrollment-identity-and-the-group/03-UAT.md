@@ -159,6 +159,22 @@ blocked: 0
 - test: 2
   idea: "Witness the nudge bar's `data-state=\"group\"` rendering on a device once `whatsapp.inviteUrl` is set in config.js (currently null at line 164). The branch is unreachable until then, so the state has correct-but-unobserved rendering. No code change implied — this waits on a configuration value the host has not chosen yet."
   deferred_at: 2026-08-17
+  resolved_at: 2026-08-17
+  resolution: |
+    Closed the same day it was opened. The owner supplied the invite link, it was
+    set at config.js:164, and all four guarded surfaces switched on together: the
+    `#wa` section, the nudge bar's `group` state, and the success panel's button.
+    Confirmed working on a device by the owner.
+
+    The handoff was also rebuilt while the link was going in, because a plain
+    text button in the site palette did not read as an invitation. It now carries
+    the WhatsApp mark as inline SVG cloned from a `<template>`, inside a bordered
+    card with a full-width green control. Two defects were caught during that
+    work rather than after it: the label needed its own span, because
+    `applyLanguage()` writes `[data-i18n]` elements with `el.textContent` and
+    would have deleted the icon on the first language switch; and the card's mark
+    carried two equal-weight classes, so the button-sized one won on source order
+    and rendered it at 22px instead of 80. Both fixed and verified.
 
 - test: 6
   idea: "Raise `.field__input`, `.field__select` and `.seg > span` to 52px under `@media (pointer: coarse)`, or amend `03-UI-SPEC.md` Touch Target Geometry to accept 48px for text-entry and segmented controls. Measured at 48px on 2026-08-17; clears the 44px accessibility floor, short of the phase's own 52px contract."
