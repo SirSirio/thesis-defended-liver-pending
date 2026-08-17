@@ -86,6 +86,13 @@
     </button>
 
   </div>
+
+  <!-- Scroll progress. Painted by motion.js and sitting at scaleX(0) until it
+       is, so a page without that file simply has a hairline of nothing here.
+       aria-hidden because it duplicates no information a screen reader is
+       missing: it says how far down a document you are, which is a thing a
+       screen reader already reports. -->
+  <div class="scrollrule" id="scrollrule" aria-hidden="true"><span></span></div>
 </header>
 
 <!-- Deliberately a sibling of the header rather than a child of it. .topbar
@@ -430,6 +437,18 @@
      query, so without the ?v the documented "change one line on the night" escape
      hatch does not reach a phone for up to ten minutes. Bump the number on any
      deploy that has to land immediately. -->
+<!-- GSAP is vendored rather than pulled from a CDN. The guest this site is
+     written for is outdoors on a weak signal, and a third party origin that
+     fails at 22:00 on 3 October is a failure mode with no upside.
+
+     Deferred, all three, so they execute after the scripts below have already
+     built the page and cannot hold up first paint of the practical
+     information. motion.js checks for window.gsap and returns if it is not
+     there, so a 404 on either of the first two costs the page nothing. -->
+<script defer src="assets/vendor/gsap.min.js?v=1"></script>
+<script defer src="assets/vendor/ScrollTrigger.min.js?v=1"></script>
+<script defer src="motion.js?v=1"></script>
+
 <script src="config.js?v=1"></script>
 <script src="copy.js?v=1"></script>
 <script src="app.js?v=1"></script>

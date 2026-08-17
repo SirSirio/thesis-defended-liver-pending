@@ -39,6 +39,12 @@
   --t-fast: 140ms;
   --t-base: 220ms;
 
+  /* How far the institutional mask has slipped, 0 at the top of the page and
+     1 at the bottom. Written by motion.js on every scrub frame. Declared here
+     with a value so that every calc() reading it resolves correctly when that
+     file never loads, which is the state this page has to be correct in. */
+  --chaos: 0;
+
   /* Layout -------------------------------------------------------------- */
   --wrap: 1080px;
   --topbar-h: 64px;
@@ -246,6 +252,40 @@ a { color: inherit; }
 }
 @media (hover: hover) and (pointer: fine) {
   .langswitch button:not([aria-pressed="true"]):hover { color: var(--ink); background: var(--surface-2); }
+}
+
+/* Scroll progress. Sits at scaleX(0) and stays there unless motion.js is
+   alive, so it costs a page without that file two pixels of nothing. */
+.scrollrule {
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.scrollrule span {
+  display: block;
+  width: 100%; height: 100%;
+  background: var(--accent-lit);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+/* Confetti, thrown once when a guest saves the date and removed three seconds
+   later. Fixed and pointer-events:none, which is the only shape the
+   performance rule allows a full viewport overlay to take. Below the toast, so
+   the sentence confirming what just happened stays readable through it. */
+.confetti {
+  position: fixed; inset: 0;
+  z-index: calc(var(--z-toast) - 1);
+  overflow: hidden;
+  pointer-events: none;
+}
+.confetti span {
+  position: absolute; top: 0; left: 0;
+  width: 8px; height: 12px;
+  border-radius: 1px;
+  will-change: transform, opacity;
 }
 
 /* --------------------------------------------------------------------------
@@ -1405,6 +1445,24 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
 [data-zone="slipping"]  { background: linear-gradient(180deg, transparent, rgba(153, 0, 0, 0.03)); }
 [data-zone="unhinged"]  { background: linear-gradient(180deg, rgba(153, 0, 0, 0.03), rgba(153, 0, 0, 0.06)); }
 [data-zone="collapsed"] { background: rgba(153, 0, 0, 0.06); }
+
+/* The same three, deepened by how far down the page the guest has scrolled.
+   --chaos is written by motion.js and defaults to 0 in :root, so with that
+   file absent these compute to exactly the three values above and this block
+   is a no op. Declared after them rather than instead of them, so a browser
+   that will not parse calc() inside an alpha channel drops these three lines
+   and keeps the static arc rather than losing the backgrounds entirely. */
+[data-zone="slipping"] {
+  background: linear-gradient(180deg, transparent, rgba(153, 0, 0, calc(0.03 + 0.02 * var(--chaos))));
+}
+[data-zone="unhinged"] {
+  background: linear-gradient(180deg,
+    rgba(153, 0, 0, calc(0.03 + 0.05 * var(--chaos))),
+    rgba(153, 0, 0, calc(0.06 + 0.07 * var(--chaos))));
+}
+[data-zone="collapsed"] {
+  background: rgba(153, 0, 0, calc(0.06 + 0.09 * var(--chaos)));
+}
 
 /* --------------------------------------------------------------------------
    THE ENROLLMENT FORM
