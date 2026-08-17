@@ -256,7 +256,11 @@ window.PARTY_CONFIG = {
        Keep it earlier than startsAt above. The countdown's closing state
        tells guests to go and upload their photographs, and it must never
        point them at a portal that is still closed. */
-    opensAt: '2026-10-03T13:00:00+02:00',
+    /* TEMPORARY, 2026-08-17: opened early for the phase 4 device pass. The
+       real moment is '2026-10-03T13:00:00+02:00' and it goes back before the
+       invitations go out. Left as a null rather than a past timestamp so the
+       line that has to be restored is obvious. */
+    opensAt: null,
 
     /* The longest edge of a photograph after the site shrinks it, in
        pixels. Bigger is prettier and roughly doubles the bytes on a
