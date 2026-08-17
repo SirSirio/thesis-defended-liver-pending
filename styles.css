@@ -221,14 +221,29 @@
 /* THE PUMP. The far end of the shot: a peristaltic head, soft and dim,
    because a camera focused on the needle is not focused on this. It never
    sharpens, which is what sells the depth. */
+/* Softened, not obliterated. The first build sat at 3.4px of blur and 55%
+   opacity, and the owner could not tell it was a pump. It still reads as the
+   far end of the shot, but it now reads as a thing. */
 .rig__pump {
-  filter: blur(3.4px);
-  opacity: 0.55;
+  filter: blur(1.3px);
+  opacity: 0.82;
 }
-.rig__housing { fill: none; stroke: #6E6E73; stroke-width: 3; }
-.rig__race    { fill: none; stroke: rgba(232, 63, 72, 0.55); stroke-width: 5; }
-.rig__roller  { fill: #C9C9CE; }
-.rig__hub     { fill: #6E6E73; }
+.rig__housing {
+  fill: none;
+  stroke: #8A8A90;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+/* The tube inside the head, full of what is being moved. */
+.rig__race {
+  fill: none;
+  stroke: rgba(232, 63, 72, 0.85);
+  stroke-width: 6.5;
+  stroke-linecap: round;
+}
+.rig__spoke  { stroke: #6E6E73; stroke-width: 2.5; }
+.rig__roller { fill: #E4E4E8; stroke: #6E6E73; stroke-width: 1.5; }
+.rig__hub    { fill: #8A8A90; }
 
 /* THE TUBE, drawn three times over one path. The halo is the out of focus
    pass and stays soft; the wall and the liquid sit inside the near group and
@@ -317,12 +332,14 @@
   overflow: hidden;
   pointer-events: none;
 }
+/* The teardrop shape and the physics are shared; the colour is set inline per
+   droplet, because which of the six channels it came out of is the only thing
+   that differs between them. The splash satellites inherit the red default. */
 .motes span {
   position: absolute; top: 0; left: 0;
   display: block;
   border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
-  background: radial-gradient(circle at 38% 30%,
-    #F4A0A5 0%, var(--accent-lit) 46%, #8E1116 100%);
+  background: var(--accent-lit);
   box-shadow: 0 0 9px rgba(232, 63, 72, 0.55);
   will-change: transform, opacity;
 }

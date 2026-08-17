@@ -439,7 +439,9 @@
     var vw = window.innerWidth || 390;
 
     var landX = tbox ? tbox.left + tbox.width * 0.5 : vw / 2;
-    var landY = tbox ? tbox.top + tbox.height * 0.55 : (window.innerHeight || 800) * 0.45;
+    // Low on the date rather than through its middle, which buys the drop
+    // another 40px of visible fall on a phone where every pixel is spoken for.
+    var landY = tbox ? tbox.top + tbox.height * 0.86 : (window.innerHeight || 800) * 0.45;
 
     /* The rig's geometry. A pump up and to one side, a tube running from it to
        a needle above the date, and the needle short: it is the last few
@@ -447,10 +449,31 @@
 
        The pump is placed away from the headline so that a blurred object never
        sits on top of a word anybody is reading. */
-    var pumpX = vw - 52;
-    var pumpY = 112;
-    var needleY = 218;
-    var tipY = needleY + 30;
+    /* Laid out downward from the top bar, then checked against the target,
+       rather than measured upward from the target and clamped.
+
+       Two builds got this wrong in two different ways. The first pinned the
+       needle at a fixed y whatever the layout did, so on any viewport where
+       the date sat higher the drop travelled UPWARDS to reach it. The second
+       anchored to the target and clamped, and on a phone the clamps collapsed
+       the pump and the needle to within two pixels of each other, which turned
+       the tube into a horizontal line across the headline.
+
+       Top down cannot collapse: the pump gets its space first, the tube gets a
+       fixed run below it, and only the fall absorbs what is left over. */
+    var HOUSING_R = 30;
+    var TUBE_RUN = 84;                       // vertical drop from pump to needle
+    var NEEDLE_LEN = 28;
+
+    var pumpX = vw - 58;
+    var pumpY = 64 + HOUSING_R + 12;         // clear of the 64px top bar
+    var exitY = pumpY + HOUSING_R;
+    var needleY = exitY + TUBE_RUN;
+    var tipY = needleY + NEEDLE_LEN;
+
+    /* If the target sits above the tip on some layout, drop onto the hero
+       instead of flying upward into the date. Physics before aim. */
+    if (landY < tipY + 60) landY = tipY + 60;
 
     var rig = document.createElement('div');
     rig.className = 'rig';
@@ -468,34 +491,72 @@
        the low end of the range the thesis analyses, and it is also the count
        that reads unmistakably as peristaltic at 44 pixels across. */
     var pump = svg('g', { class: 'rig__pump' });
-    pump.appendChild(svg('circle', { cx: pumpX, cy: pumpY, r: 26, class: 'rig__housing' }));
-    pump.appendChild(svg('circle', { cx: pumpX, cy: pumpY, r: 19, class: 'rig__race' }));
 
+    /* The housing is drawn as an open C rather than a closed circle, with the
+       gap at the bottom where the tube enters and leaves. That gap is most of
+       what makes it read as a pump head instead of a wheel: a closed ring with
+       dots in it is a logo, an open one with a tube running out of it is a
+       machine.
+
+       The first build was a closed circle at 26px under 3.4px of blur, and the
+       owner's verdict was that it was not recognisable as a pump. It is now
+       larger, opened, given a wrapped tube and spokes, and much less blurred. */
+    var occ = HOUSING_R - 7;          // radius the tube is pinched at
+
+    // Housing: an arc from 55 degrees round to 125 degrees, leaving the bottom open.
+    var hx1 = pumpX + Math.cos(0.96) * HOUSING_R, hy1 = pumpY + Math.sin(0.96) * HOUSING_R;
+    var hx2 = pumpX + Math.cos(2.18) * HOUSING_R, hy2 = pumpY + Math.sin(2.18) * HOUSING_R;
+    pump.appendChild(svg('path', {
+      d: 'M ' + hx1 + ' ' + hy1 + ' A ' + HOUSING_R + ' ' + HOUSING_R + ' 0 1 0 ' + hx2 + ' ' + hy2,
+      class: 'rig__housing'
+    }));
+
+    // The tube itself, wrapped around the inside of the housing and pinched
+    // by the rollers. Red, because it is full of the liquid being moved.
+    var ox1 = pumpX + Math.cos(1.02) * occ, oy1 = pumpY + Math.sin(1.02) * occ;
+    var ox2 = pumpX + Math.cos(2.12) * occ, oy2 = pumpY + Math.sin(2.12) * occ;
+    pump.appendChild(svg('path', {
+      d: 'M ' + ox1 + ' ' + oy1 + ' A ' + occ + ' ' + occ + ' 0 1 0 ' + ox2 + ' ' + oy2,
+      class: 'rig__race'
+    }));
+
+    /* The rotor: three rollers on spokes. The spokes are what turn three
+       floating dots into a rotating assembly, and rotation is only legible if
+       there is something radial to watch. */
     var rotor = svg('g', { class: 'rig__rotor' });
     for (var i = 0; i < 3; i++) {
       var a = (i / 3) * Math.PI * 2;
-      rotor.appendChild(svg('circle', {
-        cx: pumpX + Math.cos(a) * 13,
-        cy: pumpY + Math.sin(a) * 13,
-        r: 5.5,
-        class: 'rig__roller'
+      var rx = pumpX + Math.cos(a) * occ;
+      var ry = pumpY + Math.sin(a) * occ;
+      rotor.appendChild(svg('line', {
+        x1: pumpX, y1: pumpY, x2: rx, y2: ry, class: 'rig__spoke'
       }));
+      rotor.appendChild(svg('circle', { cx: rx, cy: ry, r: 6.5, class: 'rig__roller' }));
     }
     pump.appendChild(rotor);
-    pump.appendChild(svg('circle', { cx: pumpX, cy: pumpY, r: 3.5, class: 'rig__hub' }));
+    pump.appendChild(svg('circle', { cx: pumpX, cy: pumpY, r: 5, class: 'rig__hub' }));
     sheet.appendChild(pump);
 
     /* THE TUBE. One path, drawn three times: a soft wide pass that reads as
        the out of focus tube, the tube wall itself, and the liquid inside it.
        The liquid is a dashed stroke whose offset is animated, which is how a
        fluid front moves along a path without a plugin. */
-    /* Down the right edge first, then in to the needle. The first route ran
-       diagonally across the headline, so a blurred red tube lay over the two
-       words the page is named after. This one leaves the pump downward, hugs
-       the margin, and only turns inward below the type. */
-    var d = 'M ' + (pumpX - 6) + ' ' + (pumpY + 25) +
-            ' C ' + (pumpX + 10) + ' ' + (pumpY + 78) + ', ' +
-                    (landX + 128) + ' ' + (needleY - 16) + ', ' +
+    /* A real tube leaves a fitting along the fitting's axis and arrives at the
+       next one along that one's axis; it does not cut a diagonal between two
+       points. So this leaves the bottom of the pump heading straight down and
+       arrives at the top of the needle heading straight down, with both
+       control points vertical. The result is a single smooth sag with no
+       kink, which is what a length of silicone tube actually does.
+
+       Two earlier routes were wrong in different ways: the first cut
+       diagonally across the headline, laying a blurred red line over the two
+       words the page is named after, and the second was an S with horizontal
+       control points that bent the tube in a way no tube bends. */
+    var sag = (needleY - exitY) * 0.62;
+
+    var d = 'M ' + pumpX + ' ' + exitY +
+            ' C ' + pumpX + ' ' + (exitY + sag) + ', ' +
+                    landX + ' ' + (needleY - sag) + ', ' +
                     landX + ' ' + needleY;
 
     // The out of focus pass sits outside the near group, because it is the far
@@ -686,68 +747,98 @@
      loop reading as rain. Nothing is ever visible for more than about three
      seconds and at most a handful exist at once, so the standing cost of this
      is a few concurrent transform tweens. */
+  /* Six nozzles, six liquids, fired in sequence.
+
+     Six because the host's system has six, and sequenced rather than random
+     because that is what the system does: one of the thesis tools is a
+     dispense choreography and throughput simulator, so a protocol running
+     head to head across the row is the honest depiction and a scatter is not.
+
+     The colours are the DTU secondary palette, which DESIGN-BRIEF.md permits
+     in transient motion and nowhere else. A droplet that exists for two
+     seconds and is never a UI surface is exactly that case, and six distinct
+     reagents in six channels is what the palette is doing here rather than
+     decoration. Violet and blue are lifted off DTU's published values because
+     the published ones disappear against a near black page; the hue is kept,
+     the luminance is not. */
+  var LIQUIDS = [
+    '#E83F48',   // DTU red, the site's own accent
+    '#FC7634',   // orange
+    '#F6D04D',   // yellow
+    '#1FD082',   // green
+    '#5A67F2',   // blue, lifted from 2F3EEA
+    '#B061C9'    // violet, lifted from 79238E
+  ];
+
   function dispensing() {
     var host = document.createElement('div');
     host.className = 'motes';
     host.setAttribute('aria-hidden', 'true');
     document.body.appendChild(host);
 
-    var NOZZLES = [0.18, 0.52, 0.83];
+    var N = 6;
+    var STEP = 0.62;        // seconds between one nozzle firing and the next
+    var REST = 2.8;         // pause after the row has run before it runs again
 
-    function drop(atX) {
-      var vw = window.innerWidth || 390;
-      var vh = window.innerHeight || 800;
-
-      var s = document.createElement('span');
-      var d = 4 + Math.random() * 4;
-      s.style.width = d + 'px';
-      s.style.height = d + 'px';
-      host.appendChild(s);
-
-      // Jittered off the nozzle so three fixed columns do not appear.
-      var x = atX * vw + (Math.random() - 0.5) * 70;
-      var fall = vh * (0.42 + Math.random() * 0.44);
-
-      gsap.set(s, { x: x, y: -14, opacity: 0, scaleY: 1 });
-
-      gsap.timeline({
-        onComplete: function () { if (s.parentNode) s.parentNode.removeChild(s); }
-      })
-        .to(s, { opacity: 0.34 + Math.random() * 0.3, duration: 0.3 })
-        .to(s, {
-          y: fall,
-          scaleY: 1.45, scaleX: 0.85,
-          duration: 1.9 + Math.random() * 1.5,
-          ease: 'power1.in'
-        }, 0)
-        .to(s, { opacity: 0, duration: 0.45 }, '-=0.45')
-        .call(function () {
-          if (Math.random() > 0.66) tinyRing(x, fall);
-        });
-    }
-
-    function tinyRing(x, y) {
+    function tinyRing(x, y, colour) {
       var r = document.createElement('div');
       r.className = 'ripple ripple--small';
       r.setAttribute('aria-hidden', 'true');
+      r.style.borderColor = colour;
       document.body.appendChild(r);
-      gsap.set(r, { x: x, y: y, scale: 0, opacity: 0.5 });
+      gsap.set(r, { x: x, y: y, scale: 0, opacity: 0.42 });
       gsap.to(r, {
         scale: 1, opacity: 0, duration: 1.25, ease: 'power2.out',
         onComplete: function () { if (r.parentNode) r.parentNode.removeChild(r); }
       });
     }
 
-    /* Each nozzle re-arms itself with a fresh random interval rather than
-       running on a shared repeating timeline, so the three never fall into
-       step with each other. */
-    NOZZLES.forEach(function (atX, i) {
-      function cycle() {
-        drop(atX);
-        gsap.delayedCall(2.6 + Math.random() * 5.2, cycle);
-      }
-      gsap.delayedCall(0.8 + i * 1.4 + Math.random() * 2, cycle);
-    });
+    /* Every channel dispenses the same way. The owner's word was that they
+       should all be the same, so the only thing that differs between them is
+       which nozzle it left and what is in it: same size, same fall, same
+       timing. Nothing is randomised except the depth it fades at, which stops
+       six identical columns ending on one line. */
+    function drop(i) {
+      var vw = window.innerWidth || 390;
+      var vh = window.innerHeight || 800;
+      var colour = LIQUIDS[i % LIQUIDS.length];
+
+      var s = document.createElement('span');
+      s.style.width = '7px';
+      s.style.height = '9px';
+      s.style.background = colour;
+      s.style.boxShadow = '0 0 9px ' + colour;
+      host.appendChild(s);
+
+      // Evenly spaced across the width, inset half a step at each end so no
+      // channel sits under the viewport edge.
+      var x = ((i + 0.5) / N) * vw;
+      var fall = vh * (0.46 + (i % 3) * 0.13);
+
+      gsap.set(s, { x: x, y: -16, opacity: 0, scaleY: 1 });
+
+      gsap.timeline({
+        onComplete: function () { if (s.parentNode) s.parentNode.removeChild(s); }
+      })
+        .to(s, { opacity: 0.55, duration: 0.28 })
+        .to(s, {
+          y: fall,
+          scaleY: 1.45, scaleX: 0.85,
+          duration: 2.4,
+          ease: 'power1.in'
+        }, 0)
+        .to(s, { opacity: 0, duration: 0.5 }, '-=0.5')
+        .call(function () { tinyRing(x, fall, colour); });
+    }
+
+    /* One clock for the whole row, not six independent ones. The head to head
+       order is the point, and six self re-arming timers would drift out of
+       sequence within a minute. */
+    function sweep() {
+      for (var i = 0; i < N; i++) gsap.delayedCall(i * STEP, drop, [i]);
+      gsap.delayedCall(N * STEP + REST, sweep);
+    }
+    gsap.delayedCall(1.1, sweep);
   }
 
   /* The reveal itself. app.js owns the morph, which is CSS; this is the part
