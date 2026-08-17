@@ -1692,9 +1692,14 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
    Same rule the section's hidden attribute already follows.
    -------------------------------------------------------------------------- */
 
-.wa-invite {
-  --wa-green: #25D366;
+/* Two consumers now, so the value is declared once on both scopes rather than
+   twice by hand: the invitation card, and the bar when it is in its group
+   state. Still not promoted to :root, because the reason it does not belong
+   there has not changed. */
+.wa-invite,
+.nudge[data-state="group"] { --wa-green: #25D366; }
 
+.wa-invite {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1762,6 +1767,38 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
     background: #1FBA59;
     border-color: #1FBA59;
   }
+}
+
+/* The bar in its group state. It is the same handoff as the card, so it wears
+   the same colour and the same mark: a guest who scrolled past the invitation
+   should recognise the bar as the thing they scrolled past, not read it as a
+   second unrelated ask.
+
+   Scoped to the group state only. In the enrol state this same anchor is a
+   DTU red Register button, which is this project's own action and keeps this
+   project's own palette. One element, two states, two palettes, and
+   setNudgeCta() clears it between them so neither inherits the other. */
+.nudge__cta { gap: var(--s-2); }
+
+.nudge[data-state="group"] .nudge__cta {
+  background: var(--wa-green);
+  border-color: var(--wa-green);
+  color: var(--bg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nudge[data-state="group"] .nudge__cta:hover {
+    background: #1FBA59;
+    border-color: #1FBA59;
+  }
+}
+
+/* The bar is tight, so the mark steps down from the button's 22px. Still well
+   clear of the 16px below which a glyph stops being recognisable at arm's
+   length in the dark, which is the condition this whole site is designed for. */
+.nudge__cta .wa-glyph {
+  width: 18px;
+  height: 18px;
 }
 
 /* --------------------------------------------------------------------------

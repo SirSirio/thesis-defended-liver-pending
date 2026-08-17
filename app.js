@@ -3321,6 +3321,31 @@
     renderNudge();
   }
 
+  /* The bar's CTA, written by hand rather than through whatsappButton(). That
+     function builds a new anchor, and #nudge-cta is a single static one that
+     both bar states share and reuse: replacing the element would take its place
+     in the bar's layout with it, and would drop the listeners wireNudge()
+     attached at load.
+
+     Same two part shape as the button though, and for the same reason. The
+     glyph is a child rather than part of the text, so writing the label cannot
+     delete it. textContent = '' first, because the two states swap through this
+     one element and the enrol state must not inherit the group state's icon
+     when a guest withdraws. */
+  function setNudgeCta(cta, label, withGlyph) {
+    cta.textContent = '';
+
+    if (withGlyph) {
+      var glyph = waGlyph();
+      if (glyph) cta.appendChild(glyph);
+    }
+
+    var span = document.createElement('span');
+    span.className = 'btn__label';
+    span.textContent = label;
+    cta.appendChild(span);
+  }
+
   /* Absent, never disabled, and never rewritten.
 
      A falsy link returns null and the caller builds nothing, which is why no
@@ -3583,7 +3608,7 @@
 
       bar.setAttribute('data-state', 'enrol');
       text.textContent = msg;
-      cta.textContent = t('nudge.enrol.cta');
+      setNudgeCta(cta, t('nudge.enrol.cta'), false);
       cta.setAttribute('href', '#enrol');
       cta.removeAttribute('target');
       showNudge(bar);
@@ -3594,7 +3619,7 @@
     if (wa && store.get('wa_joined') !== '1') {
       bar.setAttribute('data-state', 'group');
       text.textContent = t('nudge.group.text');
-      cta.textContent = t('nudge.group.cta');
+      setNudgeCta(cta, t('nudge.group.cta'), true);
       cta.setAttribute('href', wa);
       cta.setAttribute('target', '_blank');
       cta.setAttribute('rel', 'noopener');

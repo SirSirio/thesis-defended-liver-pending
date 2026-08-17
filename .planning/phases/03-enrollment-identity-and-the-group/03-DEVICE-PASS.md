@@ -59,7 +59,7 @@ from plan 03-02 is what is being checked here, not the guess it replaces.
 | At 430x932 | | | Not walked. |
 | iOS Safari only: scrolling collapses the browser toolbar and the reserve stays correct through the change | | n/a | |
 | Rotating to landscape and back re-measures, with no gap and no overlap left behind | | | |
-| Switching to Danish, whose nudge copy may wrap to two lines, re-measures the bar height | | | |
+| Switching to Danish, whose nudge copy may wrap to two lines, re-measures the bar height | pass | pass | Owner, 2026-08-17: "Wraps in 2 lines, but ok". The wrap is the condition this row exists to create, not a fault: two lines is what makes the bar taller than the flat reserve it replaced, and the row passes because the re-measure absorbed it with nothing left overlapping. |
 | Tapping dismiss does not make the page jump up under the thumb (R3) | | | |
 | A toast fired after dismissing does not land underneath the bar | | | |
 
