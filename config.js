@@ -213,7 +213,28 @@ window.PARTY_CONFIG = {
     supabaseKey: 'sb_publishable_Z6Cq5vFRqyUhXueQGevrYQ__j0pNRrc',
     bucket: 'party-photos',
     table: 'photos',
-    maxPerGuest: 5,      // also enforced in the database, see supabase/schema.sql
+    /* Changing this number is a three file job, not a one line one, and two
+       of the three files will not complain if you forget them.
+
+       The site reads it here and nowhere else, so the count, the refusal and
+       the limit are all correct the moment you change it. The other two are
+       not:
+
+         supabase/schema.sql section 4 holds the same number in the trigger
+         that enforces it. JavaScript alone is a suggestion. Change it there
+         and run the file again, or the database keeps the old ceiling.
+
+         copy.js spells the number out as a WORD, in three languages, in
+         photos.lede, photos.refuse.extra and photos.full.body. Lower this to
+         three and the site refuses the fourth photograph while telling the
+         guest, in English, Italian and Danish, that the limit is five.
+
+       Left as words on purpose: they are jokes and sentences rather than
+       fields, and "5 photographs are on record in your name" is not the line
+       that was written. So the number is not substituted into them, and this
+       note is here instead, because a trap nobody is warned about is worse
+       than a sentence nobody has to read. */
+    maxPerGuest: 5,
 
     /* The biggest file a phone is allowed to hand over, before the site
        shrinks it. This number and the bucket's own three megabyte ceiling
