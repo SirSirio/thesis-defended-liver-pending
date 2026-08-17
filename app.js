@@ -156,6 +156,9 @@
        and the reserve it measures must be taken after every string in the bar
        has been rewritten, which nothing in the photos section touches. */
     renderPhotos();
+    // Beside the photos section and after it, for the same reasons: non
+    // blocking, and a switch has to re-render its head and its captions.
+    renderGallery();
 
     /* Last, and after the sweep above has rewritten every string in the bar.
        Danish wraps the nudge copy onto a second line, which makes the bar
@@ -1784,6 +1787,52 @@
       store.set('photo_count', String(n == null ? 0 : n));
     },
 
+    /* The guest's own submissions, by storage path, on this device.
+
+       This exists because public.album deliberately does not carry guest_id
+       and must never be asked for it (T-04-01, schema section 9): that id is
+       the credential for amending a registration, and putting it in a public
+       view or in a query string hands one guest the ability to edit another
+       guest's entry. "Show me my photos" is therefore answered on the device
+       that uploaded them and nowhere else.
+
+       Same accepted limitation as every other identity value here: clearing
+       browser data or switching phones loses the list. IDEA.md already states
+       that trade for the photo cap and it is the same trade. The shared album
+       is unaffected either way, because it is read from the view.
+
+       Every path is re-validated against STORAGE_PATH_RE on the way out, not
+       just on the way in. localStorage is guest writable, these strings become
+       image URLs, and a value that has been sitting in storage since a
+       previous version of this file has not earned any trust. */
+    photoPaths: function () {
+      var raw = store.get('photo_paths');
+      if (!raw) return [];
+
+      var list;
+      try { list = JSON.parse(raw); }
+      catch (e) { return []; }
+      if (!Array.isArray(list)) return [];
+
+      var out = [];
+      for (var i = 0; i < list.length; i++) {
+        if (typeof list[i] === 'string' &&
+            STORAGE_PATH_RE.test(list[i]) &&
+            out.indexOf(list[i]) === -1) {
+          out.push(list[i]);
+        }
+      }
+      return out;
+    },
+
+    addPhotoPath: function (p) {
+      if (typeof p !== 'string' || !STORAGE_PATH_RE.test(p)) return;
+      var list = this.photoPaths();
+      if (list.indexOf(p) !== -1) return;
+      list.push(p);
+      store.set('photo_paths', JSON.stringify(list));
+    },
+
     /* Withdrawing clears the registration, not the identity (D-15). Forgetting
        the device clears both, and that is what this is for.
 
@@ -1800,8 +1849,11 @@
       store.remove('extra_guests');
       store.remove('note');
       store.remove('enrolled');
-      // Forgetting the device must not leave a submission tally behind.
+      // Forgetting the device must not leave a submission tally behind, nor a
+      // list of which photographs in the shared album belong to whoever was
+      // holding this phone before. That list is the more revealing of the two.
       store.remove('photo_count');
+      store.remove('photo_paths');
     }
   };
 
@@ -4721,15 +4773,26 @@
      Nothing splits a name here. public.album applies split_part server side,
      so a surname is not there to render rather than being rendered and then
      hidden. Asking the view for guest_id answers 42703. */
-  function albumTile(row, onBroken) {
+  function albumTile(row, onBroken, items, i) {
     var url = photoPublicUrl(row.storage_path);
 
+    /* Still an anchor to the real object, not a button. The click is
+       intercepted for the lightbox, but the href is what keeps everything
+       D-10 bought: a long press offers save, a middle click opens a tab, and
+       a guest whose JavaScript died still gets the photograph. */
     var a = document.createElement('a');
     a.className = 'album__tile';
     a.href = url;
     a.target = '_blank';
     a.rel = 'noopener';
     a.setAttribute('aria-label', t('photos.album.open').replace('{name}', String(row.first_name || '')));
+
+    a.addEventListener('click', function (e) {
+      // Never swallow a modified click: that is the guest asking for a tab.
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      e.preventDefault();
+      lbOpen(items, i, a);
+    });
 
     var frame = document.createElement('span');
     frame.className = 'album__frame';
@@ -4826,11 +4889,305 @@
             : albumHeadText('empty', 0);
         }
 
+        /* One items array shared by every tile, so the lightbox can step
+           through the whole album from whichever frame was tapped rather than
+           opening one photograph in isolation. */
+        var items = rows.map(function (r) {
+          return { path: r.storage_path, name: String(r.first_name || '') };
+        });
+
         var grid = document.createElement('div');
         grid.className = 'album';
-        rows.forEach(function (row) { grid.appendChild(albumTile(row, tileBroken)); });
+
+        /* A mosaic rather than a uniform grid. Every fifth frame is given two
+           columns, which is what stops a wall of identical squares reading as
+           a contact sheet. Purely presentational: the order is still the
+           order the view returned, newest first. */
+        rows.forEach(function (row, i) {
+          var tile = albumTile(row, tileBroken, items, i);
+          if (i % 5 === 0) tile.setAttribute('data-wide', '1');
+          grid.appendChild(tile);
+        });
+
         host.appendChild(grid);
       });
+  }
+
+  /* ======================================================================
+     THE LIGHTBOX
+
+     D-10 chose not to build one, and the reasoning was good: the browser's own
+     image viewer gives pinch zoom, save and share for zero code. That decision
+     is overturned here on the owner's explicit instruction that the album is
+     the part guests will use most and has to feel like a gallery. Opening a
+     new tab per photograph is not a gallery, and on a phone it walks the guest
+     off the site.
+
+     D-10's actual benefit is kept rather than discarded: every frame still
+     carries a real link to the full size object, so save, share and open in a
+     new tab all still work through the browser's own machinery. What is added
+     is staying on the page, and moving between photographs without going back.
+     ====================================================================== */
+
+  var lbEl = null;          // the overlay, built once and reused
+  var lbItems = [];         // [{ path, name }]
+  var lbIndex = 0;
+  var lbReturnFocus = null;
+  var lbTouchX = null;
+
+  function lbCaptionFor(item) {
+    if (!item) return '';
+    return item.name
+      ? t('gallery.by').replace('{name}', item.name)
+      : t('gallery.by.you');
+  }
+
+  function lbShow(i) {
+    if (!lbEl || !lbItems.length) return;
+
+    // Wraps rather than stops. A gallery that dead ends at the last photo
+    // makes a guest reverse out of it.
+    lbIndex = (i + lbItems.length) % lbItems.length;
+    var item = lbItems[lbIndex];
+    var url = photoPublicUrl(item.path);
+
+    var img = $('.lb__img', lbEl);
+    var link = $('.lb__open', lbEl);
+    var cap = $('.lb__by', lbEl);
+    var count = $('.lb__count', lbEl);
+
+    if (img) {
+      /* Cleared first so a slow photograph shows nothing rather than showing
+         the previous one under the new one's caption, which would attribute
+         somebody's picture to somebody else. */
+      img.removeAttribute('src');
+      img.alt = '';
+      img.src = url;
+    }
+    if (link) link.href = url;
+    if (cap) cap.textContent = lbCaptionFor(item);
+    if (count) {
+      count.textContent = t('gallery.count.of')
+        .replace('{i}', String(lbIndex + 1))
+        .replace('{n}', String(lbItems.length));
+    }
+
+    // Single photograph: nothing to step through, so the arrows go away
+    // rather than sitting there doing nothing.
+    var many = lbItems.length > 1;
+    $$('.lb__step', lbEl).forEach(function (b) { b.hidden = !many; });
+    if (count) count.hidden = !many;
+  }
+
+  function lbClose() {
+    if (!lbEl || lbEl.hidden) return;
+
+    lbEl.removeAttribute('data-show');
+    lbEl.hidden = true;
+    document.body.style.overflow = '';
+
+    var img = $('.lb__img', lbEl);
+    // Stops a large photograph decoding into a closed overlay.
+    if (img) img.removeAttribute('src');
+
+    if (lbReturnFocus && lbReturnFocus.focus) {
+      try { lbReturnFocus.focus(); } catch (e) { /* detached */ }
+    }
+    lbReturnFocus = null;
+  }
+
+  function buildLightbox() {
+    var el = document.createElement('div');
+    el.className = 'lb';
+    el.hidden = true;
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+
+    var stage = document.createElement('div');
+    stage.className = 'lb__stage';
+
+    var img = document.createElement('img');
+    img.className = 'lb__img';
+    img.alt = '';
+    img.decoding = 'async';
+    stage.appendChild(img);
+
+    var bar = document.createElement('div');
+    bar.className = 'lb__bar';
+
+    var by = document.createElement('p');
+    by.className = 'lb__by';
+    bar.appendChild(by);
+
+    var count = document.createElement('p');
+    count.className = 'lb__count mono';
+    bar.appendChild(count);
+
+    // D-10's escape hatch, kept explicitly.
+    var open = document.createElement('a');
+    open.className = 'lb__open';
+    open.target = '_blank';
+    open.rel = 'noopener';
+    open.setAttribute('data-i18n', 'gallery.original');
+    bar.appendChild(open);
+
+    function stepBtn(dir, cls, labelKey) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'lb__step ' + cls;
+      b.setAttribute('data-i18n', labelKey);
+      b.setAttribute('data-i18n-attr', 'aria-label');
+      b.appendChild(document.createTextNode(dir < 0 ? '‹' : '›'));
+      b.addEventListener('click', function () { lbShow(lbIndex + dir); });
+      return b;
+    }
+
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'lb__close';
+    close.setAttribute('data-i18n', 'gallery.close');
+    close.setAttribute('data-i18n-attr', 'aria-label');
+    close.appendChild(document.createTextNode('×'));
+    close.addEventListener('click', lbClose);
+
+    el.appendChild(close);
+    el.appendChild(stepBtn(-1, 'lb__step--prev', 'gallery.prev'));
+    el.appendChild(stage);
+    el.appendChild(stepBtn(1, 'lb__step--next', 'gallery.next'));
+    el.appendChild(bar);
+
+    // Tapping the backdrop closes. Tapping the photograph does not, because
+    // that is where a guest puts a finger to pinch it.
+    el.addEventListener('click', function (e) {
+      if (e.target === el || e.target === stage) lbClose();
+    });
+
+    /* Swipe, which is the gesture a phone guest will try first. Threshold is
+       generous and vertical movement is ignored, so a scroll attempt inside a
+       tall photograph does not count as a step. */
+    el.addEventListener('touchstart', function (e) {
+      var p = e.touches && e.touches[0];
+      lbTouchX = p ? p.clientX : null;
+    }, { passive: true });
+
+    el.addEventListener('touchend', function (e) {
+      if (lbTouchX === null) return;
+      var p = e.changedTouches && e.changedTouches[0];
+      if (!p) { lbTouchX = null; return; }
+      var dx = p.clientX - lbTouchX;
+      lbTouchX = null;
+      if (Math.abs(dx) > 45) lbShow(lbIndex + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+
+    document.body.appendChild(el);
+    return el;
+  }
+
+  /* items: [{ path, name }]. name empty means the guest's own, which is what
+     picks the "by you" caption. */
+  function lbOpen(items, i, opener) {
+    if (!items || !items.length) return;
+
+    if (!lbEl) lbEl = buildLightbox();
+    lbItems = items;
+    lbReturnFocus = opener || document.activeElement;
+
+    lbEl.hidden = false;
+    document.body.style.overflow = 'hidden';
+    lbShow(i);
+
+    // The overlay's own strings, in the current language, every time.
+    $$('[data-i18n]', lbEl).forEach(function (node) {
+      var val = t(node.getAttribute('data-i18n'));
+      if (!val) return;
+      var attr = node.getAttribute('data-i18n-attr');
+      if (attr) node.setAttribute(attr, val);
+      else node.textContent = val;
+    });
+
+    requestAnimationFrame(function () {
+      if (lbEl) lbEl.setAttribute('data-show', '1');
+    });
+
+    var close = $('.lb__close', lbEl);
+    if (close) close.focus();
+  }
+
+  function wireLightboxKeys() {
+    document.addEventListener('keydown', function (e) {
+      if (!lbEl || lbEl.hidden) return;
+
+      var k = e.key;
+      if (k === 'Escape' || k === 'Esc') { e.preventDefault(); lbClose(); return; }
+      if (k === 'ArrowRight') { e.preventDefault(); lbShow(lbIndex + 1); return; }
+      if (k === 'ArrowLeft')  { e.preventDefault(); lbShow(lbIndex - 1); return; }
+
+      if (k !== 'Tab') return;
+
+      var items = $$('button, a[href]', lbEl).filter(function (n) { return !n.hidden; });
+      if (!items.length) return;
+      var first = items[0];
+      var last = items[items.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+  }
+
+  /* ======================================================================
+     YOUR SUBMISSIONS
+
+     Read from this device, never from the network. The paths are already
+     known, so this block costs no request and renders on first paint even on
+     a connection that cannot reach the album at all.
+     ====================================================================== */
+
+  function mineTile(path, items, i) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mine__tile';
+    btn.setAttribute('aria-label',
+      t('photos.mine.open').replace('{i}', String(i + 1)));
+
+    var img = document.createElement('img');
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.alt = '';
+    /* A frame with no photograph in it is worse than one fewer frame. Same
+       rule the album tiles follow, and here it also covers the owner clearing
+       an object from the dashboard, which this device cannot know about. */
+    img.onerror = function () { btn.setAttribute('data-broken', '1'); };
+    img.src = photoPublicUrl(path);
+
+    btn.appendChild(img);
+    btn.addEventListener('click', function () { lbOpen(items, i, btn); });
+    return btn;
+  }
+
+  function buildMine() {
+    var paths = identity.photoPaths();
+    if (!paths.length) return null;
+
+    var items = paths.map(function (p) { return { path: p, name: '' }; });
+
+    var box = document.createElement('div');
+    box.className = 'mine';
+
+    var head = document.createElement('p');
+    head.className = 'mine__head';
+    head.textContent = paths.length === 1
+      ? t('photos.mine.one')
+      : t('photos.mine.many').replace('{n}', String(paths.length));
+    box.appendChild(head);
+
+    var strip = document.createElement('div');
+    strip.className = 'mine__strip';
+    for (var i = 0; i < paths.length; i++) {
+      strip.appendChild(mineTile(paths[i], items, i));
+    }
+    box.appendChild(strip);
+
+    return box;
   }
 
   /* ----------------------------------------------------------------------
@@ -5680,6 +6037,13 @@
             setRowState(rec, 'done', null, null);
             setRowProgress(rec, 1);
             identity.setPhotoCount(identity.photoCount() + 1);
+            /* Recorded beside the count and on the same branch, because the
+               two answer the same question and a device where they disagree
+               shows a guest a tally that does not match their own strip. Only
+               here: the row landing is what makes this photograph part of the
+               album, and the orphan branch below deliberately creates an
+               object that is in no view and therefore in nobody's album. */
+            identity.addPhotoPath(path);
             refreshPhotosState();
           } else if (result === 'limit') {
             /* The bytes went up, so this is not a failure and the copy must
@@ -6039,14 +6403,62 @@
     var panel = $('.panel', host);
     if (panel) panel.setAttribute('data-show', '1');
 
-    /* The album is present under the gate deliberately: it is what makes the
-       registration prompt persuasive. A guest who can see the evening
-       happening and is told they need a registration to add to it is a guest
-       who registers. */
-    var album = document.createElement('div');
-    album.id = 'photos-album';
-    host.appendChild(album);
-    renderAlbum(album);
+    /* Under the uploader: this guest's own submissions and nothing else.
+
+       The shared album used to hang here and it was the wrong thing in the
+       wrong place. A guest who has just uploaded wants to see what they
+       uploaded, and instead got everybody's photographs with their own three
+       somewhere inside them. The whole album now has its own section below,
+       where looking at it is the actual intention rather than a side effect of
+       submitting.
+
+       Costs no request. The paths are on the device, so this renders on first
+       paint even on a connection that never reaches the album.
+
+       Nothing is rendered under the gate body any more. The old argument for
+       it was that seeing the evening happen makes the registration prompt
+       persuasive, and that argument still holds, but it now belongs to the
+       gallery section, which an unregistered guest can read in full. */
+    var mine = buildMine();
+    if (mine) {
+      var mineHost = document.createElement('div');
+      mineHost.id = 'photos-mine';
+      mineHost.appendChild(mine);
+      host.appendChild(mineHost);
+    }
+
+    // The way through to the whole album, from the place a guest has just
+    // finished adding to it.
+    if (sbConfigured()) {
+      var more = document.createElement('a');
+      more.className = 'btn btn--ghost photos__toalbum';
+      more.href = '#gallery';
+      more.setAttribute('data-i18n', 'photos.seealbum');
+      more.textContent = t('photos.seealbum');
+      host.appendChild(more);
+    }
+  }
+
+  /* ======================================================================
+     THE GALLERY
+
+     The shared album, in its own section, read from public.album exactly as
+     before. Moved here rather than rebuilt: renderAlbum is unchanged in what
+     it asks the database for and what it trusts.
+     ====================================================================== */
+
+  function renderGallery() {
+    var sec = $('#gallery');
+    var host = $('#gallery-body');
+    if (!sec || !host) return;
+
+    /* No credentials means no album to show and no honest placeholder to show
+       instead, so the section is not there at all. Hidden rather than emptied,
+       so it also leaves the page order alone. */
+    if (!sbConfigured()) { sec.hidden = true; return; }
+    sec.hidden = false;
+
+    renderAlbum(host);
   }
 
   /* ======================================================================
@@ -6099,6 +6511,7 @@
     wireEnrollment();
     wireSaveDate();
     wireNav();
+    wireLightboxKeys();
     scheduleAwakening();
     applyLanguage();
     startClock();

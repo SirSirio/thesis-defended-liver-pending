@@ -524,6 +524,7 @@ a { color: inherit; }
 .navmenu[data-show="1"] .navmenu__nav a:nth-child(4) { transition-delay: 135ms; }
 .navmenu[data-show="1"] .navmenu__nav a:nth-child(5) { transition-delay: 170ms; }
 .navmenu[data-show="1"] .navmenu__nav a:nth-child(6) { transition-delay: 205ms; }
+.navmenu[data-show="1"] .navmenu__nav a:nth-child(7) { transition-delay: 240ms; }
 
 .navmenu__nav a:active { color: var(--accent-lit); }
 
@@ -2902,4 +2903,213 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color var(--t-fast) var(--ease-out);
+}
+
+/* ==========================================================================
+   THE GALLERY
+
+   The album's own section. The grid above is kept and lifted rather than
+   replaced: same breakpoints, same no-reflow frame, same broken tile rule.
+   What changes is that it stops reading as a contact sheet.
+   ========================================================================== */
+
+/* Every fifth frame takes two columns. A wall of identical squares is a
+   filing system; an uneven one is a gallery. Presentational only, and the
+   order is still the order the view returned. */
+.album__tile[data-wide] { grid-column: span 2; }
+.album__tile[data-wide] .album__frame { aspect-ratio: 16 / 10; }
+
+.album__tile {
+  position: relative;
+  border-radius: var(--r-md);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, calc(0.34 * var(--lift)));
+}
+
+/* The name moves off its own row and onto the photograph, over a scrim heavy
+   enough to keep it legible on a white wall or a bright flash. That is what
+   buys the gallery look: the frame becomes the whole tile instead of an image
+   with a label bolted under it. */
+.album__by {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  border-top: 0;
+  padding: var(--s-5) var(--s-3) var(--s-2);
+  color: var(--ink);
+  background: linear-gradient(180deg, rgba(11, 11, 12, 0), rgba(11, 11, 12, 0.82));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .album__tile:hover { border-color: var(--ink-faint); transform: translateY(-2px); }
+  .album__tile:hover .album__by { color: var(--ink); }
+}
+
+/* ==========================================================================
+   YOUR SUBMISSIONS
+
+   A horizontal strip under the uploader, not a grid. There are at most five of
+   these and they are the guest's own, so they want to read as a roll of film
+   rather than as a second album competing with the real one below.
+   ========================================================================== */
+
+.mine { margin-top: var(--s-6); }
+
+.mine__head {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-dim);
+  margin: 0 0 var(--s-3);
+}
+
+.mine__strip {
+  display: flex;
+  gap: var(--s-2);
+  /* Scrolls sideways rather than wrapping, so five submissions never push the
+     link to the whole album off the bottom of a phone. */
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding-bottom: var(--s-2);
+  -webkit-overflow-scrolling: touch;
+
+  /* A phone hides this bar on its own; a desktop draws a grey track under five
+     thumbnails and makes a finished strip look like an overflow bug. The strip
+     is short, snapped and obviously horizontal, so the affordance is not
+     carrying any weight worth the ugliness. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.mine__strip::-webkit-scrollbar { display: none; }
+
+.mine__tile {
+  flex: 0 0 auto;
+  width: 104px; height: 104px;
+  padding: 0;
+  appearance: none; cursor: pointer;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  scroll-snap-align: start;
+  transition: transform var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out);
+}
+.mine__tile[data-broken] { display: none; }
+.mine__tile:active { transform: scale(0.96); }
+.mine__tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+@media (hover: hover) and (pointer: fine) {
+  .mine__tile:hover { border-color: var(--accent-lit); }
+}
+
+.photos__toalbum { margin-top: var(--s-5); }
+
+/* ==========================================================================
+   THE LIGHTBOX
+
+   D-10 chose not to build one and that decision is overturned in app.js, with
+   the reasoning recorded there. The full size object is still one tap away
+   through .lb__open, so save and share still go through the browser.
+   ========================================================================== */
+
+.lb {
+  position: fixed; inset: 0;
+  z-index: var(--z-toast);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  background: rgba(6, 6, 7, 0.92);
+  backdrop-filter: blur(22px);
+  opacity: 0;
+  transition: opacity var(--t-base) var(--ease-out);
+}
+.lb[data-show="1"] { opacity: 1; }
+
+.lb__stage {
+  grid-column: 2; grid-row: 1;
+  display: flex; align-items: center; justify-content: center;
+  min-width: 0; min-height: 0;
+  width: 100%; height: 100%;
+}
+
+.lb__img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--r-md);
+  /* The photograph is the only thing in here that is allowed to be bright. */
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+
+.lb__close {
+  position: absolute;
+  top: var(--s-4); right: var(--s-4);
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  appearance: none; cursor: pointer;
+  font-size: 26px; line-height: 1;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--r-lg);
+}
+
+/* Sat against the left and right edges rather than floated over the
+   photograph, so a thumb reaching for next does not land on the picture and
+   so nothing covers the photograph a guest came to look at. */
+.lb__step {
+  align-self: center;
+  width: 44px; height: 64px;
+  display: grid; place-items: center;
+  appearance: none; cursor: pointer;
+  font-size: 30px; line-height: 1;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--r-md);
+  transition: background var(--t-fast) var(--ease-out);
+}
+.lb__step--prev { grid-column: 1; grid-row: 1; justify-self: start; }
+.lb__step--next { grid-column: 3; grid-row: 1; justify-self: end; }
+.lb__step:active { background: rgba(255, 255, 255, 0.14); }
+
+.lb__bar {
+  grid-column: 1 / -1; grid-row: 2;
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  padding-top: var(--s-3);
+}
+
+.lb__by {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.lb__count { font-size: 12.5px; color: var(--ink-faint); margin: 0; }
+
+.lb__open {
+  margin-left: auto;
+  display: inline-flex; align-items: center;
+  min-height: 44px;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .lb__open:hover { color: var(--ink); }
+}
+
+/* The arrows are a desktop and large phone affordance. Below this the gesture
+   is the swipe, which is what a guest reaches for anyway, and two 44px
+   columns are 88px this viewport does not have to give a photograph. */
+@media (max-width: 480px) {
+  .lb { grid-template-columns: 1fr; padding: var(--s-3); }
+  .lb__stage { grid-column: 1; }
+  .lb__step { display: none; }
+  .lb__bar { grid-column: 1; }
 }

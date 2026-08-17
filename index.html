@@ -131,6 +131,7 @@
     <a href="#location" data-i18n="nav.location">Location</a>
     <a href="#access" data-i18n="nav.access">Building access</a>
     <a href="#photos" data-i18n="nav.photos">Documentation</a>
+    <a href="#gallery" data-i18n="nav.gallery">The album</a>
   </nav>
 
   <!-- The language switch lives here on a phone rather than in the bar. Logo,
@@ -418,6 +419,28 @@
           <p class="pending__b" data-i18n="photos.pending.body">Uploads open closer to the date. Nothing is required from you now.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- THE ALBUM
+       Split out of the documentation section on purpose. Under the uploader a
+       guest now sees only their own submissions, because that is what somebody
+       who has just uploaded is looking for; everybody's photographs live here,
+       where looking at them is the intention rather than a side effect of
+       submitting.
+
+       Ships hidden. renderGallery clears the attribute once Supabase
+       credentials are present, so a site without them has no empty gallery
+       standing in the page order. No entry is added to the bar at the top for
+       this section either, for the reason recorded on the announcements
+       section: six items is what that bar fits at desktop and a seventh
+       reopens a defect that was closed. The full screen menu has room and
+       carries it, and the documentation section links straight down here. -->
+  <section class="section" id="gallery" data-zone="unhinged" hidden>
+    <div class="wrap">
+      <h2 class="section__h" data-i18n="gallery.heading">The album</h2>
+      <p class="section__lede" data-i18n="gallery.lede">Everything submitted so far, newest first. Tap any photograph to open it.</p>
+      <div id="gallery-body"></div>
     </div>
   </section>
 
