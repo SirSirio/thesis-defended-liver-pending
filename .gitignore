@@ -36,3 +36,6 @@ desktop.ini
 
 # Playwright scratch output
 .playwright-mcp/
+
+# GSD research fetch cache. Hash named, regenerated on demand, not project history.
+.planning/research/.cache/
