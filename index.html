@@ -87,6 +87,35 @@
 
       <h1 class="hero__title" data-i18n="hero.title">Thesis Defended, Liver Pending</h1>
 
+      <!-- SAVE THE DATE
+           The largest thing on the page, and that ranking is deliberate. The
+           date is what the guest has to act on. The countdown below only says
+           how long they have left to act on it, which is a smaller job, so it
+           gets smaller type.
+
+           Every value in here is written by renderSaveDate() from
+           config.startsAt through Intl pinned to Europe/Copenhagen, the same
+           zone formatDate and calendarDaysUntil already pin. Nothing about the
+           date is hardcoded here or in copy.js, so changing one line of config
+           moves the big number, the sentence under it, the .ics file and the
+           Google Calendar link together, and the weekday comes out correct in
+           all three languages without anyone translating it.
+
+           The big number is aria-hidden because the line under it says the same
+           thing in words. A screen reader announcing "03.10" reads it as two
+           numbers and tells the guest nothing. -->
+      <div class="savedate" id="savedate">
+        <p class="savedate__eyebrow" data-i18n="savedate.eyebrow">Save the date</p>
+        <p class="savedate__num" id="savedate-num" aria-hidden="true"></p>
+        <p class="savedate__full" id="savedate-full"></p>
+        <div class="savedate__act">
+          <button class="btn btn--primary savedate__cta" id="savedate-add" type="button"
+                  data-i18n="savedate.cta">Add to your calendar</button>
+          <a class="savedate__alt" id="savedate-gcal" href="#" target="_blank" rel="noopener"
+             data-i18n="savedate.google">or open it in Google Calendar</a>
+        </div>
+      </div>
+
       <!-- Countdown. Three states, switched automatically by the clock. -->
       <div class="countdown" id="countdown" data-state="before">
 

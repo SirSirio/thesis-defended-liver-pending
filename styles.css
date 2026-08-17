@@ -307,13 +307,110 @@ a { color: inherit; }
   font-size: clamp(2.4rem, 7.5vw, 5.4rem);
   font-weight: 800;
   letter-spacing: -0.04em;
-  max-width: 16ch;
-  margin-bottom: var(--s-8);
+  margin-bottom: var(--s-4);
+}
+
+/* The 16ch measure is a desktop instruction, not a universal one. On a phone
+   it forces this headline onto a third line for no reason and costs the save
+   the date block 42px of the only viewport that matters. Applied from the
+   width where there is room to spare. */
+@media (min-width: 700px) {
+  .hero__title { max-width: 16ch; margin-bottom: var(--s-7); }
 }
 
 .hero__actions {
   display: flex; flex-wrap: wrap; gap: var(--s-3);
-  margin-top: var(--s-8);
+  margin-top: var(--s-5);
+}
+
+/* --------------------------------------------------------------------------
+   Save the date
+   The one block on the page allowed to be enormous. Sized from the phone up,
+   because the phone is where this gets read and every earlier complaint about
+   this site was a phone complaint.
+   -------------------------------------------------------------------------- */
+
+.savedate {
+  margin-top: var(--s-5);
+  margin-bottom: var(--s-5);
+}
+
+.savedate__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-lit);
+  margin-bottom: var(--s-2);
+}
+
+/* 26vw holds "03.10" inside a 390px viewport with its 24px gutters and still
+   lands about four times the height of the countdown digits below it, which is
+   the ranking the whole block exists to state. */
+.savedate__num {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(4.2rem, 26vw, 11rem);
+  line-height: 0.86;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  color: var(--ink);
+  margin-bottom: var(--s-3);
+}
+
+/* The separator carries the accent so the number reads as one designed object
+   rather than as four digits and a full stop. Large display type, which is the
+   only place DTU red is allowed to appear as a fill. */
+.savedate__dot {
+  color: var(--accent-lit);
+  margin-inline: -0.06em;
+}
+
+.savedate__full {
+  font-family: var(--font-mono);
+  font-size: clamp(13px, 3.6vw, 15px);
+  letter-spacing: 0.03em;
+  color: var(--ink-dim);
+  margin-bottom: var(--s-5);
+}
+
+.savedate__act {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--s-3);
+}
+
+.savedate__act .btn { width: 100%; min-height: 52px; }
+
+/* The fallback link, not a second call to action. It is a link because it goes
+   somewhere, it is quiet because the button above it is the answer for almost
+   everyone, and it carries a 44px box because it is still a tap target. */
+.savedate__alt {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 44px;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color var(--t-fast) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .savedate__alt:hover { color: var(--ink); }
+}
+
+@media (min-width: 481px) {
+  .savedate { margin-top: var(--s-6); margin-bottom: var(--s-7); }
+  .savedate__act {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s-5);
+  }
+  .savedate__act .btn { width: auto; }
 }
 
 /* On a phone the buttons stack, so they stack deliberately: equal width,
@@ -325,9 +422,18 @@ a { color: inherit; }
 
 /* --------------------------------------------------------------------------
    Countdown
-   The one element allowed to break the display size ceiling, because the
-   brief asked for it to be huge and it is the reason people open the page.
+   Demoted, on purpose. It used to be the one element allowed to break the
+   display size ceiling. The save the date block above now holds that licence,
+   because the date is the thing a guest has to act on and the countdown only
+   measures how long they have left to act. The countdown keeps its job and
+   loses its spectacle: a data strip under the date, hairline separated, still
+   the second largest thing in the hero.
    -------------------------------------------------------------------------- */
+
+.countdown {
+  border-top: 1px solid var(--rule);
+  padding-top: var(--s-5);
+}
 
 .countdown__label {
   font-family: var(--font-mono);
@@ -348,10 +454,10 @@ a { color: inherit; }
 .unit { display: flex; flex-direction: column; }
 
 .unit__n {
-  font-size: clamp(3rem, 12.5vw, 7.5rem);
+  font-size: clamp(1.9rem, 7vw, 3rem);
   font-weight: 800;
   line-height: 0.92;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.04em;
   color: var(--ink);
 }
 
@@ -369,11 +475,11 @@ a { color: inherit; }
 /* Sized with the digits, not under them, so the dots read as punctuation
    rather than as specks of dust on the screen. */
 .unit__sep {
-  font-size: clamp(3rem, 12.5vw, 7.5rem);
+  font-size: clamp(1.9rem, 7vw, 3rem);
   font-weight: 500;
   line-height: 0.92;
-  color: var(--accent);
-  opacity: 0.9;
+  color: var(--accent-lit);
+  opacity: 0.75;
   margin-inline: calc(var(--s-1) * -1);
 }
 
@@ -401,15 +507,23 @@ a { color: inherit; }
 
 .countdown[data-state="live"] .countdown__status { color: var(--accent-lit); }
 
+/* The two by two grid that used to live here existed because four digit pairs
+   at 19vw could not share a line on a phone. At the demoted size they fit one
+   row with room to spare, so the grid is gone rather than kept and shrunk.
+
+   The separators go with it. Each .unit is as wide as its widest child, and
+   below this width that child is the label rather than the digits, so a colon
+   sitting between two label boxes lands nowhere near the two numbers it is
+   supposed to be punctuating. Four evenly spread labelled figures read as the
+   data strip this block was just demoted into, and need no punctuation. */
 @media (max-width: 620px) {
   .countdown__clock {
-    display: grid;
-    grid-template-columns: repeat(2, auto);
-    justify-content: start;
-    gap: var(--s-4) var(--s-7);
+    justify-content: space-between;
+    gap: var(--s-2);
+    max-width: 340px;
   }
   .unit__sep { display: none; }
-  .unit__n { font-size: clamp(3rem, 19vw, 5rem); }
+  .unit__l { letter-spacing: 0.08em; }
 }
 
 /* --------------------------------------------------------------------------

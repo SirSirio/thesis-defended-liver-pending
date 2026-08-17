@@ -33,6 +33,17 @@ window.PARTY_COPY = {
     'hero.cta.access': 'Which door',
     'hero.deadline': 'Registration closes {date}',
 
+    /* The date itself is never written here. renderSaveDate builds it from
+       config.startsAt through Intl, so the weekday and the month name come out
+       right in this language without anyone maintaining them. */
+    'savedate.eyebrow': 'Save the date',
+    'savedate.cta': 'Add to your calendar',
+    'savedate.google': 'or open it in Google Calendar',
+    'savedate.event.title': 'Course 03102: Thesis Defended, Liver Pending',
+    'savedate.event.body': 'Attendance is not mandatory but is strongly expected. Course description, registration and directions to the door:',
+    'savedate.toast.ok': 'Calendar file saved. Open it to add the course.',
+    'savedate.toast.fail': 'That did not work. Use the Google Calendar link instead.',
+
     'countdown.label': 'Time until first session',
     'countdown.days': 'days',
     'countdown.hours': 'hours',
@@ -261,6 +272,14 @@ window.PARTY_COPY = {
     'hero.cta.access': 'Quale porta',
     'hero.deadline': 'Le iscrizioni chiudono il {date}',
 
+    'savedate.eyebrow': 'Segna la data',
+    'savedate.cta': 'Aggiungi al calendario',
+    'savedate.google': 'oppure aprilo in Google Calendar',
+    'savedate.event.title': 'Corso 03102: Thesis Defended, Liver Pending',
+    'savedate.event.body': 'La presenza non è obbligatoria ma è caldamente prevista. Descrizione del corso, iscrizione e indicazioni per la porta giusta:',
+    'savedate.toast.ok': 'File del calendario salvato. Aprilo per aggiungere il corso.',
+    'savedate.toast.fail': 'Non ha funzionato. Usa il link a Google Calendar.',
+
     'countdown.label': 'Tempo alla prima lezione',
     'countdown.days': 'giorni',
     'countdown.hours': 'ore',
@@ -483,6 +502,14 @@ window.PARTY_COPY = {
     'hero.cta.location': 'Find stedet',
     'hero.cta.access': 'Hvilken dør',
     'hero.deadline': 'Tilmelding lukker {date}',
+
+    'savedate.eyebrow': 'Sæt kryds i kalenderen',
+    'savedate.cta': 'Tilføj til din kalender',
+    'savedate.google': 'eller åbn den i Google Kalender',
+    'savedate.event.title': 'Kursus 03102: Thesis Defended, Liver Pending',
+    'savedate.event.body': 'Fremmøde er ikke obligatorisk, men forventes kraftigt. Kursusbeskrivelse, tilmelding og vejvisning til den rigtige dør:',
+    'savedate.toast.ok': 'Kalenderfilen er gemt. Åbn den for at tilføje kurset.',
+    'savedate.toast.fail': 'Det virkede ikke. Brug linket til Google Kalender i stedet.',
 
     'countdown.label': 'Tid til første undervisningsgang',
     'countdown.days': 'dage',
