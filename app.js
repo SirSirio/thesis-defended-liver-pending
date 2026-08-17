@@ -4012,7 +4012,7 @@
 
   /* The second classifier, for the other service, and three outcomes so the
      caller has three branches rather than nine:
-       ok             the photograph is indexed
+       ok             the photograph is indexed, this attempt or an earlier one
        limit          the guest is already at the configured maximum
        a photos.err.* key   anything else
 
@@ -4046,6 +4046,14 @@
        is recorded. Saying so is what stops the retry writing a second row and
        spending a second slot for one photograph. */
     if (res.code === '23505') return 'ok';
+    /* The same synthesised code classifyStorage() singles out, for the same
+       reason and from the same sbRequest shape. Without this branch a dropped
+       connection during the row insert is reported as "The archive refused
+       it", which is false on both halves: nothing arrived at the archive and
+       nothing refused anything. It also removes the one cue that pressing
+       retry is the right move, which since the key is now held on the record
+       it genuinely is. */
+    if (res.code === 'NETWORK') return 'photos.err.network';
     /* Anything else, and the object this row was meant to point at is already
        in the bucket. That orphan is D-19's written accepted consequence and
        not a defect: it appears in no view, no page and no URL anyone holds,
