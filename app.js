@@ -5184,6 +5184,18 @@
     var uploader = photoUploader;
     var again = 0, i, rec;
 
+    /* The driver is sequential by contract: at any instant at most one request
+       is in flight and at most one row is in a moving state. runBatch's entry
+       point is held to that by a real DOM property, btn.disabled. This one was
+       held to it by a stylesheet rule and nothing else, and a stylesheet is
+       not a guarantee on the bad network this section is written for. A tap
+       that arrived mid batch reset already failed rows to waiting, overwrote
+       the running driver's total so its counted sentence began to lie, and
+       started a second concurrent driver walking the same array into a second
+       settle. The model is the only thing that knows, so the model is what
+       enforces it. */
+    if (photoState === 'preparing' || photoState === 'uploading') return;
+
     for (i = 0; i < photoBatch.length; i++) {
       rec = photoBatch[i];
       if (rec.state === 'done') continue;
