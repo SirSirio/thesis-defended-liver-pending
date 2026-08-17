@@ -3778,16 +3778,38 @@
      safeguard costs more than the risk it covers. See 04-RESEARCH.md, THE
      ORIENTATION REFINEMENT.
 
-     The settled flag mirrors sbRequest's invariant: the caller cannot be left
-     waiting. Errors surface as copy keys, matching the validator convention. */
+     The settled flag and the timer below together mirror sbRequest's
+     invariant: the caller cannot be left waiting. The flag alone was only half
+     of it, and sbRequest's own long comment explains which half. Errors
+     surface as copy keys, matching the validator convention. */
   function downscaleToJpeg(file, maxEdge, quality, done) {
     var url = URL.createObjectURL(file);
     var img = new Image();
     var settled = false;
 
+    /* The flag prevents a second settle; it does not produce a first one, and
+       the two are not the same promise. sbRequest earns the invariant by
+       racing the wire against a timer that RESOLVES, and this needs the same
+       thing for the same reason: if neither onload nor onerror ever fires, and
+       an abandoned decode under memory pressure or a File handle the operating
+       system invalidated between pick and read are both real, then done() is
+       never called, runNextFile() never re-enters, the object URL is never
+       revoked, and photoState stays preparing with the pick button disabled
+       for the rest of the page's life. renderPhotos() will not rebuild the
+       control either, because its skip guard reads that same stuck state, so
+       there is no recovery short of a reload.
+
+       Twenty seconds. A twelve megapixel decode and a 1600px encode is a real
+       second or two on the phone this is written for and nothing like twenty,
+       so this fires only where the browser has genuinely stopped answering.
+       The file is refused rather than failed, matching every other decode
+       outcome: nothing was sent, so nothing can be retried. */
+    var timer = setTimeout(function () { finish(null, 'photos.err.decode'); }, 20000);
+
     function finish(blob, errKey) {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       /* Released before the callback, so the next file in the sequence starts
          on a clean heap. canvas.width = 0 is the one people leave out and it
          is the one that actually frees the backing store on WebKit. */
@@ -3811,14 +3833,23 @@
       canvas.width = cw;
       canvas.height = ch;
 
+      /* Every return past the allocation above goes through this, not only the
+         two inside the encoder callback. A canvas that is reachable solely
+         through this closure still holds a cw by ch backing store, which at
+         the ceiling is 1600 by 1600 by four bytes carried into the next file's
+         decode, and the drawImage failure below is itself a memory pressure
+         signal: the leak would arrive exactly when the heap is already tight. */
+      function release() { canvas.width = canvas.height = 0; }
+
       var ctx = canvas.getContext('2d');
-      if (!ctx) return finish(null, 'photos.err.decode');
+      if (!ctx) { release(); return finish(null, 'photos.err.decode'); }
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';   // Chromium and WebKit honour it, Firefox ignores it
 
       try {
         ctx.drawImage(img, 0, 0, cw, ch);
       } catch (e) {
+        release();
         return finish(null, 'photos.err.decode');
       }
 
@@ -3827,10 +3858,10 @@
            for this file. Never retried: each retry re-decodes the full
            resolution source, and the third attempt is where a phone gives up. */
         if (!blob || blob.size < 256) {
-          canvas.width = canvas.height = 0;
+          release();
           return finish(null, 'photos.err.encode');
         }
-        canvas.width = canvas.height = 0;
+        release();
         finish(blob, null);
       }, 'image/jpeg', quality);
     };
