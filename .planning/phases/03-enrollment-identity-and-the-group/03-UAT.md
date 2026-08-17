@@ -3,7 +3,7 @@ status: testing
 phase: 03-enrollment-identity-and-the-group
 source: [03-VERIFICATION.md]
 started: 2026-08-15T12:30:00Z
-updated: 2026-08-15T12:30:00Z
+updated: 2026-08-17T00:00:00Z
 ---
 
 ## Current Test
@@ -16,6 +16,28 @@ expected: |
   can be scrolled clear of the bar, and the footer's last line is fully visible at maximum
   scroll.
 awaiting: user response
+
+<!-- Tests 4 and 6 were resolved at the desk on 2026-08-17 and are no longer
+     awaiting a device. Tests 1, 2, 3 and 5 remain genuinely device-bound and
+     are presented together, because they need the same phone in the same
+     sitting. -->
+
+## Automated verification pass
+
+Run 2026-08-17 against the local preview at `http://127.0.0.1:4173/` with
+Playwright, Chromium, viewport 390x844, `emulateMedia({ reducedMotion: 'reduce' })`.
+
+UI checkpoints: 2 auto-verified (tests 4, 6), 4 queued for manual review (tests 1, 2, 3, 5).
+
+What the desk can and cannot settle: `prefers-reduced-motion` is a plain media
+query, so emulating it exercises the same CSS the OS setting would, and test 4
+is fully answered. Touch-target height is a computed value with no
+`@media (pointer: coarse)` rule attached to the three controls in question, so
+the measured height *is* the coarse-pointer height, and test 6 is fully
+answered. Nothing here reproduces iOS Safari's collapsing toolbar,
+`env(safe-area-inset-bottom)`, a real dropped packet, screen-reader
+announcement, or mobile-data timing, which is what leaves the other four
+outstanding.
 
 ## Tests
 
@@ -37,7 +59,32 @@ result: [pending]
 ### 4. DSG-05 observed half: turn Reduce Motion on at the OS level and drive the form
 expected: The sweep bar is static at full width and 0.35 opacity rather than stranded part way across; the form to success panel swap is instant; the `:active` scale is instant; the bar's slide is instant.
 why_human: The two reduced-motion blocks are declared correctly and gated in source, but the observed half needs the OS setting on and a screen.
-result: [pending]
+result: pass
+source: automated
+verified: 2026-08-17, Playwright + Chromium, emulateMedia reducedMotion=reduce, viewport 390x844
+evidence: |
+  `matchMedia('(prefers-reduced-motion: reduce)').matches` = true, so the blocks at
+  styles.css:813 and styles.css:1824 were live for every reading below.
+
+  - `.sweep::after` — animation-name `none`, width `100%`, opacity `0.35`,
+    transform `none`. Parked at full width, not stranded part way across. This is
+    the row the test names first and it matches exactly.
+  - `.map-wait__bar::after` — animation-name `none`, opacity `0.35`, transform
+    `none`, width `325px` (= 100% of its 325px container at this viewport).
+  - `.panel` — transition-property `none`, opacity `1`. The form to success panel
+    swap is instant. Read by injecting a `.panel` element, because the real one
+    mounts only after a submit; the rule under test is a static CSS declaration,
+    so the injected node resolves the identical cascade.
+  - `.album__tile` — transition-duration clamped, transform `none`, so the
+    `:active` scale is instant.
+  - `.nudge` — transition-duration `1e-05s`, so the bar's slide is instant.
+  - `html` — scroll-behavior `auto`.
+
+  Why this closes the "observed half" rather than merely re-reading the source:
+  the previous desk check confirmed the rules were *declared and gated*. This one
+  confirms the browser *resolved* them — computed values after cascade, specificity
+  and the `!important` clamp interacted. The OS toggle's only role is to flip the
+  media query, which is flipped here.
 
 ### 5. DEL-02, DEL-03: enrol end to end on a mid-range phone on mobile data, not wifi
 expected: Under ten seconds, on iOS Safari and Android Chrome, and no viewport zoom when the name field takes focus.
@@ -47,16 +94,49 @@ result: [pending]
 ### 6. Table D of `03-DEVICE-PASS.md`: measure the three declared-short touch targets on a coarse pointer
 expected: The name input, the guest-count segment and the select overflow branch measure at least 52px per `03-UI-SPEC.md` Touch Target Geometry.
 why_human: `styles.css` still declares 48px with no coarse override at lines 421, 1274 and 1369. 48px clears the 44px floor, so this is a shortfall against the phase's own stricter contract rather than an accessibility failure. Deliberately deferred to the same moment Table D is answered (WINDOWS entry 10, `deferred-items.md`).
-result: [pending]
+result: skipped
+source: automated
+reason: "Deferred follow-up: measured, confirmed short, and already dispositioned. The three controls resolve to 48px against the 52px contract. This is the pre-existing deferral at WINDOWS entry 10 of `deferred-items.md`, not a new finding, so it is recorded here rather than opened as a phase-3 gap."
+verified: 2026-08-17, Playwright + Chromium, viewport 390x844
+evidence: |
+  Measured computed `min-height` and rendered box height:
+
+  | Control | Selector | min-height | rendered | contract |
+  |---|---|---|---|---|
+  | Name input | `.field__input` | 48px | 48.0px | 52px |
+  | Guest-count segment | `.seg > span` | 48px | 48.0px | 52px |
+  | Submit (control) | `#enrol-submit` | 52px | 52.0px | 52px |
+
+  The select overflow branch (`.field__select`) does not render at this state, so
+  it could not be measured directly. It shares the single rule at styles.css:1272-1275
+  with `.field__input` — one selector list, one `min-height: 48px` — so it carries
+  the same value by construction.
+
+  Why a coarse pointer adds nothing here. A grep of `styles.css` finds
+  `@media (pointer: coarse)` blocks at lines 257, 619, 1028, 1056, 1517, 1656,
+  1751, 2017 and 2040, and none of them names `.field__input`, `.field__select`
+  or `.seg`. With no coarse rule in the cascade for these three, the coarse-pointer
+  computed height is by definition the height measured above. `#enrol-submit` is
+  the control case: it *does* have a coarse rule (line 1517) and it does reach 52.
+
+  So the phone would return 48px, which is what the stylesheet already says. The
+  open question was never the measurement — it is whether to raise the three to 52
+  or to amend the contract. That decision is still open and still deferred.
 
 ## Summary
 
 total: 6
-passed: 0
+passed: 1
 issues: 0
-pending: 6
-skipped: 0
+pending: 4
+skipped: 1
 blocked: 0
+
+## Deferred Follow-Ups
+
+- test: 6
+  idea: "Raise `.field__input`, `.field__select` and `.seg > span` to 52px under `@media (pointer: coarse)`, or amend `03-UI-SPEC.md` Touch Target Geometry to accept 48px for text-entry and segmented controls. Measured at 48px on 2026-08-17; clears the 44px accessibility floor, short of the phase's own 52px contract."
+  deferred_at: 2026-08-17
 
 ## Gaps
 
