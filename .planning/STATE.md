@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 Phase: 04 (photos) — EXECUTING
 Plan: 1 of 5
 Status: Executing Phase 04
-Last activity: 2026-08-16 — Phase 04 execution started
+Last activity: 2026-08-17 — Completed quick task 260817-txl: save the date, mobile menu, motion layer
 
 Progress: [██████████] 100%
 
@@ -165,6 +165,19 @@ plan 03-06, and the removal was proved through the public view rather than the b
 table. No outstanding database cleanup.
 
 Concern: the DTU CourseBase joke lands hardest with classmates and may read as plain institutional design to relatives. Accepted deliberately. The practical information is legible regardless of whether the joke registers.
+
+Concern: quick task 260817-txl reshaped the hero, replaced the mobile navigation and added a
+motion layer, all verified in a desktop browser at phone viewports and none of it on a real
+phone. `pointer: coarse` touch targets, iOS Safari's collapsing toolbar against the nudge bar,
+whether the `.ics` blob download opens the iOS calendar import sheet, and GSAP frame rates on an
+older Android are the four things emulation cannot answer. A device pass is owed before
+invitations go out.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260817-txl | Save the date as the hero anchor, add to calendar, full screen mobile menu, GSAP motion layer | 2026-08-17 | 6ff3d3c | [260817-txl-frontend-motion-and-save-the-date](./quick/260817-txl-frontend-motion-and-save-the-date/) |
 
 ## Deferred Items
 
