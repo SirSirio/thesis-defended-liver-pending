@@ -4260,7 +4260,7 @@
   /* ----------------------------------------------------------------------
      THE SECTION BODY
 
-     One control, eight states, and a batch that is a JavaScript array rather
+     One control, seven states, and a batch that is a JavaScript array rather
      than a reading of the DOM. Everything visible below is a projection of
      that array: the transcript, the counted sentence, the button's own busy
      state. A language switch therefore costs a repaint and never a lost file,
@@ -4294,14 +4294,23 @@
          instead. Held as { status, alert, batch, announced }, or null. */
       photoQuotaSummary = null;
 
-  /* The eight values written out, so a typo cannot invent a ninth and reach
+  /* The seven values written out, so a typo cannot invent an eighth and reach
      CSS that has no rule for it.
 
-     full is the quota body, which plan 04-04 adds as a branch of the ladder in
-     renderPhotos(). It is named here rather than later because this closed
-     list is the guard, and a list that grows by one on a later plan is a list
-     two plans disagree about. */
-  var UPLOADER_STATES = ['idle', 'preparing', 'uploading', 'success', 'partial', 'refused', 'failed', 'full'];
+     The quota is deliberately not one of them, and the earlier draft of this
+     list that carried a full value was wrong rather than forward looking.
+     Nothing can write it: setUploaderState is called with preparing,
+     uploading, a re-seated photoState, or settleBatch's computed state, which
+     is one of idle, partial, success, failed, refused. At the maximum the
+     ladder in renderPhotos() replaces the whole control with the quota body,
+     so there is no .uploader element left to carry a full attribute and the
+     stylesheet has no rule for one. Naming a state the control cannot enter
+     was a trap for the next reader, who would reasonably take
+     setUploaderState(uploader, 'full') for a supported call, watch it be
+     accepted, and find nothing on the page. With the value gone the guard
+     below answers that call the way it answers any other typo. The quota is a
+     body of the ladder, not a state of the control. */
+  var UPLOADER_STATES = ['idle', 'preparing', 'uploading', 'success', 'partial', 'refused', 'failed'];
 
   /* The seven row states and the word each one renders. A table rather than a
      concatenated key, for two reasons: a bogus state cannot silently produce a

@@ -2041,12 +2041,12 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   .uploader__acts .btn { min-height: 56px; }
 }
 
-/* The batch retry exists in exactly two of the eight control states, and the
+/* The batch retry exists in exactly two of the seven control states, and the
    control's own attribute decides that rather than a class toggle in
    JavaScript: the same [data-state] gating idiom .sweep already uses, so the
    button is built once and the stylesheet owns whether it is on the page.
 
-   Absent in the other six deliberately. In idle there is nothing to retry, and
+   Absent in the other five deliberately. In idle there is nothing to retry, and
    a permanently visible second button beside the submit control would read as
    two equal choices where there is one. */
 .uploader__retry { display: none; }
