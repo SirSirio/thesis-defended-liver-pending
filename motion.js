@@ -121,6 +121,59 @@
      page without this file is the page as it was.
      ---------------------------------------------------------------------- */
 
+  /* "Text occasionally corrects itself."
+
+     That line is in DESIGN-BRIEF.md as the behaviour of the slipping zone and
+     it was never built. What was built instead was a small rotation on each
+     section, and the owner's verdict on it was the correct one: a degree and a
+     half is the worst of both worlds, too small to read as a decision and
+     large enough to read as a rendering fault. Every rotation on the site is
+     gone, headings and footer alike, and this is what carries the arc instead.
+
+     A heading resolving out of noise is never mistaken for a bug, which is the
+     whole problem with a subtle skew. It also costs no new copy: the real
+     string is already in the element, it is only briefly obscured.
+
+     Known limit, stated rather than hidden: this writes textContent directly,
+     so a guest who switches language during the ~700ms a heading is resolving
+     would freeze that one heading in the previous language until they switch
+     again. One heading, once, in a sub second window, and the alternative was
+     a second copy of the i18n machinery in this file. */
+  var GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&/()=?*+<>[]{}';
+
+  function correctItself(el) {
+    if (el.getAttribute('data-corrected') === '1') return;
+    el.setAttribute('data-corrected', '1');
+
+    var finalText = el.textContent;
+    var chars = finalText.split('');
+    var n = chars.length;
+    if (!n) return;
+
+    /* Each character settles at its own moment, left to right, so the string
+       resolves like a readout coming up rather than all snapping at once.
+       Spaces are never scrambled: a word count that changes mid animation
+       reads as broken text rather than as noisy text. */
+    var settleAt = [];
+    for (var i = 0; i < n; i++) settleAt.push(0.22 + (i / n) * 0.6 + Math.random() * 0.16);
+
+    var p = { t: 0 };
+    gsap.to(p, {
+      t: 1,
+      duration: 0.72,
+      ease: 'none',
+      onUpdate: function () {
+        var out = '';
+        for (var i = 0; i < n; i++) {
+          if (chars[i] === ' ' || p.t >= settleAt[i]) out += chars[i];
+          else out += GLYPHS.charAt((Math.random() * GLYPHS.length) | 0);
+        }
+        el.textContent = out;
+      },
+      onComplete: function () { el.textContent = finalText; }
+    });
+  }
+
   function degradationArc() {
     var root = document.documentElement;
     var chaos = { v: 0 };
@@ -155,27 +208,18 @@
        the content was never a good reading of it. */
     $$('[data-zone="unhinged"] .section__h, [data-zone="slipping"] .section__h')
       .filter(function (h) {
-        // Location and Building access stay completely straight, headings
-        // included. They are the two sections read outdoors in the dark, and
-        // nothing about them should look like it is misbehaving.
+        // Location and Building access are never touched. They are the two
+        // sections read outdoors in the dark.
         var sec = h.closest('.section');
         return !(sec && SPARED[sec.id]);
       })
-      .forEach(function (h, i) {
-        var dir = i % 2 ? -1 : 1;
-        gsap.fromTo(h,
-          { rotate: -0.6 * dir, x: -3 * dir },
-          {
-            rotate: 1.4 * dir,
-            x: 5 * dir,
-            ease: 'none',
-            scrollTrigger: {
-              trigger: h.closest('.section') || h,
-              start: 'top bottom',
-              end: 'bottom top',
-              scrub: 0.6
-            }
-          });
+      .forEach(function (h) {
+        ScrollTrigger.create({
+          trigger: h.closest('.section') || h,
+          start: 'top 76%',
+          once: true,
+          onEnter: function () { correctItself(h); }
+        });
       });
   }
 
@@ -185,13 +229,16 @@
     var items = $$('#objectives .objectives li');
     if (!items.length) return;
 
+    /* No rotation. A slight lean on a list of sentences is the same uncanny
+       amount that made the section skew read as a fault: too small to be a
+       decision, large enough to look wrong. They arrive out of order instead,
+       which is a thing only a deliberate animation does. */
     gsap.from(items, {
       opacity: 0,
-      y: 18,
-      rotate: -1.2,
-      duration: 0.55,
+      y: 22,
+      duration: 0.5,
       ease: 'power3.out',
-      stagger: 0.07,
+      stagger: { each: 0.09, from: 'random' },
       scrollTrigger: { trigger: '#objectives', start: 'top 78%', once: true }
     });
   }
@@ -203,12 +250,15 @@
     var footer = $('.footer');
     if (!footer) return;
 
+    /* The footer used to physically slump, and it was the same mistake at the
+       bottom of the page as the section skew was in the middle of it. The mask
+       comes off in the type instead: the disclaimer fades toward the colour of
+       something nobody is meant to finish reading. No geometry moves. */
     $$('p', footer).forEach(function (p, i) {
       gsap.fromTo(p,
-        { rotate: 0, y: 0 },
+        { opacity: 1 },
         {
-          rotate: 0.9 * (i + 1),
-          y: 4 * (i + 1),
+          opacity: i === 0 ? 0.85 : 0.42,
           ease: 'none',
           scrollTrigger: { trigger: footer, start: 'top 92%', end: 'bottom bottom', scrub: 0.5 }
         });
@@ -915,9 +965,16 @@
       // The nozzles keep working for the rest of the visit, from here on.
       dispensing();
 
-      // Triggers already measured against a pre morph layout. Nothing here
-      // changes height, but the pill gaining a shadow changes what is painted.
-      ScrollTrigger.refresh();
+      /* And only now does the page start to come apart. Held back a further
+         half second so the impact, the ring and the settle read as one event
+         before anything else begins moving; firing them in the same frame put
+         two unrelated things on screen at once and neither landed.
+
+         setTimeout rather than gsap.delayedCall on purpose. This schedules the
+         creation of the arc rather than a step inside an animation, so it must
+         not depend on the animation ticker: on a throttled or backgrounded tab
+         GSAP's clock crawls, and the arc would then simply never be built. */
+      setTimeout(startDegradation, 500);
     });
 
     // The announcement, on app.js's clock. The morph lands on the impact.
@@ -953,18 +1010,40 @@
     setTimeout(function () { ScrollTrigger.refresh(); }, 2500);
   }
 
+  /* WHAT RUNS WHEN, AND WHY THE SPLIT EXISTS
+
+     For the first five seconds this is a DTU course page, and that has to be
+     true of its behaviour and not only of its corners. The degradation arc
+     used to be wired up at load, so headings drifted and zones deepened while
+     the page was still supposed to be keeping a straight face. The owner read
+     that as the site being broken, and it was: the page was contradicting its
+     own premise, and no amount of tuning the amount of skew would have fixed
+     a thing that was wrong about WHEN.
+
+     So nothing that misbehaves is even created until the drop lands. Before
+     the morph the page is institutional and quietly well made: a progress
+     rule, sections arriving cleanly, the date. After it, the arc exists. */
   function start() {
+    // Composed, and true of a real course page. Nothing here misbehaves.
     scrollRule();
     revealSections();
+    saveDateEntrance();
+    livingBackground();
+    wireConfetti();
+    wireAwakening();
+    refreshLater();
+  }
+
+  /* Everything that expresses the page falling apart. Built on the awakening,
+     never before it. Sections the guest has already scrolled past get their
+     triggers evaluated on creation, so the arc catches up rather than skipping
+     the part of the page that is already behind them. */
+  function startDegradation() {
     degradationArc();
     objectivesLean();
     footerSlump();
-    saveDateEntrance();
     badgeGlitch();
-    wireConfetti();
-    livingBackground();
-    wireAwakening();
-    refreshLater();
+    ScrollTrigger.refresh();
   }
 
   if (document.readyState === 'loading') {
