@@ -3953,9 +3953,9 @@
     xhr.upload.onprogress = function (e) {
       if (typeof onProgress !== 'function') return;
       /* The false side is reported rather than dropped. A browser that will
-         not measure gets the held bar and the recording word from the start,
-         which is honest, rather than a bar sitting at zero for ten seconds
-         while the photograph is in fact moving. */
+         not measure gets the held bar from the start, which is honest, rather
+         than a bar sitting at zero for ten seconds while the photograph is in
+         fact moving. It keeps the Sending word with it: see setRowProgress. */
       onProgress(e.lengthComputable ? (e.loaded / e.total) : null);
     };
 
@@ -4465,9 +4465,11 @@
      completion while the server has not answered.
 
      A fraction that is not a number is a browser that will not measure. The
-     fill holds at the cap from the start with the recording word rather than
-     being drawn from a figure nobody has, because the site never draws a bar
-     it cannot honestly fill.
+     fill holds at the cap from the start rather than being drawn from a figure
+     nobody has, because the site never draws a bar it cannot honestly fill,
+     and the word stays Sending because that is the step the file is on. Such
+     a row never shows Recording at all, which is the right answer: the cap is
+     the honest part and the transition is the measured part.
 
      One transform, on one fill, and never a layout property. That is not
      pedantry: a width transition on a bar updated by every progress event
@@ -4476,13 +4478,22 @@
   function setRowProgress(rec, fraction) {
     if (!rec) return;
 
-    var f = (typeof fraction === 'number' && isFinite(fraction)) ? fraction : 0.92;
+    var known = (typeof fraction === 'number' && isFinite(fraction));
+    var f = known ? fraction : 0.92;
     if (f < 0) f = 0;
     if (f > 1) f = 1;
 
     if (f >= 0.92 && rec.state !== 'done') {
       f = 0.92;
-      if (rec.state === 'uploading') setRowState(rec, 'recording');
+      /* Holding the bar and advancing the word are two different claims, and
+         only one of them is honest without a measurement. A browser that will
+         not report lengthComputable is still sending bytes, so the bar holds
+         at the cap and the row goes on saying Sending, which is what it is
+         doing. It used to say Recording from the first progress event until
+         the response landed, naming the wrong step for the whole of the
+         longest step, and the state word is the row's only non colour signal.
+         That is the same lie runNextFile() refuses forty lines earlier. */
+      if (known && rec.state === 'uploading') setRowState(rec, 'recording');
     }
 
     rec.progress = f;
