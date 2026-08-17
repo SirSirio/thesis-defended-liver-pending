@@ -3934,6 +3934,16 @@
          literal: gating on the one exact status this endpoint happens to
          answer today reports a written object as a lost one. */
       if (xhr.status >= 200 && xhr.status < 300) return settle({ ok: true });
+      /* The object is already sitting at this exact key, which is a success
+         rather than a refusal. The key is a fresh uuid minted once per record,
+         so nothing else in the world can have written it: it is this record's
+         own earlier attempt, whose response was lost. Answering ok here is the
+         other half of the retry's idempotency, and without it a retry after a
+         lost insert response can never get past the upload to reach the row.
+         Deliberately not an upsert: the bucket policy in schema.sql section 6
+         grants anon insert and select and no update, so an upsert would be
+         refused, and overwriting is not wanted in any case. */
+      if (storageDuplicate(xhr)) return settle({ ok: true, duplicate: true });
       settle({ ok: false, status: xhr.status, code: storageBodyStatus(xhr) });
     };
 
@@ -3957,6 +3967,28 @@
       var parsed = JSON.parse(xhr.responseText);
       return parsed.statusCode || null;
     } catch (e) { return null; }
+  }
+
+  /* The one Storage outcome that is not a failure, read from the same body and
+     read broadly on purpose. The service has spelled this refusal three ways
+     across its versions: an outer 409, an outer 400 carrying statusCode 409,
+     and an outer 400 carrying statusCode 23505, the Postgres unique violation
+     underneath it. All three name the same fact and the site must not have to
+     be redeployed when the fourth spelling arrives, so every one of them is
+     accepted and the short stable error token is accepted too.
+
+     error is read here where message is not, and the distinction is the one
+     storageBodyStatus() already draws: Duplicate is a machine token, and the
+     sentence beside it is English, unstable, and never reaches a guest. */
+  function storageDuplicate(xhr) {
+    if (xhr.status === 409) return true;
+    try {
+      var parsed = JSON.parse(xhr.responseText);
+      if (!parsed) return false;
+      if (parsed.error === 'Duplicate') return true;
+      var code = String(parsed.statusCode || '');
+      return code === '409' || code === '23505';
+    } catch (e) { return false; }
   }
 
   /* The first of two classifiers, and the two are deliberately not one.
@@ -4003,6 +4035,17 @@
     if (!res) return 'photos.err.server';
     if (res.ok) return 'ok';
     if (res.code === 'P0001') return 'limit';
+    /* Alongside the limit branch and never inside it, and the order is the
+       contract. The trigger in section 4 is BEFORE INSERT, so a guest already
+       at the maximum receives P0001 for a path collision too and the limit has
+       to be read first; a guest below the maximum receives the real 23505.
+
+       Reaching here means this record's key is already in the table, and the
+       key is minted once per record, so the row that holds it is this record's
+       own earlier insert whose response was lost on the wire. The photograph
+       is recorded. Saying so is what stops the retry writing a second row and
+       spending a second slot for one photograph. */
+    if (res.code === '23505') return 'ok';
     /* Anything else, and the object this row was meant to point at is already
        in the bucket. That orphan is D-19's written accepted consequence and
        not a defect: it appears in no view, no page and no URL anyone holds,
@@ -4913,9 +4956,19 @@
         return runNextFile();
       }
 
-      /* No source of randomness at all, so the file cannot be given a safe
+      /* Minted once per RECORD and never once per attempt, and that is the
+         whole of the insert's idempotency. sbRequest answers NETWORK after
+         twelve seconds whether or not PostgREST received the row, so a row
+         written at second thirteen is indistinguishable here from one that
+         never arrived. With the key held on the record, the retry's insert
+         collides on storage_path unique and is read as already recorded; with
+         a fresh key per attempt it wrote a second row, put a second copy of
+         the same photograph in everyone's album and spent a second slot of an
+         allowance the copy says cannot be taken back.
+
+         No source of randomness at all, so the file cannot be given a safe
          name. The same branch enrollment takes at the identical moment. */
-      var path = storagePath();
+      var path = rec.path || storagePath();
       if (!path) {
         setRowState(rec, 'failed', 'photos.err.server', null);
         return runNextFile();
@@ -5129,8 +5182,13 @@
       if (rec.state === 'refused') continue;
       if (rec.state !== 'failed') continue;
 
+      /* The object key is deliberately NOT cleared. It is what makes this
+         control safe to press: a retry under the same key either re-uploads
+         over bytes that are already there or collides on storage_path unique,
+         and either way the guest ends with one object and one row for one
+         photograph. Clearing it turned the retry into the double count this
+         function exists to prevent. */
       rec.slot = ++again;
-      rec.path = null;
       setRowState(rec, 'waiting', null, null);
       setRowProgress(rec, 0);
     }
