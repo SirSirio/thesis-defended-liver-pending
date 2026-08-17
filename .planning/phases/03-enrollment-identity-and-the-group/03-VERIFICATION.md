@@ -1,7 +1,7 @@
 ---
 phase: 03-enrollment-identity-and-the-group
 verified: 2026-08-15T12:19:36Z
-status: human_needed
+status: passed
 score: 4/8 scope truths verified
 behavior_unverified: 4
 overrides_applied: 0
@@ -13,50 +13,64 @@ re_verification:
   previous_status: gaps_found
   previous_score: 2/8
   gaps_closed:
+
     - "Supabase project setup, tables, row level rules (shared with phase 4) — gap 1, closed by 03-07 and re-probed first-hand here"
     - "Returning guest sees their own registration, and can edit or withdraw it (ENR-06) — gap 2, closed by 03-08 plus the CR-02/CR-03 regression fixes, driven behaviorally here"
     - "Nudge bar with its two states, plus the deadline framing (NDG-07) — gap 3, closed by 03-09 plus the WR-01 regression fix, swept behaviorally here"
   gaps_remaining: []
   regressions:
+
     - "None in source. One process regression found: the gap-closure code review report was never written to disk (see finding N-01 below). Not a code defect and not a scope truth, so it does not change the status, which is human_needed on the device pass regardless."
+
 gaps: []
 deferred: []
 behavior_unverified_items:
+
   - truth: "Enrollment form: name, guest count, optional note, validation on blur (ENR-09, ENR-10)"
     test: "On real iOS Safari with VoiceOver and real Android Chrome with TalkBack: blur a name field that was typed into and then cleared; submit with airplane mode on"
     expected: "The field error is DESCRIBED when the control takes focus and is not announced over the guest; the submit failure is ANNOUNCED immediately through the alert banner; every typed value survives the failure; the submit button never stays locked"
     why_human: "aria-describedby versus role=alert politeness is a runtime property of a real assistive stack, and a genuine network fault cannot be simulated in source. Table B of 03-DEVICE-PASS.md is entirely unrun. The one half of this that WAS desk-closable — the button locked forever on a browser with fetch but no AbortController — is fixed and verified in source (sbRequest now races a resolving timeout)"
+
   - truth: "Confirmed count as social proof, optional first-name attendee list (ENR-07, ENR-08)"
     test: "Once eight people have registered, load the page and read the Expected attendance block"
     expected: "Two rows in the fact table's grammar, the total in tabular figures, first names only, comma separated, sorted with the Danish extra vowels after z"
     why_human: "The live count is 1 against a threshold of 8, so the block's correct state today is absent. It has never rendered. The arithmetic is verified against the live wire body but not a rendered pixel"
+
   - truth: "WhatsApp group handoff, presented the instant enrollment succeeds (WA-02, WA-03, WA-04, WA-06)"
     test: "Set whatsapp.inviteUrl, then on a phone with WhatsApp installed enrol and tap the success panel CTA, then the #wa section CTA. Separately, with the link still null, read the success panel"
     expected: "Each CTA opens the WhatsApp app rather than a browser page on the first tap; the bar stops asking after either; with no link the success panel reads as complete and deliberate rather than as a gap"
     why_human: "whatsapp.inviteUrl is null by design and is the shipping state, so the configured path cannot be demonstrated at all. Whether the linkless panel reads as deliberate is a visual judgment nobody has made"
+
   - truth: "Nudge bar with its two states, plus the deadline framing (NDG-01, NDG-02)"
     test: "Tables A and F of 03-DEVICE-PASS.md, on real iOS Safari and real Android Chrome at 320x568, 375x667, 390x844 and 430x932"
     expected: "The bar is pinned to the bottom of the viewport in both data-state values; each of the countdown clock, the address value and the door video slot can be scrolled clear of the bar; the footer's last line is fully visible at maximum scroll"
     why_human: "The deadline ladder half of this truth is now closed and verified behaviorally (see Behavioral Spot-Checks). The layout half is not: the bar has never rendered on any device in the life of this site, and every row depends on env(safe-area-inset-bottom) or on iOS Safari's collapsing toolbar, neither of which exists at a desk"
 human_verification:
+
   - test: "Tables A to F of .planning/phases/03-enrollment-identity-and-the-group/03-DEVICE-PASS.md, on real iOS Safari and real Android Chrome"
     expected: "Every row carries a result. In particular Table A: with the bar shown at 320x568, 375x667, 390x844 and 430x932, each of the countdown clock, the address value and the door video slot can be scrolled clear of the bar, and the footer's last line is fully visible at maximum scroll"
     why_human: "NDG-02 is the highest risk item in the phase. The nudge bar has never rendered on any device, and the reserve it replaced was short by up to 27px on a notched iPhone. Every row depends on env(safe-area-inset-bottom) or on iOS Safari's collapsing toolbar, neither of which exists at a desk"
+
   - test: "NDG-01: load the site on both phones and look at the bar"
     expected: "The bar is pinned to the bottom of the viewport in both data-state values, enrol and group"
     why_human: "Both states are driven and confirmed in code; nothing has been seen pinned to a real screen"
+
   - test: "ENR-06 on a device: withdraw a registration on a phone, then repeat with airplane mode turned on mid-request"
     expected: "The confirmation shows the submitting state, focus lands where the panel says it does, and the airplane-mode attempt leaves the confirmation standing with the retry label rather than removing the control"
     why_human: "The state machine is now driven branch by branch at the desk against the shipped source and every branch terminates correctly (see Behavioral Spot-Checks). What that cannot show is focus behaviour, screen-reader announcement, and a real dropped packet. Table F of 03-DEVICE-PASS.md is unrun"
+
   - test: "DSG-05 observed half: turn Reduce Motion on at the OS level and drive the form"
     expected: "The sweep bar is static at full width and 0.35 opacity rather than stranded part way across; the form to success panel swap is instant; the :active scale is instant; the bar's slide is instant"
     why_human: "The two reduced-motion blocks are declared correctly and gated in source, but the observed half needs the OS setting on and a screen"
+
   - test: "DEL-02, DEL-03: enrol end to end on a mid-range phone on mobile data, not wifi"
     expected: "Under ten seconds, on iOS Safari and Android Chrome, and no viewport zoom when the name field takes focus"
     why_human: "The roadmap's Done-when sentence opens with this clause and it is unmeasured. Carried over from phase 2, where WINDOWS entry 1 records the same debt"
+
   - test: "Table D of 03-DEVICE-PASS.md: measure the three declared-short touch targets on a coarse pointer"
     expected: "The name input, the guest-count segment and the select overflow branch measure at least 52px per 03-UI-SPEC.md Touch Target Geometry"
     why_human: "styles.css still declares 48px with no coarse override at lines 421, 1274 and 1369. 48px clears the 44px floor, so this is a shortfall against the phase's own stricter contract rather than an accessibility failure. Deliberately deferred to the same moment Table D is answered (WINDOWS entry 10, deferred-items.md)"
+
   - test: "Decision needed, not a test: N-01 below. Either regenerate the gap-closure code review as a file, or record in deferred-items.md that its findings live only in commit messages"
     expected: "The five findings the commits 2d5a961, 93f74fe, 6ce6c93, d6a2ac2 and e84d93d name (CR-01 to CR-03, WR-01, WR-02 in the gap-closure ID space) have a written record somewhere, and deferred-items.md's claim to account for every review finding is either true or corrected"
     why_human: "The fixes themselves are present and verified. What is missing is the artifact, and whether that matters before phase 4 is a judgment about this project's audit trail, not something a probe can settle"
@@ -346,6 +360,7 @@ Two things follow, and the first is worse than the second:
    `WR-02` on disk is the mass-write policy; `WR-02` in the log is the durable-write guard. Any
    later reader following a commit message into `03-REVIEW.md` lands on the wrong finding, and
    both readings are plausible.
+
 2. **`deferred-items.md` §2 claims to account for "all nineteen findings" in `03-REVIEW.md`.**
    That sentence is true of the file it points at and false of the review that actually ran last.
    The gap-closure review's four Info findings therefore have **no recorded disposition** — and
@@ -404,9 +419,11 @@ evidence generated in this verification rather than accepted from a summary:
 - **Gap 1** by eight live probes, four of which are stated non-200 expectations, plus a whole-file
   ordering argument for the one truth that has no wire signature — and the argument is written out
   rather than asserted.
+
 - **Gap 2** by driving the shipped state machine through all eight branch/teardown combinations
   and reading the store and the disabled counts back out, which is what distinguishes the two
   regressions this round introduced and fixed from a source-level "the function exists" check.
+
 - **Gap 3** by a 25,922-sample sweep in four timezones across both `Intl` paths, aimed
   specifically at the catch path the WR-01 fix rewrote.
 

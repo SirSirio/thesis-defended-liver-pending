@@ -1275,6 +1275,18 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   padding: 0 var(--s-4);
 }
 
+/* 03-UI-SPEC.md Touch Target Geometry asks for 52 on a coarse pointer, and the
+   48 above is the base for a mouse. Every other control in this file already
+   carried its coarse rule; these two and the segmented control below were the
+   three that did not, which is what UAT test 6 measured. 48 clears the 44px
+   accessibility floor, so this was a shortfall against this project's own
+   stricter contract rather than a failure, and it is cheaper to meet the
+   contract than to argue the contract down. */
+@media (pointer: coarse) {
+  .field__input,
+  .field__select { min-height: 52px; }
+}
+
 /* Three rows at 16px on 1.5, plus padding. resize is vertical and never none:
    taking away the handle on the one field somebody might write a paragraph into
    is a cost with no matching benefit. */
@@ -1415,6 +1427,14 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   outline-offset: 3px;
   border-radius: var(--r-sm);
   z-index: 2;
+}
+
+/* The third of the three controls UAT test 6 measured short. Same reasoning as
+   the field rule above, and it is written here in .seg's own block rather than
+   folded into that one, because a shared selector list would put the guest
+   count's height under a heading about text inputs. */
+@media (pointer: coarse) {
+  .seg > span { min-height: 52px; }
 }
 
 .seg:active > span { transform: scale(0.97); }

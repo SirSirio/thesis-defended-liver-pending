@@ -68,6 +68,12 @@ note: |
   Deferred Follow-Ups rather than left as a gap, because nothing is broken and no
   code change is implied — only a configuration value the host has not chosen yet.
 
+  **Superseded later the same day.** The paragraph above is kept as written
+  because it is the reasoning that was acted on, but two of its statements are no
+  longer true of the codebase: `inviteUrl` is set, and the group state has since
+  been seen rendering. The `group` half of this test is therefore witnessed, not
+  merely argued. See the resolution under Deferred Follow-Ups.
+
 ### 3. ENR-06 on a device: withdraw a registration on a phone, then repeat with airplane mode turned on mid-request
 expected: The confirmation shows the submitting state, focus lands where the panel says it does, and the airplane-mode attempt leaves the confirmation standing with the retry label rather than removing the control.
 why_human: The state machine is now driven branch by branch at the desk against the shipped source, and every branch terminates correctly. What that cannot show is focus behaviour, screen-reader announcement, and a real dropped packet. Table F is unrun.
@@ -116,10 +122,10 @@ note: Clears the debt WINDOWS entry 1 carried over from phase 2. The roadmap's D
 ### 6. Table D of `03-DEVICE-PASS.md`: measure the three declared-short touch targets on a coarse pointer
 expected: The name input, the guest-count segment and the select overflow branch measure at least 52px per `03-UI-SPEC.md` Touch Target Geometry.
 why_human: `styles.css` still declares 48px with no coarse override at lines 421, 1274 and 1369. 48px clears the 44px floor, so this is a shortfall against the phase's own stricter contract rather than an accessibility failure. Deliberately deferred to the same moment Table D is answered (WINDOWS entry 10, `deferred-items.md`).
-result: skipped
+result: pass
 source: automated
-reason: "Deferred follow-up: measured, confirmed short, and already dispositioned. The three controls resolve to 48px against the 52px contract. This is the pre-existing deferral at WINDOWS entry 10 of `deferred-items.md`, not a new finding, so it is recorded here rather than opened as a phase-3 gap."
-verified: 2026-08-17, Playwright + Chromium, viewport 390x844
+reason: "First measured short at 48px against the 52px contract, then fixed rather than deferred. Meeting the contract was three CSS rules; arguing it down would have cost more and left the site worse."
+verified: 2026-08-17, Playwright + Chromium, touch-enabled context (hasTouch), viewport 390x844
 evidence: |
   Measured computed `min-height` and rendered box height:
 
@@ -134,24 +140,38 @@ evidence: |
   with `.field__input` — one selector list, one `min-height: 48px` — so it carries
   the same value by construction.
 
-  Why a coarse pointer adds nothing here. A grep of `styles.css` finds
-  `@media (pointer: coarse)` blocks at lines 257, 619, 1028, 1056, 1517, 1656,
-  1751, 2017 and 2040, and none of them names `.field__input`, `.field__select`
-  or `.seg`. With no coarse rule in the cascade for these three, the coarse-pointer
-  computed height is by definition the height measured above. `#enrol-submit` is
-  the control case: it *does* have a coarse rule (line 1517) and it does reach 52.
+  Why a coarse pointer added nothing to the diagnosis. A grep of `styles.css`
+  found `@media (pointer: coarse)` blocks at lines 257, 619, 1028, 1056, 1517,
+  1656, 1751, 2017 and 2040, and none of them named `.field__input`,
+  `.field__select` or `.seg`. With no coarse rule in the cascade for those three,
+  the coarse-pointer height was by definition the height measured above.
+  `#enrol-submit` was the control case: it *did* have a coarse rule at line 1517
+  and it did reach 52.
 
-  So the phone would return 48px, which is what the stylesheet already says. The
-  open question was never the measurement — it is whether to raise the three to 52
-  or to amend the contract. That decision is still open and still deferred.
+  **Resolved by fixing it, 2026-08-17.** The open question was never the
+  measurement, it was whether to raise the three controls or amend the contract.
+  Raising them was three CSS rules, so the contract stands and the site meets it.
+
+  Re-measured afterwards in a **touch-enabled browser context** rather than under
+  `emulateMedia`, which cannot set `pointer: coarse`. With `hasTouch: true` and
+  `matchMedia('(pointer: coarse)').matches === true`:
+
+  | Control | Selector | before | after | contract |
+  |---|---|---|---|---|
+  | Name input | `.field__input` | 48px | **52px** | 52px |
+  | Guest-count segment | `.seg > span` | 48px | **52px** | 52px |
+  | Submit (control) | `#enrol-submit` | 52px | 56px | 52px |
+
+  `.field__select` shares the single rule with `.field__input`, so it takes the
+  same 52px by construction.
 
 ## Summary
 
 total: 6
-passed: 5
+passed: 6
 issues: 0
 pending: 0
-skipped: 1
+skipped: 0
 blocked: 0
 
 ## Deferred Follow-Ups
@@ -179,6 +199,8 @@ blocked: 0
 - test: 6
   idea: "Raise `.field__input`, `.field__select` and `.seg > span` to 52px under `@media (pointer: coarse)`, or amend `03-UI-SPEC.md` Touch Target Geometry to accept 48px for text-entry and segmented controls. Measured at 48px on 2026-08-17; clears the 44px accessibility floor, short of the phase's own 52px contract."
   deferred_at: 2026-08-17
+  resolved_at: 2026-08-17
+  resolution: "Taken rather than deferred. The three controls were raised to 52px under `@media (pointer: coarse)` and re-measured in a touch-enabled context at 52px. WINDOWS entry 10 can be struck."
 
 ## Gaps
 

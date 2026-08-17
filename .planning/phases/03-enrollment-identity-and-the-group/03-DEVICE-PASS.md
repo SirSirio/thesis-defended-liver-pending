@@ -1,9 +1,9 @@
 ---
 phase: 03-enrollment-identity-and-the-group
-status: pending
+status: complete
 decision: D-33
 requirements: [NDG-01, NDG-02, NDG-07, WA-02, WA-03, ENR-09, ENR-10, DEL-02, DEL-03]
-performed:
+performed: 2026-08-17, owner, real iOS Safari and real Android Chrome. Six rows walked, seven accepted without walking. See the acceptance note under Table A.
 ---
 
 # Phase 3 Device Pass Record (D-33)
@@ -53,15 +53,15 @@ from plan 03-02 is what is being checked here, not the guess it replaces.
 | Same for `.addr__value`, the address line | pass | pass | Owner, 2026-08-17. |
 | Same for `.video-slot`, the door video slot | pass | pass | Owner, 2026-08-17. |
 | The footer's last line is fully visible at maximum scroll | pass | pass | Owner, 2026-08-17. |
-| At 320x568 | | | Not walked. See the attribution note below. |
-| At 375x667 | | | Not walked. |
-| At 390x844 | | | Not walked. |
-| At 430x932 | | | Not walked. |
-| iOS Safari only: scrolling collapses the browser toolbar and the reserve stays correct through the change | | n/a | |
-| Rotating to landscape and back re-measures, with no gap and no overlap left behind | | | |
+| At 320x568 | accepted | accepted | Not walked. Owner sign-off, see the acceptance note. |
+| At 375x667 | accepted | accepted | Not walked. |
+| At 390x844 | accepted | accepted | Not walked. Closest to the owner's own device, which was walked. |
+| At 430x932 | accepted | accepted | Not walked. |
+| iOS Safari only: scrolling collapses the browser toolbar and the reserve stays correct through the change | accepted | n/a | Not walked. |
+| Rotating to landscape and back re-measures, with no gap and no overlap left behind | accepted | accepted | Not walked. |
 | Switching to Danish, whose nudge copy may wrap to two lines, re-measures the bar height | pass | pass | Owner, 2026-08-17: "Wraps in 2 lines, but ok". The wrap is the condition this row exists to create, not a fault: two lines is what makes the bar taller than the flat reserve it replaced, and the row passes because the re-measure absorbed it with nothing left overlapping. |
-| Tapping dismiss does not make the page jump up under the thumb (R3) | | | |
-| A toast fired after dismissing does not land underneath the bar | | | |
+| Tapping dismiss does not make the page jump up under the thumb (R3) | accepted | accepted | Not walked as a named check. The owner located the control (the `&times;` button) and reported no problem in use. |
+| A toast fired after dismissing does not land underneath the bar | accepted | accepted | Not walked. |
 
 **Desk note, 03-06.** Nothing in this table was answered at the desk and nothing in it can be.
 
@@ -71,16 +71,43 @@ Safari and real Android Chrome, run against the live site and reported during UA
 finer: the owner scrolled a real phone and confirmed that none of the three elements sits behind
 the bar and that the footer's last line is reachable.
 
-The remaining rows are deliberately left blank rather than inferred from that same "ok". The four
-viewport rows name specific sizes that were not individually walked, and rotation, the Danish
-two-line re-measure, the dismiss jump and the post-dismiss toast each test a distinct behaviour
-that a scroll-and-look pass does not exercise. Writing a result into a row the pass did not reach
-would defeat the purpose this sheet was created for, which its own opening paragraph states: a
-record checkable against something written rather than against somebody's recollection.
+The remaining rows were held blank rather than inferred from that same "ok", because the four
+viewport rows name specific sizes that were not individually walked, and rotation, the dismiss
+jump and the post-dismiss toast each test a distinct behaviour that a scroll-and-look pass does
+not exercise. Writing `pass` into a row the pass did not reach would defeat the one purpose this
+sheet was created for, which its own opening paragraph states: a record checkable against
+something written rather than against somebody's recollection.
 
-This matters beyond bookkeeping. `03-02:T-03-09` and `03-06:T-03-38` are both high severity and
-both name this table as their evidence, so phase 03 stays blocked until the rows above carry
-results. See `03-SECURITY.md`.
+Later the same day the Danish row was walked and passed, and the owner signed off on the rest.
+Those rows now read `accepted` rather than `pass`, which is the distinction the paragraph above
+was protecting. See the acceptance note below.
+
+`03-02:T-03-09` and `03-06:T-03-38` are both high severity and both name this table as their
+evidence. They are closed as accepted risks rather than as verified mitigations, and
+`03-SECURITY.md` records them that way.
+
+**Acceptance note, 2026-08-17, owner sign-off.** The rows reading `accepted` were not walked. They
+are closed by the owner's explicit decision to ship, not by observation, and the distinction is
+kept in the cells themselves so that no later reader mistakes one for the other. `pass` in this
+table means somebody looked; `accepted` means somebody decided.
+
+What the decision rests on. Six rows were genuinely walked on real iOS Safari and real Android
+Chrome across the same day: the three occlusion checks, the footer at maximum scroll, and the
+Danish two-line re-measure, which is the row most likely to break the reserve because it is the
+one that makes the bar taller. The measurement is structural rather than per-device:
+`app.js:3638` writes `--nudge-h` from `bar.offsetHeight`, and `app.js:3659-3661` and `:3667-3668`
+re-run that write through a ResizeObserver and `visualViewport`. Rotation, a toolbar collapse and
+a different viewport are all the same event to that code, and the Danish wrap already proved the
+re-measure fires and lands. So the unwalked rows are the same mechanism under different triggers,
+which is a real argument for accepting them and is not a proof.
+
+What is genuinely uncovered. `320x568` is the smallest supported screen and the one where a
+two-line bar eats the largest share of the viewport; nobody has seen the site on one. The
+post-dismiss toast is the only row whose mechanism is not the reserve at all, so nothing above
+speaks to it.
+
+Reversible. Any of these rows can be walked later and rewritten from `accepted` to `pass` or to a
+failure, and `03-SECURITY.md` carries the matching accepted risks with the same wording.
 Every row depends on `env(safe-area-inset-bottom)`, which is 0 in a desktop browser, or on iOS
 Safari's collapsing toolbar, which does not exist there, and this executor had no browser of any
 kind. The structural half is gated and green: `--nudge-h` is written from `offsetHeight`, a

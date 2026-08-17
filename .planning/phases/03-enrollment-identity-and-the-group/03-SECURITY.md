@@ -4,11 +4,11 @@ audited: 2026-08-17
 asvs_level: 1
 block_on: high
 threats_total: 62
-threats_closed: 59
-threats_open: 2
+threats_closed: 61
+threats_open: 0
 threats_open_nonblocking: 1
-accepted_risks: 10
-status: blocked
+accepted_risks: 12
+status: secured
 register_authored_at_plan_time: true
 ---
 
@@ -29,12 +29,33 @@ re-audit must preserve the qualifier.
 
 ## Verdict
 
-**BLOCKED.** Two high-severity threats are open. Phase advancement is blocked until
-`threats_open` reaches 0.
+**SECURED, with two accepted risks.** `threats_open: 0`.
 
-Both open blockers are the same underlying gap, and it is an evidence gap rather than a code
-defect. The structural work is present and verified in source; what is missing is the observation
-on real hardware that both mitigations name as their evidence.
+This is not the same as "both threats were verified", and the file is written so that nobody
+later reads it as if it were. The two high-severity threats below were **accepted by the owner on
+2026-08-17**, not closed by evidence. Their mitigations are structurally present and verified in
+source; the observation on real hardware that each one names as its evidence is partial.
+
+Six of the thirteen rows in `03-DEVICE-PASS.md` Table A were walked on real iOS Safari and real
+Android Chrome, including the Danish two-line re-measure, which is the row most likely to break
+the reserve because it is the one that makes the bar taller. Seven rows were not walked and are
+marked `accepted` in that sheet, distinct from `pass`.
+
+The argument for accepting, stated so it can be judged rather than trusted: the measurement is
+structural rather than per-device (`app.js:3638` writes `--nudge-h` from `bar.offsetHeight`,
+re-run through a ResizeObserver at `:3659-3661` and `visualViewport` at `:3667-3668`), so a
+rotation, a collapsing toolbar and a different viewport are the same event to that code, and the
+Danish wrap already proved that event fires and lands. That is a real argument. It is not a proof.
+
+Genuinely uncovered, and worth naming rather than burying: nobody has seen the site at
+`320x568`, the smallest supported screen and the one where a two-line bar takes the largest share
+of the viewport; and the post-dismiss toast row is the only one whose mechanism is not the reserve
+at all, so nothing verified above speaks to it.
+
+Reversible. Walking those rows later flips them from `accepted` to `pass` or to a failure, and
+these two entries move back out of the accepted-risk table.
+
+**Original finding, retained.** Both blockers were the same evidence gap rather than a code defect:
 
 | Threat | Category | Sev | Expected mitigation | Actual |
 |---|---|---|---|---|
@@ -137,6 +158,8 @@ Ten, each verified against its written rationale in the owning plan's `<threat_m
 | `03-08:T-03-50` | low | Re-verified: `apikey` only with no `Authorization` header, `return=minimal` retained, and the withdraw body carries two arguments. |
 | `03-09:T-03-56` | low | |
 | `T-03-SC` (×9) | low | One distinct accepted risk, restated in all nine plans. See the amendment note below. |
+| `03-02:T-03-09` | **high** | **Accepted 2026-08-17 by owner sign-off, not verified.** Structural mitigation present and verified in source; seven of thirteen Table A rows unwalked. Rationale and what remains uncovered are in the Verdict above. |
+| `03-06:T-03-38` | **high** | **Accepted 2026-08-17 by owner sign-off, not verified.** Same evidence gap as the row above; the two close and re-open together. |
 
 ---
 
@@ -171,11 +194,18 @@ Not blockers. Recorded because no register row covers them.
 | Metric | Count |
 |---|---|
 | Threats found | 62 |
-| Closed | 59 |
-| Open, blocking | 2 |
+| Closed by verified mitigation | 59 |
+| Closed by accepted risk | 2 |
+| Open, blocking | 0 |
 | Open, non-blocking | 1 |
-| Accepted risks | 10 |
+| Accepted risks | 12 |
 | Unregistered flags | 4 |
+
+Two passes on one day. The audit itself returned `OPEN_THREATS` with two blockers and
+`status: blocked`. The owner then signed off on the outstanding device-pass rows, which moved
+those two to accepted risk and the file to `secured`. Both states are kept above rather than
+overwritten, because "accepted after an audit said blocked" and "never flagged" are different
+facts about a project and only one of them is true here.
 
 Scope note: this audit ran after the same day's three commits (the WhatsApp invite link, the
 inline SVG handoff, and the Pages deploy workflow), and all three were regression-checked rather
