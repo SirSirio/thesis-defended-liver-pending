@@ -4678,19 +4678,19 @@
 
      It is reached two ways and it is not the same panel both times.
 
-     At page load it is simply the state of the section, and it ends at the
-     lede. Nothing happened, so there is nothing to report and no region to
-     announce.
+     At page load, and after a batch where every file landed, it ends at the
+     lede. There is nothing the lede does not already say: five on record is
+     five on record, and the album directly below is the proof of it.
 
-     Mid batch it is reached because the batch that just settled spent the
-     last of the allowance, and it arrives carrying that batch's answer:
-     settleBatch hands over the counted sentence, the line naming what did not
-     land, and the transcript, because the swap happens in the same task those
-     three were written in and there is no frame in which the control could
-     show them. PH-05 is the reason. A guest who picked five files, had two
-     recorded and three refused as overflow, must not be left reading a
-     punchline about being documented with no word anywhere about the other
-     three. So the transcript is under the joke rather than destroyed by it.
+     After a batch that spent the last of the allowance AND lost something, it
+     arrives carrying that batch's answer: settleBatch hands over the counted
+     sentence, the line naming what did not land, and the transcript, because
+     the swap happens in the same task those three were written in and there is
+     no frame in which the control could show them. PH-05 is the reason. A
+     guest who picked five files, had two recorded and three refused as
+     overflow, must not be left reading a punchline about being documented with
+     no word anywhere about the other three. So the transcript is under the
+     joke rather than destroyed by it.
 
      It never takes focus, either way. A focus move on the quota body would
      announce the same fact the alert line below is already announcing, and
@@ -5242,7 +5242,14 @@
        of without a sentence naming what happened to it (PH-05). */
     if (identity.photoCount() >= photosMaxPerGuest()) {
       photoBatchPending = false;
-      photoQuotaSummary = (photoStatus || photoAlert || photoBatch.length)
+      /* Only when something did not land, which is the whole of what PH-05
+         asks for. A batch where every file recorded has already been answered
+         by the quota body's own lede, and better than the transcript would
+         answer it: "Five photographs are on record in your name" is the same
+         fact in the section's own voice, and the album directly below is the
+         proof. Carrying a transcript of five successes under the punchline
+         would be a receipt for a receipt. */
+      photoQuotaSummary = bad
         ? { status: photoStatus, alert: photoAlert, batch: photoBatch, announced: false }
         : null;
       return renderPhotos();
