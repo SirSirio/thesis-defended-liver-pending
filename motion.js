@@ -403,28 +403,409 @@
     }, { passive: true });
   }
 
-  /* The morph is CSS and app.js owns it. This is only the part that wants a
-     tween: the course badge reacting to the mask coming off. */
+  /* ----------------------------------------------------------------------
+     THE DISPENSE
+
+     The morph is announced by a droplet being dispensed from a needle, and
+     the page transforms on impact.
+
+     The host's thesis is modular automated liquid dispensing for point of
+     care diagnostics: peristaltic pumps, nozzles, volumes from 5 to 1000
+     microlitres. So the thing that transforms this page is the thing the
+     party is celebrating, which is a better reason for an animation to exist
+     than that it looked good.
+
+     app.js owns both clocks. This runs when it says to, and the drop is in the
+     air for exactly the lead time it allows, so impact and morph are the same
+     instant rather than two things that happen near each other.
+     ---------------------------------------------------------------------- */
+
+  var LEAD = 1.7;        // seconds, and it must match DISPENSE_LEAD_MS
+
+  function svg(name, attrs) {
+    var el = document.createElementNS('http://www.w3.org/2000/svg', name);
+    for (var k in attrs) {
+      if (Object.prototype.hasOwnProperty.call(attrs, k)) el.setAttribute(k, attrs[k]);
+    }
+    return el;
+  }
+
+  function dispense() {
+    /* Aimed at the save the date block, which is the thing the page is
+       actually about. Falling into the middle of nowhere would be decoration;
+       landing on the date is the announcement hitting its subject. */
+    var target = $('.savedate__num') || $('.hero__title');
+    var tbox = target ? target.getBoundingClientRect() : null;
+    var vw = window.innerWidth || 390;
+
+    var landX = tbox ? tbox.left + tbox.width * 0.5 : vw / 2;
+    var landY = tbox ? tbox.top + tbox.height * 0.55 : (window.innerHeight || 800) * 0.45;
+
+    /* The rig's geometry. A pump up and to one side, a tube running from it to
+       a needle above the date, and the needle short: it is the last few
+       millimetres of a system, not a spike hanging from the ceiling.
+
+       The pump is placed away from the headline so that a blurred object never
+       sits on top of a word anybody is reading. */
+    var pumpX = vw - 52;
+    var pumpY = 112;
+    var needleY = 218;
+    var tipY = needleY + 30;
+
+    var rig = document.createElement('div');
+    rig.className = 'rig';
+    rig.setAttribute('aria-hidden', 'true');
+
+    var sheet = svg('svg', {
+      class: 'rig__svg',
+      width: vw, height: 300,
+      viewBox: '0 0 ' + vw + ' 300',
+      fill: 'none'
+    });
+
+    /* THE PUMP. A peristaltic head: a housing, and a rotor carrying three
+       rollers that occlude a tube wrapped around the inside of it. Three is
+       the low end of the range the thesis analyses, and it is also the count
+       that reads unmistakably as peristaltic at 44 pixels across. */
+    var pump = svg('g', { class: 'rig__pump' });
+    pump.appendChild(svg('circle', { cx: pumpX, cy: pumpY, r: 26, class: 'rig__housing' }));
+    pump.appendChild(svg('circle', { cx: pumpX, cy: pumpY, r: 19, class: 'rig__race' }));
+
+    var rotor = svg('g', { class: 'rig__rotor' });
+    for (var i = 0; i < 3; i++) {
+      var a = (i / 3) * Math.PI * 2;
+      rotor.appendChild(svg('circle', {
+        cx: pumpX + Math.cos(a) * 13,
+        cy: pumpY + Math.sin(a) * 13,
+        r: 5.5,
+        class: 'rig__roller'
+      }));
+    }
+    pump.appendChild(rotor);
+    pump.appendChild(svg('circle', { cx: pumpX, cy: pumpY, r: 3.5, class: 'rig__hub' }));
+    sheet.appendChild(pump);
+
+    /* THE TUBE. One path, drawn three times: a soft wide pass that reads as
+       the out of focus tube, the tube wall itself, and the liquid inside it.
+       The liquid is a dashed stroke whose offset is animated, which is how a
+       fluid front moves along a path without a plugin. */
+    /* Down the right edge first, then in to the needle. The first route ran
+       diagonally across the headline, so a blurred red tube lay over the two
+       words the page is named after. This one leaves the pump downward, hugs
+       the margin, and only turns inward below the type. */
+    var d = 'M ' + (pumpX - 6) + ' ' + (pumpY + 25) +
+            ' C ' + (pumpX + 10) + ' ' + (pumpY + 78) + ', ' +
+                    (landX + 128) + ' ' + (needleY - 16) + ', ' +
+                    landX + ' ' + needleY;
+
+    // The out of focus pass sits outside the near group, because it is the far
+    // end of the shot and never sharpens.
+    sheet.appendChild(svg('path', { d: d, class: 'rig__tube rig__tube--halo' }));
+
+    /* Everything that racks into focus, in one group, so the focus pull is one
+       animated filter on one element rather than three that can drift apart. */
+    var near = svg('g', { class: 'rig__near' });
+    near.appendChild(svg('path', { d: d, class: 'rig__tube rig__tube--wall' }));
+    var liquid = svg('path', { d: d, class: 'rig__tube rig__tube--liquid' });
+    near.appendChild(liquid);
+
+    // THE NEEDLE. Short, and hanging off the end of the tube.
+    var needle = svg('line', {
+      x1: landX, y1: needleY, x2: landX, y2: tipY, class: 'rig__needle'
+    });
+    near.appendChild(needle);
+    sheet.appendChild(near);
+
+    rig.appendChild(sheet);
+
+    var bead = document.createElement('span');
+    bead.className = 'rig__bead';
+    rig.appendChild(bead);
+
+    document.body.appendChild(rig);
+
+    // The dash cycle the liquid travels along.
+    var len = 0;
+    try { len = liquid.getTotalLength(); } catch (e) { len = 420; }
+    gsap.set(liquid, { attr: { 'stroke-dasharray': len, 'stroke-dashoffset': len } });
+
+    gsap.set(bead, { x: landX, y: tipY, scale: 0, opacity: 0, transformOrigin: '50% 0%' });
+    gsap.set(needle, { attr: { 'stroke-dashoffset': 0 } });
+
+    /* The focus pull. The whole rig starts soft, as though the camera were
+       focused on the page rather than on the instrument, and the near end
+       sharpens as the liquid arrives at it. The pump never fully sharpens: it
+       is the far end of the shot and it stays there. */
+    /* The instrument fades, the drop does not. Only the drawing is faded in
+       and out; the bead is a sibling of it and keeps its own opacity, so the
+       drop stays lit the whole way down after the rig has withdrawn. */
+    gsap.set(sheet, { opacity: 0 });
+    gsap.set(pump, { transformOrigin: pumpX + 'px ' + pumpY + 'px' });
+
+    var tl = gsap.timeline();
+
+    tl.to(sheet, { opacity: 1, duration: 0.3, ease: 'power2.out' });
+
+    // The rotor turns for the whole of the run up, and keeps turning while the
+    // liquid is in the tube. A peristaltic head does not coast.
+    gsap.to(rotor, {
+      rotation: 360,
+      transformOrigin: pumpX + 'px ' + pumpY + 'px',
+      duration: 1.9,
+      ease: 'none',
+      repeat: -1
+    });
+
+    // The liquid front runs down the tube toward the needle.
+    tl.to(liquid, {
+      attr: { 'stroke-dashoffset': 0 },
+      duration: 0.62,
+      ease: 'power1.inOut'
+    }, 0.16);
+
+    /* ...and the near end of the shot comes into focus as it gets there.
+
+       Driven through a proxy number and written as an inline filter, rather
+       than by tweening the --near-blur custom property on the group. Animating
+       a custom property on an SVG element is the sort of thing that works in
+       one engine and quietly does nothing in another; a plain number and an
+       onUpdate work everywhere. The CSS var remains as the declared default,
+       so the group is correctly soft before this ever runs. */
+    var focus = { b: 5 };
+    tl.to(focus, {
+      b: 0,
+      duration: 0.55,
+      ease: 'power2.out',
+      onUpdate: function () {
+        near.style.filter = 'blur(' + focus.b.toFixed(2) + 'px)';
+      }
+    }, 0.3);
+
+    /* The bead swells at the tip and hangs. This is the part that makes it
+       read as dispensing rather than as rain: a drop that is extruded, holds,
+       and then lets go under its own weight. */
+    tl.to(bead, { scale: 1, opacity: 1, duration: 0.34, ease: 'power2.out' }, 0.62);
+    tl.to(bead, { scaleY: 1.24, scaleX: 0.88, duration: 0.16, ease: 'power2.in' });
+
+    // Detach and fall, accelerating and stretching as it goes.
+    tl.to(bead, {
+      y: landY,
+      scaleY: 1.5, scaleX: 0.82,
+      duration: LEAD - 1.12,
+      ease: 'power2.in'
+    });
+
+    // The instrument withdraws while the drop is still in the air.
+    tl.to(sheet, { opacity: 0, duration: 0.55, ease: 'power2.in' }, '-=' + (LEAD - 1.2));
+
+    var landed = false;
+    function land() {
+      if (landed) return;
+      landed = true;
+      splash(landX, landY);
+      if (rig.parentNode) rig.parentNode.removeChild(rig);
+    }
+
+    tl.call(land);
+
+    /* A belt to go with the timeline's braces. A decorative overlay that never
+       leaves is far worse than one that never arrives, and this one is drawn
+       over the whole hero, so it gets a second, independent way out. land() is
+       idempotent, so whichever fires first wins and the other is a no op. */
+    gsap.delayedCall(LEAD + 1.4, land);
+  }
+
+  /* The impact: a ring spreading from where the drop landed, and a handful of
+     satellites thrown off it. Both are removed when they finish. */
+  function splash(x, y) {
+    var ripple = document.createElement('div');
+    ripple.className = 'ripple';
+    ripple.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(ripple);
+
+    gsap.set(ripple, { x: x, y: y, scale: 0, opacity: 0.9 });
+    gsap.to(ripple, {
+      scale: 1, opacity: 0,
+      duration: 1.5, ease: 'power2.out',
+      onComplete: function () { if (ripple.parentNode) ripple.parentNode.removeChild(ripple); }
+    });
+
+    var host = document.createElement('div');
+    host.className = 'motes';
+    host.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(host);
+
+    for (var i = 0; i < 12; i++) {
+      var s = document.createElement('span');
+      var d = 3 + Math.random() * 4;
+      s.style.width = d + 'px';
+      s.style.height = d + 'px';
+      host.appendChild(s);
+
+      // Thrown up and out, then pulled back down. A splash, not a firework.
+      var ang = -Math.PI * (0.12 + Math.random() * 0.76);
+      var sp = 60 + Math.random() * 130;
+
+      gsap.set(s, { x: x, y: y, opacity: 1 });
+      gsap.timeline()
+        .to(s, {
+          x: x + Math.cos(ang) * sp,
+          y: y + Math.sin(ang) * sp,
+          duration: 0.42, ease: 'power2.out'
+        })
+        .to(s, {
+          y: '+=' + (90 + Math.random() * 130),
+          opacity: 0,
+          duration: 0.75, ease: 'power1.in'
+        });
+    }
+
+    gsap.delayedCall(2.2, function () {
+      if (host.parentNode) host.parentNode.removeChild(host);
+    });
+  }
+
+  /* ----------------------------------------------------------------------
+     Motes
+
+     The extra moving parts, and they exist only after the page wakes up. Built
+     on the event rather than sitting in the markup, so a page that never wakes
+     never pays for them and there is nothing drifting behind a course table
+     that is still pretending to be a course table.
+
+     Fourteen of them. Enough to read as air and few enough that fourteen
+     concurrent transform tweens are the whole cost.
+     ---------------------------------------------------------------------- */
+
+  /* Three nozzles across the top, each dispensing on its own irregular
+     schedule for the rest of the visit. Same idea as the announcement and the
+     same subject, at a fraction of the volume: the page keeps quietly doing
+     the thing the thesis is about.
+
+     One droplet in three leaves a ring where it fades, which is what stops the
+     loop reading as rain. Nothing is ever visible for more than about three
+     seconds and at most a handful exist at once, so the standing cost of this
+     is a few concurrent transform tweens. */
+  function dispensing() {
+    var host = document.createElement('div');
+    host.className = 'motes';
+    host.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(host);
+
+    var NOZZLES = [0.18, 0.52, 0.83];
+
+    function drop(atX) {
+      var vw = window.innerWidth || 390;
+      var vh = window.innerHeight || 800;
+
+      var s = document.createElement('span');
+      var d = 4 + Math.random() * 4;
+      s.style.width = d + 'px';
+      s.style.height = d + 'px';
+      host.appendChild(s);
+
+      // Jittered off the nozzle so three fixed columns do not appear.
+      var x = atX * vw + (Math.random() - 0.5) * 70;
+      var fall = vh * (0.42 + Math.random() * 0.44);
+
+      gsap.set(s, { x: x, y: -14, opacity: 0, scaleY: 1 });
+
+      gsap.timeline({
+        onComplete: function () { if (s.parentNode) s.parentNode.removeChild(s); }
+      })
+        .to(s, { opacity: 0.34 + Math.random() * 0.3, duration: 0.3 })
+        .to(s, {
+          y: fall,
+          scaleY: 1.45, scaleX: 0.85,
+          duration: 1.9 + Math.random() * 1.5,
+          ease: 'power1.in'
+        }, 0)
+        .to(s, { opacity: 0, duration: 0.45 }, '-=0.45')
+        .call(function () {
+          if (Math.random() > 0.66) tinyRing(x, fall);
+        });
+    }
+
+    function tinyRing(x, y) {
+      var r = document.createElement('div');
+      r.className = 'ripple ripple--small';
+      r.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(r);
+      gsap.set(r, { x: x, y: y, scale: 0, opacity: 0.5 });
+      gsap.to(r, {
+        scale: 1, opacity: 0, duration: 1.25, ease: 'power2.out',
+        onComplete: function () { if (r.parentNode) r.parentNode.removeChild(r); }
+      });
+    }
+
+    /* Each nozzle re-arms itself with a fresh random interval rather than
+       running on a shared repeating timeline, so the three never fall into
+       step with each other. */
+    NOZZLES.forEach(function (atX, i) {
+      function cycle() {
+        drop(atX);
+        gsap.delayedCall(2.6 + Math.random() * 5.2, cycle);
+      }
+      gsap.delayedCall(0.8 + i * 1.4 + Math.random() * 2, cycle);
+    });
+  }
+
+  /* The reveal itself. app.js owns the morph, which is CSS; this is the part
+     that makes it impossible to miss. */
   function wireAwakening() {
     document.addEventListener('c03102:awake', function () {
+
       var badge = $('#course-mark');
+
+      // The lights coming on: the aura overshoots and settles rather than
+      // fading politely up to its resting brightness.
+      var aura = $('.aura');
+      if (aura) {
+        gsap.fromTo(aura,
+          { scale: 1.14 },
+          { scale: 1, duration: 1.6, ease: 'power3.out' });
+      }
+      $$('.aura span').forEach(function (blob, i) {
+        gsap.fromTo(blob,
+          { filter: 'brightness(2.1)' },
+          { filter: 'brightness(1)', duration: 1.1, delay: i * 0.06, ease: 'power2.out' });
+      });
+
       if (badge) {
         gsap.fromTo(badge,
           { scale: 1 },
-          { scale: 1.16, duration: 0.22, ease: 'power2.out', yoyo: true, repeat: 1 });
+          { scale: 1.22, duration: 0.26, ease: 'back.out(4)', yoyo: true, repeat: 1 });
       }
+
+      /* The hero settling into its new shape. A short lift with a stagger, so
+         the change reads as the page rearranging itself rather than as a
+         stylesheet being swapped. y only, and small: this is the one moment a
+         guest is most likely to be reading. */
+      var settle = [
+        $('.eyebrow'), $('.hero__title'), $('.savedate'), $('#countdown'), $('.hero__actions')
+      ].filter(Boolean);
+
+      gsap.fromTo(settle,
+        { y: 9 },
+        { y: 0, duration: 0.75, ease: 'power3.out', stagger: 0.055 });
 
       var num = $('.savedate__num');
       if (num) {
         gsap.fromTo(num,
-          { scale: 1 },
-          { scale: 1.035, duration: 0.5, ease: 'power2.inOut', yoyo: true, repeat: 1 });
+          { scale: 0.965 },
+          { scale: 1, duration: 0.8, ease: 'back.out(2.2)' });
       }
+
+      // The nozzles keep working for the rest of the visit, from here on.
+      dispensing();
 
       // Triggers already measured against a pre morph layout. Nothing here
       // changes height, but the pill gaining a shadow changes what is painted.
       ScrollTrigger.refresh();
     });
+
+    // The announcement, on app.js's clock. The morph lands on the impact.
+    document.addEventListener('c03102:dispensing', dispense);
   }
 
   /* ----------------------------------------------------------------------

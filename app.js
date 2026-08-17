@@ -534,11 +534,31 @@
     } catch (e) { /* leave it open */ }
   }
 
-  var AWAKEN_AFTER_MS = 3000;
+  /* Five, not three. Three was the first guess and it was short: a guest who
+     lands mid sentence in the headline has barely finished reading it before
+     the page changes character, which spends the joke before it has landed. */
+  var AWAKEN_AFTER_MS = 5000;
+
+  /* The morph is announced rather than simply happening, and the announcement
+     is a droplet being dispensed from a needle: the host's thesis is modular
+     automated liquid dispensing for point of care diagnostics, so the thing
+     that transforms the page is the thing the party is celebrating.
+
+     This is how long the droplet is in the air. motion.js starts the dispense
+     when the event below fires and the drop lands exactly as the page morphs,
+     so the morph reads as caused by the impact rather than as coinciding with
+     it. One owner and one constant: motion.js runs no clock of its own, and
+     if it never loads these two timers still morph the page on schedule with
+     nothing falling. */
+  var DISPENSE_LEAD_MS = 1700;
+
   var awakenTimer = null;
+  var dispenseTimer = null;
+  var revealStarted = false;
 
   function awaken() {
     if (awakenTimer !== null) { clearTimeout(awakenTimer); awakenTimer = null; }
+    if (dispenseTimer !== null) { clearTimeout(dispenseTimer); dispenseTimer = null; }
     if (document.documentElement.getAttribute('data-awake') === '1') return;
 
     document.documentElement.setAttribute('data-awake', '1');
@@ -550,8 +570,30 @@
     catch (e) { /* no CustomEvent constructor, so nothing embellishes it */ }
   }
 
+  /* Starts the announcement and arms the morph behind it. Idempotent, because
+     both the clock and the guest's first touch can call it and whichever
+     arrives first wins.
+
+     An early touch does not skip the dispense, it brings it forward. The
+     announcement is the point of the whole sequence, so a guest who taps at
+     one second gets the droplet at one second rather than getting no droplet
+     at all. */
+  function beginReveal() {
+    if (revealStarted) return;
+    revealStarted = true;
+
+    if (dispenseTimer !== null) { clearTimeout(dispenseTimer); dispenseTimer = null; }
+
+    try { document.dispatchEvent(new CustomEvent('c03102:dispensing')); }
+    catch (e) { /* nothing is dispensed, and the morph below still happens */ }
+
+    if (awakenTimer !== null) { clearTimeout(awakenTimer); awakenTimer = null; }
+    awakenTimer = setTimeout(awaken, DISPENSE_LEAD_MS);
+  }
+
   function scheduleAwakening() {
-    awakenTimer = setTimeout(awaken, AWAKEN_AFTER_MS);
+    // Armed so the drop lands on AWAKEN_AFTER_MS, not so it starts there.
+    dispenseTimer = setTimeout(beginReveal, Math.max(0, AWAKEN_AFTER_MS - DISPENSE_LEAD_MS));
 
     /* A guest who has started touching the page has stopped reading the hero,
        so the joke has had its moment and holding the page stiff for the rest
@@ -565,7 +607,7 @@
     var onFirstTouch = function () {
       window.removeEventListener('touchstart', onFirstTouch);
       window.removeEventListener('pointerdown', onFirstTouch);
-      awaken();
+      beginReveal();
     };
     window.addEventListener('touchstart', onFirstTouch, { passive: true });
     window.addEventListener('pointerdown', onFirstTouch, { passive: true });
@@ -589,6 +631,72 @@
     });
   }
 
+  /* Which section the guest is currently looking at, as an index into the
+     sheet's tiles. The last one whose top has passed a third of the way down
+     the viewport, which reads as "the one I am in" rather than "the one
+     nearest the top edge": at a section boundary the latter flickers between
+     two answers while the former commits. Falls back to the first. */
+  function currentSectionIndex(links) {
+    var mark = (window.innerHeight || 800) / 3;
+    var found = 0;
+    for (var i = 0; i < links.length; i++) {
+      var id = (links[i].getAttribute('href') || '').slice(1);
+      var target = id && document.getElementById(id);
+      if (!target || target.hidden) continue;
+      if (target.getBoundingClientRect().top <= mark) found = i;
+    }
+    return found;
+  }
+
+  /* Slides the box onto the active tile. Read once, written once: every
+     measurement is taken before anything is set, so this cannot bounce the
+     browser between layout and paint down the list of tiles.
+
+     The index is passed in rather than computed here, and that is the fix for
+     a real bug: openNav applies a body scroll lock, and locking the body
+     perturbs the scroll position, so a reading taken after it answered the
+     wrong section. The page is measured before it is frozen. */
+  function positionSpot(active) {
+    var menu = $('#navmenu');
+    var spot = $('#navmenu-spot');
+    if (!menu || !spot) return;
+
+    var links = $$('.navmenu__grid a', menu);
+    if (!links.length) return;
+
+    if (typeof active !== 'number' || active < 0 || active >= links.length) {
+      active = currentSectionIndex(links);
+    }
+    var box = links[active];
+    var grid = box.parentNode;
+
+    links.forEach(function (a, i) {
+      if (i === active) a.setAttribute('aria-current', 'true');
+      else a.removeAttribute('aria-current');
+    });
+
+    /* Measured against the grid's own rectangle rather than through
+       offsetLeft and offsetTop. Those are relative to offsetParent, which is
+       whichever ancestor happens to be positioned, and while the sheet is
+       still mid entrance that answered 0 for every tile and parked the box on
+       the first one no matter which section the guest was in. Two rectangles
+       subtracted cannot be confused about what they are relative to. */
+    var gb = grid.getBoundingClientRect();
+    var bb = box.getBoundingClientRect();
+
+    // Nothing has been laid out yet. Try again next frame rather than writing
+    // a position that is known to be wrong.
+    if (!bb.width || !bb.height) {
+      requestAnimationFrame(function () { positionSpot(active); });
+      return;
+    }
+
+    spot.style.width = bb.width + 'px';
+    spot.style.height = bb.height + 'px';
+    spot.style.transform = 'translate(' + (bb.left - gb.left) + 'px, ' + (bb.top - gb.top) + 'px)';
+    spot.setAttribute('data-on', '1');
+  }
+
   function openNav() {
     var toggle = $('#navtoggle');
     var menu = $('#navmenu');
@@ -596,6 +704,11 @@
 
     navOpen = true;
     navReturnFocus = document.activeElement;
+
+    /* Measured first, while the page is still where the guest left it. The
+       scroll lock below moves it, so anything read after this line is reading
+       a page that has already been disturbed. */
+    var active = currentSectionIndex($$('.navmenu__grid a', menu));
 
     menu.hidden = false;
     toggle.setAttribute('aria-expanded', 'true');
@@ -610,6 +723,11 @@
     navShowFrame = requestAnimationFrame(function () {
       navShowFrame = null;
       menu.setAttribute('data-show', '1');
+      /* Placed in the same frame the sheet is told to rise. The tiles have
+         layout by now because the container is no longer hidden, and putting
+         it here means the box is already under the right tile as the sheet
+         arrives rather than jumping onto it a moment later. */
+      positionSpot(active);
     });
 
     var first = navFocusables(menu)[0];
@@ -664,6 +782,12 @@
     $$('a[href]', menu).forEach(function (a) {
       a.addEventListener('click', function () { closeNav(false); });
     });
+
+    // Tapping the dimmed area outside the sheet dismisses it, which is what a
+    // sheet is expected to do. Its own element, so the hit area is exactly the
+    // scrim and never the sheet.
+    var scrim = $('#navmenu-scrim');
+    if (scrim) scrim.addEventListener('click', function () { closeNav(true); });
 
     // Switching language leaves the panel open. The guest is still choosing.
     document.addEventListener('keydown', function (e) {

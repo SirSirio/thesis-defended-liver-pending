@@ -184,6 +184,149 @@
     rgba(232, 63, 72, 0.20), rgba(232, 63, 72, 0.06) 40%, rgba(232, 63, 72, 0) 68%);
 }
 
+/* ==========================================================================
+   THE DISPENSE
+
+   The morph is announced by a droplet dispensed from a needle, and the page
+   transforms on impact. The host's thesis is modular automated liquid
+   dispensing for point of care diagnostics, so the thing that transforms this
+   page is the thing the party is celebrating.
+
+   Every element below is built and removed by motion.js. None of it is in the
+   markup, so a page without that file has none of it and is not waiting on it.
+   ========================================================================== */
+
+/* The rig hangs from the top edge and is positioned by transform only. Above
+   the content, below the top bar: it is passing in front of the page, not
+   behind it, but it must never cover the navigation. */
+/* Above the top bar, not below it. The first build put the rig at --z-menu and
+   the bar is 64px of --z-topbar directly on top of it, so a 64px needle was
+   invisible for its whole descent and the droplet appeared out of nowhere. It
+   passes in front of everything except the toast. */
+.rig {
+  position: fixed;
+  top: 0; left: 0;
+  z-index: calc(var(--z-toast) - 2);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.rig__svg {
+  position: absolute;
+  top: 0; left: 0;
+  display: block;
+  overflow: visible;
+}
+
+/* THE PUMP. The far end of the shot: a peristaltic head, soft and dim,
+   because a camera focused on the needle is not focused on this. It never
+   sharpens, which is what sells the depth. */
+.rig__pump {
+  filter: blur(3.4px);
+  opacity: 0.55;
+}
+.rig__housing { fill: none; stroke: #6E6E73; stroke-width: 3; }
+.rig__race    { fill: none; stroke: rgba(232, 63, 72, 0.55); stroke-width: 5; }
+.rig__roller  { fill: #C9C9CE; }
+.rig__hub     { fill: #6E6E73; }
+
+/* THE TUBE, drawn three times over one path. The halo is the out of focus
+   pass and stays soft; the wall and the liquid sit inside the near group and
+   rack into focus with the needle. */
+.rig__tube { fill: none; stroke-linecap: round; }
+
+.rig__tube--halo {
+  stroke: rgba(232, 63, 72, 0.18);
+  stroke-width: 15;
+  filter: blur(6px);
+}
+.rig__tube--wall {
+  stroke: rgba(244, 244, 245, 0.28);
+  stroke-width: 7;
+}
+.rig__tube--liquid {
+  stroke: var(--accent-lit);
+  stroke-width: 4.5;
+  filter: drop-shadow(0 0 5px rgba(232, 63, 72, 0.75));
+}
+
+/* THE NEEDLE. Short. It is the last few millimetres of an instrument, not a
+   spike hanging from the ceiling, and the first build had it at 118px which
+   read as the latter. */
+.rig__needle {
+  stroke: #D8D8DD;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+
+/* The focus pull. One filter on one group, animated from soft to sharp as the
+   liquid arrives, so the camera appears to rack from the pump to the tip. */
+.rig__near {
+  --near-blur: 5px;
+  filter: blur(var(--near-blur));
+}
+
+/* The bead at the tip. Not a circle: a droplet is heavier at the bottom and
+   drawn to a point at the top, which is what this radius does. Positioned by
+   transform from 0,0 rather than by offsets, so it is a sibling of the drawing
+   and keeps its own opacity when the instrument withdraws. */
+.rig__bead {
+  position: absolute;
+  top: -6px; left: -5px;
+  display: block;
+  width: 10px; height: 12px;
+  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+  background: radial-gradient(circle at 38% 30%,
+    #F4A0A5 0%, var(--accent-lit) 42%, #8E1116 100%);
+  box-shadow: 0 0 12px rgba(232, 63, 72, 0.7);
+  will-change: transform, opacity;
+}
+
+/* The ring the impact throws out. Sized to outrun the largest phone in both
+   directions, so scaling it from 0 to 1 always clears the viewport. */
+.ripple {
+  position: fixed;
+  top: 0; left: 0;
+  z-index: var(--z-menu);
+  width: 240vmax; height: 240vmax;
+  margin: -120vmax 0 0 -120vmax;
+  border-radius: 50%;
+  border: 2px solid rgba(232, 63, 72, 0.5);
+  background: radial-gradient(circle at 50% 50%,
+    rgba(232, 63, 72, 0.10), rgba(232, 63, 72, 0) 42%);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* The ones the ongoing nozzles leave. Same ring, a fraction of the reach, and
+   behind the content rather than in front of it. */
+.ripple--small {
+  z-index: -1;
+  width: 34vmax; height: 34vmax;
+  margin: -17vmax 0 0 -17vmax;
+  border-width: 1px;
+  border-color: rgba(232, 63, 72, 0.34);
+}
+
+/* The droplets themselves, both the splash satellites and the ones the
+   nozzles keep releasing. Behind the content, so nothing ever falls across a
+   word a guest is reading. */
+.motes {
+  position: fixed; inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.motes span {
+  position: absolute; top: 0; left: 0;
+  display: block;
+  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+  background: radial-gradient(circle at 38% 30%,
+    #F4A0A5 0%, var(--accent-lit) 46%, #8E1116 100%);
+  box-shadow: 0 0 9px rgba(232, 63, 72, 0.55);
+  will-change: transform, opacity;
+}
+
 /* --------------------------------------------------------------------------
    Base
    -------------------------------------------------------------------------- */
@@ -237,6 +380,21 @@ a { color: inherit; }
   margin-inline: auto;
   padding-inline: var(--s-5);
 }
+
+/* The tilt motion.js puts on the unhinged sections rotates a full bleed box,
+   and a rotated box is wider than the box it started as: about 5px each side
+   at 375px, which is a real sideways drag on a phone.
+
+   Clipped here rather than on <html>. That was tried and reverted: overflow on
+   the root makes it the scroll container and the sticky top bar stops
+   sticking. The bar lives in <header>, outside <main>, so clipping here cannot
+   reach it, and nothing inside <main> is sticky.
+
+   clip and not hidden. hidden on one axis forces the other axis to auto, which
+   would turn <main> into a scrolling box; clip leaves overflow-y visible,
+   which is the entire reason the keyword exists. A browser too old to know it
+   drops the line and keeps today's five pixels. */
+main, .footer { overflow-x: clip; }
 
 .mono {
   font-family: var(--font-mono);
@@ -478,67 +636,196 @@ a { color: inherit; }
   transform: translateY(-5px) rotate(-45deg);
 }
 
+/* THE COURSE INDEX
+   A bottom sheet. Everything below is written phone first; the desktop rule at
+   the end of the block caps its width and centres it. */
 .navmenu {
   position: fixed; inset: 0;
   z-index: var(--z-menu);
-  display: flex; flex-direction: column; justify-content: center;
-  gap: var(--s-7);
-  padding: calc(var(--topbar-h) + var(--s-6)) var(--s-5) var(--s-7);
-  background: rgba(11, 11, 12, 0.94);
-  /* A fixed element, which is the only place the performance rule allows a
-     backdrop filter. Never on a scrolling container. */
-  backdrop-filter: blur(18px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  display: flex;
+  align-items: flex-end;          /* the sheet sits on the bottom edge */
+}
+
+.navmenu__scrim {
+  position: absolute; inset: 0;
+  background: rgba(6, 6, 7, 0.62);
+  backdrop-filter: blur(14px);
   opacity: 0;
   transition: opacity var(--t-base) var(--ease-out);
 }
-.navmenu[data-show="1"] { opacity: 1; }
+.navmenu[data-show="1"] .navmenu__scrim { opacity: 1; }
 
-.navmenu__nav { display: flex; flex-direction: column; }
+.navmenu__sheet {
+  position: relative;
+  width: 100%;
+  max-height: calc(100dvh - var(--topbar-h) - var(--s-4));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s-3) var(--s-4) calc(var(--s-6) + env(safe-area-inset-bottom, 0px));
+  background: rgba(18, 18, 22, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-bottom: 0;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  backdrop-filter: blur(26px) saturate(1.6);
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.55),
+              inset 0 1px 0 rgba(255, 255, 255, 0.10);
 
-.navmenu__nav a {
-  display: flex; align-items: center;
-  min-height: 56px;
-  font-family: var(--font-display);
-  font-size: clamp(1.7rem, 7vw, 2.4rem);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  color: var(--ink);
-  text-decoration: none;
-  border-bottom: 1px solid var(--rule);
-  /* The stagger is CSS, not script. It has to survive motion.js never
-     arriving, so the reveal is a transition and a delay rather than anything
-     GSAP owns. */
+  /* Rises from below rather than fading in place. A sheet that fades has no
+     direction and reads as a modal; one that rises reads as a drawer, which is
+     what it is. */
+  transform: translateY(12%);
   opacity: 0;
-  transform: translateY(14px);
-  transition: opacity var(--t-base) var(--ease-out),
-              transform var(--t-base) var(--ease-out),
-              color var(--t-fast) var(--ease-out);
+  transition: transform 420ms var(--ease-out), opacity 260ms var(--ease-out);
 }
-.navmenu[data-show="1"] .navmenu__nav a { opacity: 1; transform: none; }
+.navmenu[data-show="1"] .navmenu__sheet { transform: none; opacity: 1; }
 
-.navmenu[data-show="1"] .navmenu__nav a:nth-child(1) { transition-delay: 30ms; }
-.navmenu[data-show="1"] .navmenu__nav a:nth-child(2) { transition-delay: 65ms; }
-.navmenu[data-show="1"] .navmenu__nav a:nth-child(3) { transition-delay: 100ms; }
-.navmenu[data-show="1"] .navmenu__nav a:nth-child(4) { transition-delay: 135ms; }
-.navmenu[data-show="1"] .navmenu__nav a:nth-child(5) { transition-delay: 170ms; }
-.navmenu[data-show="1"] .navmenu__nav a:nth-child(6) { transition-delay: 205ms; }
-.navmenu[data-show="1"] .navmenu__nav a:nth-child(7) { transition-delay: 240ms; }
+/* The grab handle. Purely a signal that this thing came from the bottom edge
+   and can be dismissed downward. */
+.navmenu__grip {
+  display: block;
+  width: 38px; height: 4px;
+  margin: 0 auto var(--s-4);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
 
-.navmenu__nav a:active { color: var(--accent-lit); }
+.navmenu__title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0 0 var(--s-3);
+}
+
+/* Seven tiles in two columns. The seventh takes the full width rather than
+   leaving a hole beside it: a grid with an empty cell at the end was planned
+   wrong. */
+.navmenu__grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s-2);
+}
+
+.navmenu__grid a {
+  position: relative;            /* above the spotlight */
+  z-index: 1;
+  display: flex; flex-direction: column; justify-content: space-between;
+  gap: var(--s-4);
+  min-height: 84px;
+  padding: var(--s-3);
+  text-decoration: none;
+  color: var(--ink);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.035);
+  transition: transform var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out),
+              background var(--t-fast) var(--ease-out);
+
+  /* The stagger is CSS, not script, so it survives motion.js never arriving. */
+  opacity: 0;
+  transform: translateY(16px);
+}
+.navmenu[data-show="1"] .navmenu__grid a {
+  opacity: 1;
+  transform: none;
+  transition: opacity 320ms var(--ease-out),
+              transform 420ms var(--ease-out),
+              border-color var(--t-fast) var(--ease-out),
+              background var(--t-fast) var(--ease-out);
+}
+
+.navmenu__grid a:nth-child(2) { transition-delay: 40ms; }
+.navmenu__grid a:nth-child(3) { transition-delay: 75ms; }
+.navmenu__grid a:nth-child(4) { transition-delay: 110ms; }
+.navmenu__grid a:nth-child(5) { transition-delay: 145ms; }
+.navmenu__grid a:nth-child(6) { transition-delay: 180ms; }
+.navmenu__grid a:nth-child(7) { transition-delay: 215ms; }
+.navmenu__grid a:nth-child(8) { transition-delay: 250ms; }
+
+/* The album, last and alone, takes the row rather than leaving a gap. */
+.navmenu__grid a:last-of-type { grid-column: span 2; min-height: 68px; }
+
+.navmenu__grid a:active { transform: scale(0.975); }
+
+@media (hover: hover) and (pointer: fine) {
+  .navmenu__grid a:hover {
+    border-color: rgba(255, 255, 255, 0.20);
+    background: rgba(255, 255, 255, 0.07);
+  }
+}
+
+.navmenu__n {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+.navmenu__l {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+
+/* Building access, marked out. Same reason it is the one link kept in the bar:
+   it is what a guest opens this site to find. */
+.navmenu__grid a[data-key] {
+  border-color: rgba(232, 63, 72, 0.42);
+  background: rgba(153, 0, 0, 0.16);
+}
+.navmenu__grid a[data-key] .navmenu__n { color: var(--accent-lit); }
+
+/* The moving box. Sized and placed by script; before that it is invisible and
+   occupies nothing, so a sheet opened without JS is simply a sheet of tiles.
+   Transform only, so sliding it costs no layout. */
+.navmenu__spot {
+  position: absolute;
+  top: 0; left: 0;
+  z-index: 0;
+  border-radius: var(--r-md);
+  background: rgba(232, 63, 72, 0.16);
+  border: 1px solid rgba(232, 63, 72, 0.55);
+  box-shadow: 0 0 0 1px rgba(232, 63, 72, 0.12), 0 8px 26px rgba(232, 63, 72, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 520ms var(--ease-both),
+              width 520ms var(--ease-both),
+              height 520ms var(--ease-both),
+              opacity 260ms var(--ease-out);
+}
+.navmenu__spot[data-on="1"] { opacity: 1; }
+
+.navmenu__grid a[aria-current="true"] .navmenu__l { color: #fff; }
 
 .navmenu__lang {
   align-self: flex-start;
+  margin-top: var(--s-5);
   opacity: 0;
   transform: translateY(14px);
   transition: opacity var(--t-base) var(--ease-out),
               transform var(--t-base) var(--ease-out);
 }
 .navmenu[data-show="1"] .navmenu__lang {
-  opacity: 1; transform: none; transition-delay: 240ms;
+  opacity: 1; transform: none; transition-delay: 285ms;
 }
 .navmenu__lang button { min-height: 44px; min-width: 52px; font-size: 13px; }
+
+/* A sheet glued to the bottom edge of a 1400px monitor is a phone pattern
+   wearing the wrong size, so above this it becomes a centred card. */
+@media (min-width: 620px) {
+  .navmenu { align-items: center; justify-content: center; padding: var(--s-5); }
+  .navmenu__sheet {
+    max-width: 560px;
+    border-radius: var(--r-lg);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+    transform: translateY(18px) scale(0.98);
+  }
+  .navmenu[data-show="1"] .navmenu__sheet { transform: none; }
+}
 
 @media (max-width: 900px) {
   .mark__dept { display: none; }

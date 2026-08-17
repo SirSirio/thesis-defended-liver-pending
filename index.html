@@ -124,26 +124,51 @@
      and the nudge bar, so the transition runs from the closed state instead of
      being skipped. -->
 <div class="navmenu" id="navmenu" hidden>
-  <nav class="navmenu__nav" aria-label="Sections">
-    <a href="#info" data-i18n="nav.info">Course information</a>
-    <a href="#objectives" data-i18n="nav.objectives">Learning objectives</a>
-    <a href="#enrol" data-i18n="nav.enrol">Registration</a>
-    <a href="#location" data-i18n="nav.location">Location</a>
-    <a href="#access" data-i18n="nav.access">Building access</a>
-    <a href="#photos" data-i18n="nav.photos">Documentation</a>
-    <a href="#gallery" data-i18n="nav.gallery">The album</a>
-  </nav>
 
-  <!-- The language switch lives here on a phone rather than in the bar. Logo,
-       course badge, Building access, three language buttons and a menu button
-       measure about 372px of content inside a 342px viewport, so something had
-       to leave. Language is a once per visit decision and Building access is
-       the thing a guest taps while standing outside in the dark, so language is
-       what moved. -->
-  <div class="langswitch navmenu__lang" role="group" aria-label="Language">
-    <button type="button" data-set-lang="en">EN</button>
-    <button type="button" data-set-lang="it">IT</button>
-    <button type="button" data-set-lang="da">DA</button>
+  <!-- Tapping away from the sheet closes it, which is what a sheet is expected
+       to do. Its own element rather than a handler on the container, so the
+       hit area is exactly the dimmed part and never the sheet itself. -->
+  <div class="navmenu__scrim" id="navmenu-scrim"></div>
+
+  <!-- A bottom sheet, not a full screen list. Two reasons, and neither is
+       fashion. A list of seven links is the long navigation the owner objected
+       to, where a grid of seven tiles is one glance. And the sheet rises from
+       the bottom, so its contents land in the half of a phone a thumb can
+       actually reach, while the button that opened it stays where it was. -->
+  <div class="navmenu__sheet" role="dialog" aria-modal="true" aria-labelledby="navmenu-title">
+    <span class="navmenu__grip" aria-hidden="true"></span>
+    <p class="navmenu__title" id="navmenu-title" data-i18n="nav.index">Course index</p>
+
+    <nav class="navmenu__grid" aria-label="Sections">
+      <!-- The moving box. Parked behind the tiles and slid onto whichever
+           section the guest is currently looking at, so the index answers
+           "where am I" before it is asked "where can I go". Purely decorative,
+           so it is hidden from assistive technology; the tile it sits behind
+           carries aria-current, which is the part that means something. -->
+      <span class="navmenu__spot" id="navmenu-spot" aria-hidden="true"></span>
+
+      <a href="#info"><span class="navmenu__n mono">01</span><span class="navmenu__l" data-i18n="nav.info">Course information</span></a>
+      <a href="#objectives"><span class="navmenu__n mono">02</span><span class="navmenu__l" data-i18n="nav.objectives">Learning objectives</span></a>
+      <a href="#enrol"><span class="navmenu__n mono">03</span><span class="navmenu__l" data-i18n="nav.enrol">Registration</span></a>
+      <a href="#location"><span class="navmenu__n mono">04</span><span class="navmenu__l" data-i18n="nav.location">Location</span></a>
+      <!-- Marked key for the same reason it stays in the bar: it is the one a
+           guest opens this site to find. -->
+      <a href="#access" data-key="1"><span class="navmenu__n mono">05</span><span class="navmenu__l" data-i18n="nav.access">Building access</span></a>
+      <a href="#photos"><span class="navmenu__n mono">06</span><span class="navmenu__l" data-i18n="nav.photos">Documentation</span></a>
+      <a href="#gallery"><span class="navmenu__n mono">07</span><span class="navmenu__l" data-i18n="nav.gallery">The album</span></a>
+    </nav>
+
+    <!-- The language switch lives here on a phone rather than in the bar. Logo,
+         course badge, Building access, three language buttons and a menu button
+         measure about 372px of content inside a 342px viewport, so something had
+         to leave. Language is a once per visit decision and Building access is
+         the thing a guest taps while standing outside in the dark, so language is
+         what moved. -->
+    <div class="langswitch navmenu__lang" role="group" aria-label="Language">
+      <button type="button" data-set-lang="en">EN</button>
+      <button type="button" data-set-lang="it">IT</button>
+      <button type="button" data-set-lang="da">DA</button>
+    </div>
   </div>
 </div>
 
