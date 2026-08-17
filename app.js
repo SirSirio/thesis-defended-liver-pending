@@ -4669,18 +4669,32 @@
   /* The quota body, and it is the phase. The roadmap's done-when sentence ends
      here: the sixth photograph is refused with a joke rather than an error.
 
-     A sub-heading and a lede, in the existing panel grammar, and nothing else.
-     No button, no queue, no line inviting the guest to contact the host, and
-     above all no remaining count reading zero, because a zero would be a
-     number where the joke goes. It is a course requirement satisfied rather
-     than a wall hit, and the register is the whole difference between the joke
-     landing and an error message wearing a costume (D-23).
+     A sub-heading and a lede, in the existing panel grammar. No button, no
+     line inviting the guest to contact the host, and above all no remaining
+     count reading zero, because a zero would be a number where the joke goes.
+     It is a course requirement satisfied rather than a wall hit, and the
+     register is the whole difference between the joke landing and an error
+     message wearing a costume (D-23).
 
-     It is not an assertive region and it does not take focus. It is reached
-     two ways and neither is an event that needs announcing on its own: at page
-     load it is simply the state of the section, and mid batch it is reached
-     after the alert line has already announced the refusal assertively, where
-     a focus move would announce the same fact twice and read as a stutter.
+     It is reached two ways and it is not the same panel both times.
+
+     At page load it is simply the state of the section, and it ends at the
+     lede. Nothing happened, so there is nothing to report and no region to
+     announce.
+
+     Mid batch it is reached because the batch that just settled spent the
+     last of the allowance, and it arrives carrying that batch's answer:
+     settleBatch hands over the counted sentence, the line naming what did not
+     land, and the transcript, because the swap happens in the same task those
+     three were written in and there is no frame in which the control could
+     show them. PH-05 is the reason. A guest who picked five files, had two
+     recorded and three refused as overflow, must not be left reading a
+     punchline about being documented with no word anywhere about the other
+     three. So the transcript is under the joke rather than destroyed by it.
+
+     It never takes focus, either way. A focus move on the quota body would
+     announce the same fact the alert line below is already announcing, and
+     read as a stutter.
 
      It is a .panel, so it mounts at zero opacity and the ladder's data-show
      line is what makes it visible. That line is deliberately in the ladder
