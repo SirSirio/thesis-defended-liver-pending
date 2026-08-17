@@ -139,6 +139,15 @@ first five need `photos.opensAt` moved in `config.js` once per row and written b
 | D9 | The Danish `photos.permanent` line takes at most three lines and the button stays visible | Button not pushed below the fold | Pending | Pending | |
 | D10 | Uploading one photograph makes the figure read four, unanimated, and without destroying the queue | Count updates, transcript survives | Pending | Pending | |
 | D11 | Clearing the stored name and reloading renders the registration gate with the existing register label, the album still below it, and no name field | Gate body, one anchor to `#enrol`, zero inputs, album present. Structurally proved, and this is the row that would have failed before plan 04-03's deviation 2, so confirm it is visibly there rather than merely in the DOM | Pending | Pending | |
+| D12 | Registering from the enrolment form, **without reloading the page**, flips the photos section from the registration gate to the upload body on its own | The section follows the identity in the same page view. This is the goal sentence, and every check above reaches it through a reload, which is the one path that hides the defect | Pending | Pending | |
+| D13 | Choosing "forget this device", **without reloading the page**, flips the photos section back to the registration gate, and a pick made afterwards uploads nothing at all | Gate body returns; no bytes leave the phone, no row appears in the album, no failure row is offered for retry | Pending | Pending | |
+
+> D12 and D13 were added after the code review. Both were absent, and their absence was the defect:
+> the photos section never re-rendered when the identity changed, so a guest who registered in the
+> same page view kept being told to register, and a pick made after "forget this device" uploaded
+> bytes and then wrote a null identity into the archive. **Do not walk either of these with a
+> reload** — a reload passes them whether the fix is present or not, which is exactly why the
+> original sheet certified nothing.
 
 ## Table E. Failure, retry and the quota (PH-05, PH-06, carried from plan 04-04)
 
