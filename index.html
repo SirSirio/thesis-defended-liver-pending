@@ -71,8 +71,54 @@
       <button type="button" data-set-lang="da">DA</button>
     </div>
 
+    <!-- Below 900px this replaces the five nav links that used to simply be
+         set to display:none, which left the site with exactly one navigation
+         item on the device every guest actually uses.
+
+         The accessible name is an attribute written from the copy tables and
+         swapped between the open and close strings by wireNav, because a label
+         frozen in one language on a trilingual site is unreadable to the guests
+         the other two languages exist for, and two bars say nothing out loud. -->
+    <button class="navtoggle" id="navtoggle" type="button"
+            aria-expanded="false" aria-controls="navmenu"
+            data-i18n="nav.menu.open" data-i18n-attr="aria-label">
+      <span class="navtoggle__bars" aria-hidden="true"><span></span><span></span></span>
+    </button>
+
   </div>
 </header>
+
+<!-- Deliberately a sibling of the header rather than a child of it. .topbar
+     carries backdrop-filter, and a filtered element becomes the containing
+     block for its fixed position descendants, so a panel nested inside it would
+     be trapped in a 64px tall bar instead of covering the viewport.
+
+     Ships with hidden set. wireNav clears the attribute and then sets data-show
+     on the next frame, the same two step this file already uses for the toast
+     and the nudge bar, so the transition runs from the closed state instead of
+     being skipped. -->
+<div class="navmenu" id="navmenu" hidden>
+  <nav class="navmenu__nav" aria-label="Sections">
+    <a href="#info" data-i18n="nav.info">Course information</a>
+    <a href="#objectives" data-i18n="nav.objectives">Learning objectives</a>
+    <a href="#enrol" data-i18n="nav.enrol">Registration</a>
+    <a href="#location" data-i18n="nav.location">Location</a>
+    <a href="#access" data-i18n="nav.access">Building access</a>
+    <a href="#photos" data-i18n="nav.photos">Documentation</a>
+  </nav>
+
+  <!-- The language switch lives here on a phone rather than in the bar. Logo,
+       course badge, Building access, three language buttons and a menu button
+       measure about 372px of content inside a 342px viewport, so something had
+       to leave. Language is a once per visit decision and Building access is
+       the thing a guest taps while standing outside in the dark, so language is
+       what moved. -->
+  <div class="langswitch navmenu__lang" role="group" aria-label="Language">
+    <button type="button" data-set-lang="en">EN</button>
+    <button type="button" data-set-lang="it">IT</button>
+    <button type="button" data-set-lang="da">DA</button>
+  </div>
+</div>
 
 <main id="main">
 

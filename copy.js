@@ -25,6 +25,8 @@ window.PARTY_COPY = {
     'nav.access': 'Building access',
     'nav.photos': 'Documentation',
     'nav.dept': 'Department of Graduation Studies',
+    'nav.menu.open': 'Open the course menu',
+    'nav.menu.close': 'Close the course menu',
 
     'hero.eyebrow': 'Course 03102 · 5 ECTS · Autumn 2026',
     'hero.title': 'Thesis Defended, Liver Pending',
@@ -264,6 +266,8 @@ window.PARTY_COPY = {
     'nav.access': 'Accesso',
     'nav.photos': 'Documentazione',
     'nav.dept': 'Dipartimento di Studi Post Laurea',
+    'nav.menu.open': 'Apri il menu del corso',
+    'nav.menu.close': 'Chiudi il menu del corso',
 
     'hero.eyebrow': 'Corso 03102 · 5 CFU · Autunno 2026',
     'hero.title': 'Thesis Defended, Liver Pending',
@@ -495,6 +499,8 @@ window.PARTY_COPY = {
     'nav.access': 'Adgang',   // short on purpose: this is the one nav item kept on phones
     'nav.photos': 'Dokumentation',
     'nav.dept': 'Institut for Kandidatstudier',
+    'nav.menu.open': 'Åbn kursusmenuen',
+    'nav.menu.close': 'Luk kursusmenuen',
 
     'hero.eyebrow': 'Kursus 03102 · 5 ECTS · Efterår 2026',
     'hero.title': 'Thesis Defended, Liver Pending',

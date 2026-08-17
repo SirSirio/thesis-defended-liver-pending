@@ -119,6 +119,9 @@
       btn.setAttribute('aria-pressed', btn.getAttribute('data-set-lang') === lang ? 'true' : 'false');
     });
 
+    // Immediately after the sweep, which is what it exists to correct.
+    syncNavLabel();
+
     renderSchedule();
     /* Beside renderSchedule and before the countdown, because it answers the
        same question the fact table answers and the two must never be a render
@@ -494,6 +497,142 @@
       try { document.dispatchEvent(new CustomEvent('c03102:saved')); }
       catch (e) { /* no CustomEvent constructor here, so nothing celebrates */ }
     });
+  }
+
+  /* ======================================================================
+     MOBILE NAVIGATION
+
+     Below 900px this is the navigation. The bar keeps the course mark and the
+     Building access link and nothing else, so everything the guest cannot see
+     has to be reachable from here or it is not reachable at all.
+     ====================================================================== */
+
+  var navOpen = false;
+  var navShowFrame = null;
+  var navReturnFocus = null;
+
+  function navFocusables(menu) {
+    return $$('a[href], button', menu).filter(function (el) {
+      return !el.disabled && el.getAttribute('aria-hidden') !== 'true';
+    });
+  }
+
+  function openNav() {
+    var toggle = $('#navtoggle');
+    var menu = $('#navmenu');
+    if (!toggle || !menu || navOpen) return;
+
+    navOpen = true;
+    navReturnFocus = document.activeElement;
+
+    menu.hidden = false;
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.setAttribute('aria-label', t('nav.menu.close'));
+
+    /* The page behind must not scroll while a full screen panel is over it.
+       Clearing the inline value on close restores overflow-x: hidden from the
+       stylesheet rather than losing it. */
+    document.body.style.overflow = 'hidden';
+
+    if (navShowFrame !== null) { cancelAnimationFrame(navShowFrame); navShowFrame = null; }
+    navShowFrame = requestAnimationFrame(function () {
+      navShowFrame = null;
+      menu.setAttribute('data-show', '1');
+    });
+
+    var first = navFocusables(menu)[0];
+    if (first) first.focus();
+  }
+
+  function closeNav(restoreFocus) {
+    var toggle = $('#navtoggle');
+    var menu = $('#navmenu');
+    if (!toggle || !menu || !navOpen) return;
+
+    navOpen = false;
+
+    if (navShowFrame !== null) { cancelAnimationFrame(navShowFrame); navShowFrame = null; }
+    menu.removeAttribute('data-show');
+    menu.hidden = true;
+
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', t('nav.menu.open'));
+    document.body.style.overflow = '';
+
+    /* Only when the guest closed it themselves. Following a link out of the
+       panel must leave focus on the section they jumped to, not drag it back
+       to a button at the top of a page they have just left. */
+    if (restoreFocus) {
+      var target = navReturnFocus && navReturnFocus.focus ? navReturnFocus : toggle;
+      try { target.focus(); } catch (e) { /* detached, so nothing to restore to */ }
+    }
+    navReturnFocus = null;
+  }
+
+  /* The [data-i18n] sweep rewrites the toggle's accessible name from
+     nav.menu.open unconditionally, and the language buttons live inside the
+     panel, so a guest switching language while the panel is open is an
+     ordinary sequence rather than a contrivance. Without this the button would
+     then say "open the menu" while the menu is open. */
+  function syncNavLabel() {
+    var toggle = $('#navtoggle');
+    if (toggle && navOpen) toggle.setAttribute('aria-label', t('nav.menu.close'));
+  }
+
+  function wireNav() {
+    var toggle = $('#navtoggle');
+    var menu = $('#navmenu');
+    if (!toggle || !menu) return;
+
+    toggle.addEventListener('click', function () {
+      if (navOpen) closeNav(true); else openNav();
+    });
+
+    // A jump link has done its job the moment it is followed.
+    $$('a[href]', menu).forEach(function (a) {
+      a.addEventListener('click', function () { closeNav(false); });
+    });
+
+    // Switching language leaves the panel open. The guest is still choosing.
+    document.addEventListener('keydown', function (e) {
+      if (!navOpen) return;
+
+      var key = e.key;
+      if (key === 'Escape' || key === 'Esc') {
+        e.preventDefault();
+        closeNav(true);
+        return;
+      }
+
+      if (key !== 'Tab') return;
+
+      /* Focus trap. Without it, Tab walks straight out of the panel and into
+         the page underneath, which is still there and still full of links a
+         guest cannot see. */
+      var items = navFocusables(menu);
+      if (!items.length) return;
+
+      var first = items[0];
+      var last = items[items.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+
+    /* A phone rotated into landscape can cross 900px, where the panel is
+       display:none and the button that closes it does not exist. Left open, it
+       would take the scroll lock with it and freeze a page that looks fine. */
+    if (window.matchMedia) {
+      var wide = window.matchMedia('(min-width: 901px)');
+      var onWide = function (e) { if (e.matches) closeNav(false); };
+      if (wide.addEventListener) wide.addEventListener('change', onWide);
+      else if (wide.addListener) wide.addListener(onWide);
+    }
   }
 
   function phase(now) {
@@ -5906,6 +6045,7 @@
     wireLocation();
     wireEnrollment();
     wireSaveDate();
+    wireNav();
     applyLanguage();
     startClock();
 

@@ -48,8 +48,15 @@
      editable cells, and two literal copies of one template drift apart. */
   --grid-record: minmax(180px, 260px) 1fr;
 
-  /* Z scale, semantic, never 9999 --------------------------------------- */
-  --z-sticky: 100;
+  /* Z scale, semantic, never 9999 ---------------------------------------
+     The order between the middle two is the whole point. The menu panel
+     covers the page and the nudge bar, and the top bar covers the menu panel,
+     because the top bar is where the button that closes the panel lives. Put
+     the panel over the bar and the guest can open a full screen menu with no
+     visible way out of it. */
+  --z-sticky: 100;   /* nudge bar */
+  --z-menu:   150;   /* full screen mobile menu */
+  --z-topbar: 200;   /* always reachable, carries the close button */
   --z-toast:  400;
 }
 
@@ -153,7 +160,7 @@ a { color: inherit; }
 
 .topbar {
   position: sticky; top: 0;
-  z-index: var(--z-sticky);
+  z-index: var(--z-topbar);
   min-height: var(--topbar-h);
   background: rgba(11, 11, 12, 0.86);
   backdrop-filter: blur(10px);
@@ -241,16 +248,135 @@ a { color: inherit; }
   .langswitch button:not([aria-pressed="true"]):hover { color: var(--ink); background: var(--surface-2); }
 }
 
+/* --------------------------------------------------------------------------
+   Mobile navigation
+   Written phone first, because the phone is the only place it exists. The
+   desktop rule at the bottom of this block is the override, not the base.
+   -------------------------------------------------------------------------- */
+
+.navtoggle {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  margin-left: var(--s-4);
+  appearance: none; cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  transition: border-color var(--t-fast) var(--ease-out);
+}
+.navtoggle:active { border-color: var(--rule-lit); }
+
+/* Two bars, not three. Two rotate into a clean X with no third bar left to
+   dissolve, which is one fewer thing that can be caught mid transition. */
+.navtoggle__bars {
+  position: relative; display: block;
+  width: 18px; height: 12px;
+}
+.navtoggle__bars span {
+  position: absolute; left: 0;
+  display: block; width: 100%; height: 2px;
+  background: currentColor;
+  transition: transform var(--t-base) var(--ease-both);
+}
+.navtoggle__bars span:nth-child(1) { top: 0; }
+.navtoggle__bars span:nth-child(2) { bottom: 0; }
+
+.navtoggle[aria-expanded="true"] .navtoggle__bars span:nth-child(1) {
+  transform: translateY(5px) rotate(45deg);
+}
+.navtoggle[aria-expanded="true"] .navtoggle__bars span:nth-child(2) {
+  transform: translateY(-5px) rotate(-45deg);
+}
+
+.navmenu {
+  position: fixed; inset: 0;
+  z-index: var(--z-menu);
+  display: flex; flex-direction: column; justify-content: center;
+  gap: var(--s-7);
+  padding: calc(var(--topbar-h) + var(--s-6)) var(--s-5) var(--s-7);
+  background: rgba(11, 11, 12, 0.94);
+  /* A fixed element, which is the only place the performance rule allows a
+     backdrop filter. Never on a scrolling container. */
+  backdrop-filter: blur(18px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  opacity: 0;
+  transition: opacity var(--t-base) var(--ease-out);
+}
+.navmenu[data-show="1"] { opacity: 1; }
+
+.navmenu__nav { display: flex; flex-direction: column; }
+
+.navmenu__nav a {
+  display: flex; align-items: center;
+  min-height: 56px;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 7vw, 2.4rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+  /* The stagger is CSS, not script. It has to survive motion.js never
+     arriving, so the reveal is a transition and a delay rather than anything
+     GSAP owns. */
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity var(--t-base) var(--ease-out),
+              transform var(--t-base) var(--ease-out),
+              color var(--t-fast) var(--ease-out);
+}
+.navmenu[data-show="1"] .navmenu__nav a { opacity: 1; transform: none; }
+
+.navmenu[data-show="1"] .navmenu__nav a:nth-child(1) { transition-delay: 30ms; }
+.navmenu[data-show="1"] .navmenu__nav a:nth-child(2) { transition-delay: 65ms; }
+.navmenu[data-show="1"] .navmenu__nav a:nth-child(3) { transition-delay: 100ms; }
+.navmenu[data-show="1"] .navmenu__nav a:nth-child(4) { transition-delay: 135ms; }
+.navmenu[data-show="1"] .navmenu__nav a:nth-child(5) { transition-delay: 170ms; }
+.navmenu[data-show="1"] .navmenu__nav a:nth-child(6) { transition-delay: 205ms; }
+
+.navmenu__nav a:active { color: var(--accent-lit); }
+
+.navmenu__lang {
+  align-self: flex-start;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity var(--t-base) var(--ease-out),
+              transform var(--t-base) var(--ease-out);
+}
+.navmenu[data-show="1"] .navmenu__lang {
+  opacity: 1; transform: none; transition-delay: 240ms;
+}
+.navmenu__lang button { min-height: 44px; min-width: 52px; font-size: 13px; }
+
 @media (max-width: 900px) {
   .mark__dept { display: none; }
   .topnav { gap: var(--s-4); }
   .topnav a:not(.topnav__key) { display: none; }
+
+  /* Building access stays in the bar itself, and stays there on purpose. The
+     phase 2 goal is that a guest standing outside the building finds the door.
+     Filing that behind a menu button to tidy up the bar would trade the core
+     value of the project for neatness. */
   .topnav__key {
     color: var(--ink);
     font-weight: 500;
     display: inline-flex; align-items: center;
     min-height: 44px;          /* touch target */
   }
+
+  /* Moved into the menu panel. See the note in index.html for the arithmetic. */
+  .topbar .langswitch { display: none; }
+}
+
+/* Desktop keeps the institutional bar it already had: six links on one line,
+   language switch in place, and no menu button at all. */
+@media (min-width: 901px) {
+  .navtoggle { display: none; }
+  .navmenu   { display: none !important; }
 }
 
 /* Touch devices get real 44px targets, whatever the visual size suggests. */
