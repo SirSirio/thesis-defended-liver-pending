@@ -2215,6 +2215,18 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
    hole exactly where the punchline should sit above the evening. */
 #photos-body[data-body="full"] .panel__lede { margin-bottom: 0; }
 
+/* The batch that filled the file is reported under the punchline rather than
+   destroyed by it. Reached only when the allowance was spent by a batch that
+   had something to say; at page load the quota body still ends at the lede and
+   the rule above is the whole of its spacing.
+
+   No new component and no new values: the two lines come over in the control's
+   own classes and the transcript in its own, so the guest reads the same three
+   lines they were already reading. The only thing stated here is the gap under
+   a lede whose bottom margin is zeroed above, at the same 24px step the polite
+   line already opens with inside the control. */
+#photos-body[data-body="full"] .panel__lede + * { margin-top: var(--s-5); }
+
 .album__head {
   font-family: var(--font-mono);
   font-size: 13px;

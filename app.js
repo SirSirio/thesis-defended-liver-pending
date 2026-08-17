@@ -4168,7 +4168,15 @@
       photoIdent = null,          // identity, read once at pick time
       photoState = 'idle',        // the control state. setUploaderState is its only writer
       photoStatus = null,         // { key, vals } for the polite line, or null
-      photoAlert = null;          // { key, vals } for the assertive line, or null
+      photoAlert = null,          // { key, vals } for the assertive line, or null
+      /* The one thing that outlives the control. When the batch that fills the
+         allowance settles, the ladder replaces the whole .uploader with the
+         quota body in the same task, which would destroy the counted sentence,
+         the assertive line and the transcript before a frame is painted. PH-05
+         says no file a guest picked is disposed of without an answer, so the
+         answer is carried over the swap and rendered under the quota panel
+         instead. Held as { status, alert, batch, announced }, or null. */
+      photoQuotaSummary = null;
 
   /* The eight values written out, so a typo cannot invent a ninth and reach
      CSS that has no rule for it.
@@ -4542,7 +4550,7 @@
      line is what makes it visible. That line is deliberately in the ladder
      rather than in the builders, so this body could not ship with the defect
      the registration gate shipped with and had repaired. */
-  function quotaPanel() {
+  function quotaPanel(summary) {
     var panel = document.createElement('div');
     panel.className = 'panel';
 
@@ -4556,6 +4564,53 @@
 
     panel.appendChild(h);
     panel.appendChild(lede);
+
+    /* Reached at page load with nothing to carry, which is the ordinary case
+       and the one the paragraphs above were written for. */
+    if (!summary) return panel;
+
+    /* Reached the other way: the batch that just filled the allowance settled
+       into this body. Its two sentences and its transcript come with it, in
+       the control's own classes so they read as the same three lines the guest
+       was already looking at rather than as a new component. The joke stays
+       first, because the register being full is the headline and what did not
+       land is the footnote to it. */
+    if (summary.status) {
+      var status = document.createElement('p');
+      status.className = 'uploader__status';
+      status.textContent = phrase(summary.status.key, summary.status.vals);
+      panel.appendChild(status);
+    }
+
+    if (summary.alert) {
+      var alertLine = document.createElement('p');
+      alertLine.className = 'uploader__alert';
+      alertLine.setAttribute('role', 'alert');
+      panel.appendChild(alertLine);
+
+      var text = phrase(summary.alert.key, summary.alert.vals);
+      /* Empty first and filled after, exactly as buildUploader() does it: many
+         screen readers will not announce a region that arrives with its
+         content already in it, and this line is the only assertive answer the
+         guest gets for files that did not land. Announced once per batch. A
+         language tap re-renders this body and would otherwise interrupt the
+         reader again with a fact they were already told. */
+      if (summary.announced) alertLine.textContent = text;
+      else {
+        summary.announced = true;
+        requestAnimationFrame(function () { alertLine.textContent = text; });
+      }
+    }
+
+    if (summary.batch && summary.batch.length) {
+      var queue = document.createElement('ol');
+      queue.className = 'queue';
+      for (var i = 0; i < summary.batch.length; i++) {
+        queue.appendChild(queueRow(summary.batch[i]));
+      }
+      panel.appendChild(queue);
+    }
+
     return panel;
   }
 
@@ -5018,9 +5073,18 @@
 
        The flip happens at settle rather than the instant the count reaches the
        maximum, so the guest sees the transcript of the batch they just
-       submitted finish before the file closes over it. */
+       submitted finish before the file closes over it. That sentence used to
+       be false: the flip runs synchronously, in this same task, so no frame
+       was ever painted between the three writes above and the ladder clearing
+       them. The batch's answer is therefore handed to the quota body rather
+       than left in a control that is about to be discarded, and the quota body
+       renders it underneath the punchline. Nothing a guest picked is disposed
+       of without a sentence naming what happened to it (PH-05). */
     if (identity.photoCount() >= photosMaxPerGuest()) {
       photoBatchPending = false;
+      photoQuotaSummary = (photoStatus || photoAlert || photoBatch.length)
+        ? { status: photoStatus, alert: photoAlert, batch: photoBatch, announced: false }
+        : null;
       return renderPhotos();
     }
 
@@ -5167,6 +5231,15 @@
       photoState = 'idle';
     }
 
+    /* The carried answer belongs to the quota body and to nothing else. It
+       survives a language tap, because the batch it describes is stored as
+       copy keys and a guest who switches language has not stopped being owed
+       the sentence; it does not survive leaving this body, because a guest
+       whose identity changed or whose portal closed is looking at a different
+       question. Cleared here rather than after rendering, so the transcript is
+       not lost the first time a guest reads it in Danish. */
+    if (body !== 'full') photoQuotaSummary = null;
+
     if (body === 'pending') {
       host.appendChild(pendingBlock('photos.pending.title', 'photos.pending.body'));
       return;
@@ -5183,7 +5256,7 @@
       host.appendChild(buildGatePanel());
     } else if (body === 'full') {
       // Falls through to the album below, deliberately, unlike the closed body.
-      host.appendChild(quotaPanel());
+      host.appendChild(quotaPanel(photoQuotaSummary));
     } else {
       var box = buildUploader();
       host.appendChild(box);
