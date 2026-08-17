@@ -1,0 +1,48 @@
+---
+id: photo-rejections-unexplained
+created: 2026-08-17
+source: owner device test, phase 04
+resolves_phase: 5
+severity: high
+kind: bug
+---
+
+# Some photographs are refused that should not be
+
+Owner observation from a real phone during the phase 04 device pass: the uploader works, but
+**some pictures are refused and it is not obvious why**. The refusal names the file, so it is not
+a silent drop, but the reason is wrong or the rule is wrong.
+
+## Where to look
+
+`validateFile()` in `app.js` is the whole client rule and it has exactly three refusals:
+
+```js
+if (!file || !file.size) return 'photos.err.empty';
+if (String(file.type || '').indexOf('image/') !== 0) return 'photos.err.type';
+if (file.size > maxBytes) return 'photos.err.size';
+```
+
+Three candidate causes, in the order they are worth testing:
+
+1. **`file.type` arrives empty.** Some iOS and Android pickers, particularly files that came from
+   the Files app, a cloud provider, or a share sheet rather than the camera roll, hand back a
+   `File` with `type === ''`. That fails the `image/` prefix test and is reported as a wrong file
+   type, which is a lie. The fix is to fall back to the extension, or to attempt the decode and let
+   the decode be the judge.
+2. **Size over 12 MB.** `photos.maxFileSizeMb` is 12. A ProRAW capture is 25 MB and up, and a
+   panorama can pass 12 MB easily. Correctly refused by the current rule, but the copy says nothing
+   about which limit was hit in a way a guest can act on.
+3. **A Live Photo or a video picked from the library** arrives as `video/quicktime` and is refused.
+   That is today's intended behaviour and it is what the sibling todo
+   [[accept-one-short-video]] changes.
+
+## What to do
+
+Reproduce first, with the actual failing files, and record the `file.name`, `file.type` and
+`file.size` of each. Do not guess between the three above. The refusal copy should then name the
+real reason, and cause 1 should stop being a refusal at all.
+
+Note that `accept="image/*"` on the input is load bearing and is documented at `app.js` around
+line 4925: adding `image/heic` makes Safari hand back a real HEIC that Android Chrome cannot
+decode, where `image/*` alone gets an OS converted JPEG. Do not "fix" HEIC by widening `accept`.
