@@ -95,6 +95,29 @@
 -- than through the photos table, exactly as the phase 3 cleanup was proved: the
 -- view returned an empty array, and a public read of each of the nine objects
 -- answered 400.
+--
+-- NOT YET APPLIED: section 11 was added to this file on 2026-08-17 and has not
+-- been run against project aplaxdplwnnlezffatal. Everything above this
+-- paragraph is applied and verified; section 11 is not, and until the owner
+-- runs this file again the two bounds it declares exist in the repository and
+-- nowhere else. The live database still accepts a photos row with a name of any
+-- length and a storage_path of any shape from any holder of the publishable
+-- key, exactly as it did before.
+--
+-- It is the owner's one line: Dashboard > SQL Editor > New query > paste this
+-- whole file > Run, the same way every section above was applied. Run the whole
+-- file rather than section 11 alone, which is what has proved the earlier
+-- sections again on every previous pass.
+--
+-- Two things to expect while doing it, both of them correct behaviour rather
+-- than a problem with the file. The alter reads the rows already in the table
+-- and stops with an error if any of them breaks the new bound, which is the
+-- same property section 10 documents for the guest count; on this project the
+-- photos table was emptied in the cleanup recorded above, so there should be
+-- nothing to trip over, and if there is, the offending row is somebody's real
+-- submission and is worth looking at rather than deleting. And the path shape
+-- is the other half of a contract whose first half lives in app.js, so if that
+-- regex is ever changed this constraint has to change in the same commit.
 -- ============================================================================
 
 
@@ -552,6 +575,57 @@ revoke select on public.photos from anon;
 alter table public.enrollments
   drop constraint if exists enrollments_extra_guests_check,
   add constraint enrollments_extra_guests_check check (extra_guests between 0 and 4);
+
+
+-- ============================================================================
+-- 11. THE PHOTO COLUMN BOUNDS
+-- ----------------------------------------------------------------------------
+-- PENDING. This section is in the file and is not in the database. See the
+-- NOT YET APPLIED paragraph in the STATUS block at the top.
+--
+-- Section 1 bounds every piece of guest supplied text in enrollments: a name
+-- is between one and sixty characters and a note is at most five hundred.
+-- Section 2 bounds none of the two in photos, and photos is the table whose
+-- name column is rendered into every other guest's browser through
+-- public.album. The insert policy is with check (true), so the only thing
+-- standing between the publishable key and an arbitrarily long string in
+-- everybody's album is a length check in a JavaScript file, and a client side
+-- check is a courtesy to a guest rather than a rule about a stranger. This
+-- section writes the rule on the side of the wire that can enforce it.
+--
+-- The name bound is the enrollments bound, character for character, because it
+-- is the same name: the site copies it from the registration it was typed
+-- into, so any other number here would be a second opinion about one value.
+--
+-- The path bound is STORAGE_PATH_RE from app.js, read forwards. That regex is
+-- the render time allowlist that keeps a database supplied string from
+-- steering an href, and app.js already says the two halves of the path
+-- contract must change together in one commit. This is now a third half, and
+-- the same sentence applies to it: change the shape and this constraint, the
+-- regex, and storagePath() all move in the same commit or new photographs stop
+-- being insertable, renderable, or both.
+--
+-- Both are written as alters rather than by editing section 2, for section
+-- 10's reason: create table if not exists will not add a check to a table that
+-- already exists. Each constraint is named in both halves so the drop and the
+-- add cannot end up pointing at two different things, and the pair is safe to
+-- run as many times as the file is.
+--
+-- Neither of these is a moderation tool and neither is claimed as one. Anyone
+-- holding the publishable key can still write a row, and this file has never
+-- pretended otherwise. What they do is take the shape of that row out of the
+-- browser's hands.
+-- ============================================================================
+
+alter table public.photos
+  drop constraint if exists photos_name_check,
+  add constraint photos_name_check check (char_length(trim(name)) between 1 and 60);
+
+alter table public.photos
+  drop constraint if exists photos_storage_path_check,
+  add constraint photos_storage_path_check check (
+    storage_path ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$'
+  );
 
 
 -- ============================================================================
