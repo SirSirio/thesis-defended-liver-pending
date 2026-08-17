@@ -1678,6 +1678,93 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
 }
 
 /* --------------------------------------------------------------------------
+   The group invitation
+
+   WhatsApp green is deliberately not a :root token. Every token in this file
+   describes this project's own palette, and #25D366 belongs to somebody else:
+   it is the one colour on the page whose value is not ours to pick. Scoped to
+   the card so nothing else can reach for it, and so a later palette pass does
+   not have to decide whether a third party's brand sits inside its scope.
+
+   The card exists only when a link does. renderWhatsApp() returns before
+   building it when whatsapp.inviteUrl is falsy, so the unconfigured state has
+   no empty frame and no bordered box around a button that was never created.
+   Same rule the section's hidden attribute already follows.
+   -------------------------------------------------------------------------- */
+
+.wa-invite {
+  --wa-green: #25D366;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-5);
+  text-align: center;
+
+  margin-top: var(--s-6);
+  padding: var(--s-7) var(--s-5);
+
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+}
+
+/* The mark at invitation size. A squared brand, so the glyph carries the
+   recognition on its own rather than sitting on a coloured circle. */
+.wa-invite__mark {
+  width: clamp(56px, 14vw, 80px);
+  height: clamp(56px, 14vw, 80px);
+  fill: var(--wa-green);
+}
+
+/* The glyph inside a button, at label scale. currentColor so it follows
+   whatever the button is doing, including hover and active, with no second
+   rule to keep in step. flex: none so a long translated label cannot squeeze
+   it: the Italian label is four characters longer than the English and the
+   Danish is longer again. */
+.wa-glyph {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+  flex: none;
+}
+
+/* .btn already centres its children, so the space between them is all that is
+   new here. Both call sites take it, because both now carry a glyph. */
+.wa__cta, .panel__wa { gap: var(--s-3); }
+
+/* Inside the card the action wears WhatsApp's colour instead of DTU red. It is
+   the one control on this page that hands the guest to somebody else's
+   application, and it should look like the thing it opens. The success panel's
+   copy deliberately does not take the green: it sits in a run of this
+   project's own controls, where a green button would read as a different kind
+   of step. Same glyph in both, one palette each.
+
+   Near black text rather than white on the fill. #25D366 is a light green and
+   white on it measures about 2.1:1, which fails at any size. The --bg value is
+   about 12:1 and is the colour the page already sits on.
+
+   Specificity, written down because it is doing real work: this selector is
+   0,2,0 and beats the 0,1,0 coarse pointer rule further up the file, so 56px
+   wins on a phone without that rule needing to change. The 480px full bleed
+   rule sets only width, so it still applies. */
+.wa-invite .wa__cta {
+  background: var(--wa-green);
+  border-color: var(--wa-green);
+  color: var(--bg);
+  min-height: 56px;
+  font-size: 16px;
+  padding-inline: var(--s-6);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wa-invite .wa__cta:hover {
+    background: #1FBA59;
+    border-color: #1FBA59;
+  }
+}
+
+/* --------------------------------------------------------------------------
    The returning guest's controls, and the withdrawn state's.
 
    Every one of them lives inside a row of its own, and that is structural

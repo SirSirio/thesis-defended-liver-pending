@@ -3336,6 +3336,27 @@
      The opener blocking relationship attribute matches the one the bar's anchor
      already carries. Without it the tab this opens can navigate the one it came
      from, which is a real attack against a link a guest was told to trust. */
+  /* The brand mark, cloned from the inert <template> in index.html rather than
+     built here. Two rules meet at this function: this file may not assign
+     innerHTML, and hand-rolling a forty-term SVG path through createElementNS
+     would be unreadable. A template satisfies both, and keeps markup in markup.
+
+     Returns null when the template is absent, because a missing decoration must
+     never cost the guest the button it decorates. */
+  function waGlyph() {
+    var tpl = $('#wa-glyph');
+    if (!tpl || !tpl.content) return null;
+    var node = tpl.content.firstElementChild;
+    return node ? node.cloneNode(true) : null;
+  }
+
+  /* The label lives in its own span, and that is load bearing rather than
+     tidiness. applyLanguage() writes every [data-i18n] element with
+     `el.textContent = val`, which replaces all children. With the attribute on
+     the anchor the icon would render correctly on first paint and then vanish
+     the first time a guest touched the language switch, which is precisely the
+     kind of failure nobody tests for. The attribute sits on the span, so the
+     sweep rewrites the words and never reaches its sibling. */
   function whatsappButton(labelKey, className) {
     var group = CFG.whatsapp || {};
     var url = typeof group.inviteUrl === 'string' ? group.inviteUrl : '';
@@ -3343,11 +3364,19 @@
 
     var a = document.createElement('a');
     a.className = className;
-    a.setAttribute('data-i18n', labelKey);
-    a.textContent = t(labelKey);
     a.setAttribute('href', url);
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener');
+
+    var glyph = waGlyph();
+    if (glyph) a.appendChild(glyph);
+
+    var label = document.createElement('span');
+    label.className = 'btn__label';
+    label.setAttribute('data-i18n', labelKey);
+    label.textContent = t(labelKey);
+    a.appendChild(label);
+
     a.addEventListener('click', markGroupJoined);
     return a;
   }
@@ -3370,8 +3399,33 @@
     var cta = whatsappButton('wa.cta', 'btn btn--primary wa__cta');
     if (!cta) return;
 
+    /* The invitation card. Built here rather than in index.html for the reason
+       the section's own hidden attribute exists: with no link configured there
+       is no card, no empty frame and no bordered box standing around a button
+       that was never created. The early return above still owns that case, so
+       nothing below runs in the unconfigured state.
+
+       Emptying #wa-body cannot reach the <template>, which is its sibling and
+       not its child. The mark is cloned a second time here, independently of
+       the one inside the button: same glyph, two different jobs, and a node
+       cannot be in two places at once. */
+    var card = document.createElement('div');
+    card.className = 'wa-invite';
+
+    var mark = waGlyph();
+    if (mark) {
+      /* Replaces the template's own class rather than adding to it. Both
+         selectors weigh 0,1,0 and .wa-glyph sits later in the stylesheet, so
+         carrying both classes let its fixed 22px beat the card's clamp and the
+         mark rendered at label size. One class, one job. */
+      mark.setAttribute('class', 'wa-invite__mark');
+      card.appendChild(mark);
+    }
+
+    card.appendChild(cta);
+
     section.removeAttribute('hidden');
-    host.appendChild(cta);
+    host.appendChild(card);
   }
 
   /* ======================================================================
