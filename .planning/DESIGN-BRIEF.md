@@ -109,7 +109,42 @@ clamp max `6rem`.
 - Touch targets at least 44px. Most guests are on phones.
 - Animate `transform` and `opacity` only. Duration under 300ms for UI feedback;
   ambient/scroll motion may run longer.
-- One corner-radius system. DTU is a squared-off brand, so radii stay small: 2px and 8px.
+- One corner-radius system **per state**. See The awakening below. Institutional is 2px / 8px /
+  10px, awake is 10px / 18px / 28px, and the page interpolates between the two exactly once.
+  Nothing declares a radius outside those six values.
+
+## The awakening
+
+Added 2026-08-17 on the owner's instruction, and it supersedes the flat Shape Consistency Lock
+above rather than breaking it.
+
+The page loads as a DTU course page and stays one for **three seconds**: squared corners, flat
+surfaces, a hairline under a full-width bar, no ambient light. Long enough to read the course
+number and take it at face value. Then the mask slips and it morphs into something obviously not
+a university website: corners round, the bar becomes a floating glass pill, and two red masses
+come up behind the content.
+
+This is the degradation arc that already runs down the page, run along **time** instead. The
+squared geometry is not replaced, it is demoted to the opening act, which is why the joke
+survives the change instead of being traded for it.
+
+Rules that hold:
+
+- **One attribute.** `data-awake` on `<html>`, set by `app.js`, never by `motion.js`. The morph is
+  the site's identity, not an embellishment on it, and it has to happen on a phone that never
+  finished downloading GSAP.
+- **Five registered properties.** `--r-sm`, `--r-md`, `--r-lg`, `--glass`, `--lift`, declared with
+  `@property` so they are interpolatable. Every radius and every glass surface follows from those
+  five. Do not add a sixth without a reason, and never hardcode a radius.
+- **No layout property may take part.** The bar measures 64px before and after. Anything that
+  would move text under a reading guest's thumb is out, whether it animates or snaps.
+- **It fires early on first touch.** A guest who has started using the page has finished reading
+  the hero.
+- **Under `prefers-reduced-motion` the mask still slips, it just does not slide.** The reveal is
+  the joke and it is kept; only the interpolation goes.
+- **Ambient light is DTU red only.** The secondary palette stays confined to transient motion
+  (confetti, particles). Ambient lighting is not transient. The scene is unchanged: a university
+  building at night, one red exit sign still lit.
 
 ## Attribution boundary
 
