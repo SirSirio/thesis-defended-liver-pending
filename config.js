@@ -161,7 +161,7 @@ window.PARTY_CONFIG = {
      --------------------------------------------------------------------- */
 
   whatsapp: {
-    inviteUrl: null,
+    inviteUrl: 'https://chat.whatsapp.com/LyLq84bmmfr7r0vHuXV23c',
   },
 
   /* ---------------------------------------------------------------------
