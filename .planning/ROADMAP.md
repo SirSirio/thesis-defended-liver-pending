@@ -145,7 +145,7 @@ group with one more tap, and is never nudged again.
 - Shared album view with uploader names
 - Graceful unconfigured state
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans executed
 
 Plans:
 **Wave 1**
@@ -166,7 +166,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 04-05-PLAN.md — The bucket limits, the blocking owner re-run and cleanup, and the device pass a terminal cannot do
+- [x] 04-05-PLAN.md — The bucket limits, the blocking owner re-run and cleanup, and the device pass a terminal cannot do
 
 **Done when:** a phone can upload five photos and see them in the album, and the sixth is
 refused with a joke rather than an error.
