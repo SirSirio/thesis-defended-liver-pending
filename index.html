@@ -37,6 +37,25 @@
 
 <a class="skip-link" href="#main" data-i18n="nav.skip">Skip to main content</a>
 
+<!-- The room the page is lit by. Three soft red masses behind everything, at
+     z-index -1 so they sit above the page background and below every word on
+     it. Invisible for the first three seconds because their opacity is --glass,
+     which is 0 until the page wakes up: a DTU course page does not have mood
+     lighting.
+
+     motion.js drifts the first two and walks the third toward wherever the
+     guest last touched the screen. Without motion.js they simply sit there,
+     which still looks like lighting and costs nothing.
+
+     Not a canvas and no blur filter. Three radial gradients with soft colour
+     stops are already blurred by definition, and moving them is a composited
+     transform, which is the only version of this a phone can afford. -->
+<div class="aura" aria-hidden="true">
+  <span class="aura__a"></span>
+  <span class="aura__b"></span>
+  <span class="aura__touch" id="aura-touch"></span>
+</div>
+
 <!-- =====================================================================
      ZONE: SOBER
      Institutional. Restrained. This is where the practical information

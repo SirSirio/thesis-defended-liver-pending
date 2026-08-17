@@ -342,6 +342,92 @@
   }
 
   /* ----------------------------------------------------------------------
+     The living background
+
+     Two masses drifting on their own, and a third that walks toward wherever
+     the guest last touched the screen. This is the "responds to you" part, and
+     it is deliberately built on pointer events rather than on the gyroscope:
+     iOS has required an explicit permission prompt for device orientation
+     since 13, and a party invitation that opens with a permission dialog has
+     already lost.
+
+     Everything moves by transform on an element that is fixed,
+     pointer-events:none and behind the content, so none of it can cost a
+     layout or intercept a tap.
+     ---------------------------------------------------------------------- */
+
+  function livingBackground() {
+    var a = $('.aura__a');
+    var b = $('.aura__b');
+    var touch = $('#aura-touch');
+    if (!a || !b || !touch) return;
+
+    // Slow, out of phase, and never landing on the same beat twice.
+    gsap.to(a, {
+      xPercent: 14, yPercent: 10,
+      duration: 19, ease: 'sine.inOut', repeat: -1, yoyo: true
+    });
+    gsap.to(b, {
+      xPercent: -12, yPercent: -14,
+      duration: 24, ease: 'sine.inOut', repeat: -1, yoyo: true, delay: 2
+    });
+
+    /* quickTo keeps one interpolator alive and re-aims it, instead of building
+       a tween per pointer event. On a drag across a phone screen that is the
+       difference between one tween and several hundred. */
+    var toX = gsap.quickTo(touch, 'x', { duration: 1.1, ease: 'power3.out' });
+    var toY = gsap.quickTo(touch, 'y', { duration: 1.1, ease: 'power3.out' });
+
+    var cx = 0, cy = 0;
+
+    function aim(px, py) {
+      // Relative to the middle, and damped, so the mass leans toward the
+      // finger rather than sitting under it. Sitting under it reads as a
+      // cursor; leaning reads as light.
+      toX((px - window.innerWidth / 2) * 0.55);
+      toY((py - window.innerHeight / 2) * 0.55);
+    }
+
+    document.addEventListener('pointermove', function (e) {
+      cx = e.clientX; cy = e.clientY;
+      aim(cx, cy);
+    }, { passive: true });
+
+    /* Touch is handled separately rather than left to pointermove, because a
+       phone only emits pointermove while a finger is down. Without this the
+       background would only ever react to a drag, and the commonest gesture on
+       this page is a tap. */
+    document.addEventListener('touchstart', function (e) {
+      var p = e.touches && e.touches[0];
+      if (p) aim(p.clientX, p.clientY);
+    }, { passive: true });
+  }
+
+  /* The morph is CSS and app.js owns it. This is only the part that wants a
+     tween: the course badge reacting to the mask coming off. */
+  function wireAwakening() {
+    document.addEventListener('c03102:awake', function () {
+      var badge = $('#course-mark');
+      if (badge) {
+        gsap.fromTo(badge,
+          { scale: 1 },
+          { scale: 1.16, duration: 0.22, ease: 'power2.out', yoyo: true, repeat: 1 });
+      }
+
+      var num = $('.savedate__num');
+      if (num) {
+        gsap.fromTo(num,
+          { scale: 1 },
+          { scale: 1.035, duration: 0.5, ease: 'power2.inOut', yoyo: true, repeat: 1 });
+      }
+
+      // Triggers already measured against a pre morph layout. Nothing here
+      // changes height, but the pill gaining a shadow changes what is painted.
+      ScrollTrigger.refresh();
+    });
+  }
+
+  /* ----------------------------------------------------------------------
      Start
 
      app.js registers its DOMContentLoaded listener while the parser is still
@@ -379,6 +465,8 @@
     saveDateEntrance();
     badgeGlitch();
     wireConfetti();
+    livingBackground();
+    wireAwakening();
     refreshLater();
   }
 

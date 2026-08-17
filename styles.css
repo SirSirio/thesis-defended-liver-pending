@@ -29,9 +29,16 @@
   --s-5: 24px;  --s-6: 32px;  --s-7: 48px;  --s-8: 64px;
   --s-9: 96px;  --s-10: 128px;
 
-  /* Shape. DTU is a squared off brand, so radii stay small. -------------- */
+  /* Shape and surface. See THE AWAKENING below. These are the institutional
+     values, which are the ones the page loads with and holds for three
+     seconds. DTU is a squared off brand and for those three seconds this is a
+     DTU page. --glass and --lift are 0, so every glass surface on the site is
+     currently doing nothing at all. */
   --r-sm: 2px;
   --r-md: 8px;
+  --r-lg: 10px;
+  --glass: 0;
+  --lift: 0;
 
   /* Motion. Strong curves, not the weak CSS built ins. ------------------- */
   --ease-out:  cubic-bezier(0.23, 1, 0.32, 1);
@@ -64,6 +71,117 @@
   --z-menu:   150;   /* full screen mobile menu */
   --z-topbar: 200;   /* always reachable, carries the close button */
   --z-toast:  400;
+}
+
+/* ==========================================================================
+   THE AWAKENING
+
+   The page loads as a DTU course page and stays one for three seconds. Squared
+   corners, flat surfaces, no glass, nothing moving. Long enough to read the
+   course number and believe it. Then the mask slips and the whole thing morphs
+   into something that is obviously not a university website.
+
+   This is the degradation arc that already runs down the page, run along time
+   instead. It is also why the Shape Consistency Lock in DESIGN-BRIEF.md is not
+   being broken here: the squared geometry is not replaced, it is demoted to
+   the opening act.
+
+   Mechanically it is one attribute. app.js sets data-awake on <html> once, and
+   because these five custom properties are registered with @property they are
+   animatable, so every radius, every glass panel and every shadow on the site
+   interpolates from one declaration instead of from forty separate rules.
+
+   Without @property (older Safari and Firefox) the properties are not
+   interpolatable, so the values jump rather than slide. The morph still
+   happens, it just happens in one frame. That is a fair degradation and it is
+   why no layout property is involved: nothing here can shift text under a
+   finger whether it animates or snaps.
+   ========================================================================== */
+
+@property --r-sm  { syntax: '<length>'; inherits: true; initial-value: 2px; }
+@property --r-md  { syntax: '<length>'; inherits: true; initial-value: 8px; }
+@property --r-lg  { syntax: '<length>'; inherits: true; initial-value: 10px; }
+@property --glass { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --lift  { syntax: '<number>'; inherits: true; initial-value: 0; }
+
+:root {
+  transition:
+    --r-sm  1000ms var(--ease-both),
+    --r-md  1100ms var(--ease-both),
+    --r-lg  1200ms var(--ease-both),
+    --glass 1400ms var(--ease-out),
+    --lift  1400ms var(--ease-out);
+}
+
+:root[data-awake="1"] {
+  --r-sm: 10px;
+  --r-md: 18px;
+  --r-lg: 28px;
+  --glass: 1;
+  --lift: 1;
+}
+
+/* Asked for less motion, so the mask still slips but it does not slide. The
+   reveal is the joke and it is kept; only the interpolation goes. */
+@media (prefers-reduced-motion: reduce) {
+  :root { transition: none; }
+}
+
+/* The room the page is lit by. z-index -1 puts it above the page background
+   and below every word on the page, which works because nothing between here
+   and <body> creates a stacking context.
+
+   Opacity is --glass, so for the first three seconds there is no mood lighting
+   on the university's course page, and it fades up as part of the same morph
+   that rounds the corners.
+
+   Two reds and nothing else. DESIGN-BRIEF.md locks DTU red as the only accent
+   and permits the secondary palette in transient motion only, which ambient
+   lighting is not. It also names the physical scene this whole site is lit by:
+   a university building at night with one red exit sign still on. Two red
+   masses at different depths is that sentence. */
+.aura {
+  position: fixed; inset: -25%;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: var(--glass);
+}
+
+.aura span {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  /* Soft colour stops rather than a blur filter. A radial gradient is already
+     blurred by definition and costs one composited layer; blur() over a
+     viewport sized element on a phone costs a repaint every frame. */
+  will-change: transform;
+}
+
+.aura__a {
+  top: 2%; left: -18%;
+  width: 78vmax; height: 78vmax;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(232, 63, 72, 0.17), rgba(232, 63, 72, 0.05) 42%, rgba(232, 63, 72, 0) 70%);
+}
+
+.aura__b {
+  bottom: -22%; right: -20%;
+  width: 66vmax; height: 66vmax;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(153, 0, 0, 0.34), rgba(153, 0, 0, 0.10) 46%, rgba(153, 0, 0, 0) 72%);
+}
+
+/* The one that follows a finger. Parked centre screen and moved only by
+   motion.js, so without that file it is a third static mass rather than a
+   missing one. Smaller and brighter than the other two: it reads as a light
+   being carried rather than a light left on. */
+.aura__touch {
+  top: 50%; left: 50%;
+  width: 42vmax; height: 42vmax;
+  margin: -21vmax 0 0 -21vmax;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(232, 63, 72, 0.20), rgba(232, 63, 72, 0.06) 40%, rgba(232, 63, 72, 0) 68%);
 }
 
 /* --------------------------------------------------------------------------
@@ -164,21 +282,50 @@ a { color: inherit; }
    Top bar
    -------------------------------------------------------------------------- */
 
+/* The bar carries the morph more visibly than anything else on the page,
+   because it is the one element a guest is looking at the whole time.
+
+   Institutional: a full width slab with a hairline under it. Awake: the slab
+   dissolves and the inner row becomes a floating glass pill.
+
+   The geometry that makes that possible is present from the very first frame.
+   .topbar__inner already sits inside a 6px gutter and is already 52px tall
+   inside a 64px bar, so the pill's box exists while it is still invisible and
+   the morph changes nothing but paint. No margin, height or padding is
+   interpolated anywhere in this block, which is what keeps a three second old
+   page from re-flowing under someone's thumb. */
 .topbar {
   position: sticky; top: 0;
   z-index: var(--z-topbar);
   min-height: var(--topbar-h);
-  background: rgba(11, 11, 12, 0.86);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--rule);
+  background: rgba(11, 11, 12, calc(0.86 - 0.5 * var(--glass)));
+  backdrop-filter: blur(calc(10px - 10px * var(--glass)));
+  border-bottom: 1px solid rgba(42, 42, 46, calc(1 - var(--glass)));
 }
 
 .topbar__inner {
   max-width: var(--wrap);
   margin-inline: auto;
+  margin-block: 6px;
   padding: 0 var(--s-5);
-  min-height: var(--topbar-h);
+  min-height: calc(var(--topbar-h) - 12px);
   display: flex; align-items: center; gap: var(--s-5);
+
+  /* All four of these are doing nothing at --glass 0. */
+  border-radius: var(--r-lg);
+  background: rgba(22, 22, 26, calc(0.72 * var(--glass)));
+  border: 1px solid rgba(255, 255, 255, calc(0.10 * var(--glass)));
+  backdrop-filter: blur(calc(20px * var(--glass))) saturate(calc(1 + 0.7 * var(--glass)));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.09 * var(--glass))),
+    0 12px 34px rgba(0, 0, 0, calc(0.42 * var(--lift)));
+}
+
+/* The pill wants its own gutter once it is a pill, and margin-inline is not a
+   property this morph is allowed to animate. Given from the start instead: at
+   1080px and up the wrap already has room to give these back. */
+@media (max-width: 1128px) {
+  .topbar__inner { margin-inline: var(--s-2); }
 }
 
 .mark {

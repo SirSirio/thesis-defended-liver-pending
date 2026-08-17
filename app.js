@@ -500,6 +500,59 @@
   }
 
   /* ======================================================================
+     THE AWAKENING
+
+     For three seconds this is a DTU course page. Then it stops being one.
+
+     Deliberately here and not in motion.js. The morph is the site's identity
+     rather than an embellishment on it, it is CSS from end to end, and it has
+     to happen on a phone that never finished downloading GSAP. motion.js only
+     listens for the event and adds the parts that need a tween.
+
+     Three seconds is long enough to read "Course 03102" and the headline and
+     take the joke at face value, and short enough that nobody has scrolled
+     past the hero yet. Nothing it changes is a layout property, so a guest
+     who is mid sentence when it fires does not get the sentence moved.
+     ====================================================================== */
+
+  var AWAKEN_AFTER_MS = 3000;
+  var awakenTimer = null;
+
+  function awaken() {
+    if (awakenTimer !== null) { clearTimeout(awakenTimer); awakenTimer = null; }
+    if (document.documentElement.getAttribute('data-awake') === '1') return;
+
+    document.documentElement.setAttribute('data-awake', '1');
+
+    /* Announced for the same reason the calendar save is announced: this file
+       does not know or care whether anything is listening, and the morph is
+       finished either way. */
+    try { document.dispatchEvent(new CustomEvent('c03102:awake')); }
+    catch (e) { /* no CustomEvent constructor, so nothing embellishes it */ }
+  }
+
+  function scheduleAwakening() {
+    awakenTimer = setTimeout(awaken, AWAKEN_AFTER_MS);
+
+    /* A guest who has started touching the page has stopped reading the hero,
+       so the joke has had its moment and holding the page stiff for the rest
+       of the three seconds is just a slower site.
+
+       Deliberately not a scroll listener. This file bans those and the ban is
+       worth keeping literal, even though a once-and-unhooked passive handler
+       would do no per frame work. touchstart and pointerdown cover the phone
+       this is written for, and a desktop guest spinning a wheel simply gets
+       the morph on the timer, which is the behaviour anyway. */
+    var onFirstTouch = function () {
+      window.removeEventListener('touchstart', onFirstTouch);
+      window.removeEventListener('pointerdown', onFirstTouch);
+      awaken();
+    };
+    window.addEventListener('touchstart', onFirstTouch, { passive: true });
+    window.addEventListener('pointerdown', onFirstTouch, { passive: true });
+  }
+
+  /* ======================================================================
      MOBILE NAVIGATION
 
      Below 900px this is the navigation. The bar keeps the course mark and the
@@ -6046,6 +6099,7 @@
     wireEnrollment();
     wireSaveDate();
     wireNav();
+    scheduleAwakening();
     applyLanguage();
     startClock();
 
