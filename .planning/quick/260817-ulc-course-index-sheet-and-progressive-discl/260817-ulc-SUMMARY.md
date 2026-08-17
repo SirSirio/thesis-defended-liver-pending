@@ -134,13 +134,64 @@ browser's own find-in-page.
 | Copy | 217 keys in each of en, it, da. Zero missing, zero em dashes, accents correct |
 | Console | no page errors across every run |
 
-## Not done, and it was asked for
+## Second pass (same task, later the same day)
 
-**The Course Index bottom sheet was not built.** The plan was to replace the full-screen menu with
-a bottom sheet of rounded tiles carrying a spotlight box that moves to the section you are in.
-What exists is still the full-screen menu from task 260817-txl, now with a seventh item for the
-album. The navigation is therefore *shorter to get through the page* but is not the interactive
-index that was described. It is the single largest outstanding piece.
+Four more owner instructions, all delivered.
+
+### The page really did scroll sideways
+
+The previous pass measured this and called it an artifact. **That was wrong.** The tilt rotates a
+full-bleed box, and a rotated box is wider than the box it started as: about 5px each side at
+375px. Fixed with `overflow-x: clip` on `<main>`, which is the right element because the sticky
+bar lives in `<header>` outside it. Not `<html>`, which was tried in the first pass and reverted
+because overflow on the root makes it the scroll container and the bar stops sticking.
+
+### The Course Index
+
+The full-screen list became a bottom sheet: seven tiles in two columns, one glance instead of
+seven lines, rising from the bottom so its contents land in thumb reach. A box slides onto the
+section you are currently in.
+
+Two real bugs found and fixed while building it:
+
+- The box measured through `offsetLeft` / `offsetTop`, which are relative to `offsetParent` and
+  answered 0 for every tile while the sheet was mid-entrance, parking the box on tile one. Now
+  measured as the difference of two `getBoundingClientRect` calls.
+- The active section was read **after** `openNav` applied the body scroll lock, and locking the
+  body perturbs scroll position, so it named the wrong section. Now read before.
+
+### Five seconds, and a dispense that announces the morph
+
+The owner's thesis is modular automated liquid dispensing for point-of-care diagnostics
+(peristaltic pumps, nozzles, 5 to 1000 µL), so the morph is announced by the thing the party is
+celebrating: a peristaltic pump blurred at the far end of the shot with three rollers turning,
+liquid running down a tube, the near end racking into focus as it arrives, a droplet extruded at
+a short needle that hangs, lets go, and **the page morphs on impact**. Not a coincidence in time:
+`app.js` owns both clocks and the drop is airborne for exactly the lead it allows
+(`DISPENSE_LEAD_MS` / `LEAD`, which must stay equal).
+
+Three nozzles keep dispensing quietly afterwards, one droplet in three leaving a ring.
+
+Two corrections during the build: the needle was 118px hanging from the ceiling (a spike, not an
+instrument tip) and the tube's first route ran diagonally across the headline, laying a blurred
+red line over the two words the page is named after.
+
+## An important limit on what was verified
+
+**The dispense animation's motion was never observed at real frame rates.** The headless browser
+used for verification produces about 1.5 frames per second when idle, which starves GSAP's ticker.
+Measured directly: 12 frames in 8 seconds.
+
+This caused a wrong diagnosis mid-build. Slow tween progress was read as "the timeline stalled",
+and a comment was written blaming a stall that probably never existed. It has been corrected.
+
+What **is** verified: the elements are created with the right geometry, the event timing is exact
+(dispense at 3344ms, morph at 5062ms, a 1718ms lead against a 1700ms target), the sequence
+completes, and the rig is removed. Screenshots force a frame, so every still shown is a genuine
+intermediate state.
+
+What is **not** verified: how the motion actually feels, whether the rack-focus reads, and whether
+five seconds is the right number. Those need a real browser on a real phone.
 
 ## Still not on a real phone
 

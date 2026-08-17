@@ -178,7 +178,7 @@ invitations go out.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260817-txl | Save the date as the hero anchor, add to calendar, full screen mobile menu, GSAP motion layer | 2026-08-17 | 6ff3d3c | [260817-txl-frontend-motion-and-save-the-date](./quick/260817-txl-frontend-motion-and-save-the-date/) |
-| 260817-ulc | Three second DTU-to-dynamic morph, responsive aura, album split into own photos plus a gallery with a lightbox, progressive disclosure | 2026-08-17 | 65cab3f | [260817-ulc-course-index-sheet-and-progressive-discl](./quick/260817-ulc-course-index-sheet-and-progressive-discl/) |
+| 260817-ulc | Five second DTU-to-dynamic morph announced by a peristaltic dispense, responsive aura, album split into own photos plus a gallery with a lightbox, progressive disclosure, course index sheet, sideways scroll fixed | 2026-08-17 | 38799b7 | [260817-ulc-course-index-sheet-and-progressive-discl](./quick/260817-ulc-course-index-sheet-and-progressive-discl/) |
 
 ## Deferred Items
 
