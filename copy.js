@@ -14,7 +14,7 @@ window.PARTY_COPY = {
      ENGLISH
      ====================================================================== */
   en: {
-    'meta.title': 'Sirio’s Graduation Party: Thesis Defended, Liver Pending',
+    'meta.title': '03102 Introduction to Applied Celebration: Sirio’s Master’s Party',
     'meta.description': 'Course 03102, 5 ECTS. One evening minimum. Attendance is not mandatory but is strongly expected.',
 
     'nav.skip': 'Skip to main content',
@@ -75,11 +75,16 @@ window.PARTY_COPY = {
     'photos.seealbum': 'See the whole album',
 
     'hero.eyebrow': 'Course 03102 · 5 ECTS · Autumn 2026',
-    'hero.title': 'Thesis Defended, Liver Pending',
+    'hero.title': 'Introduction to Applied Celebration',
     'hero.cta.enrol': 'Register for the course',
     'hero.cta.location': 'Find the location',
     'hero.cta.access': 'Which door',
     'hero.deadline': 'Registration closes {date}',
+
+    /* The course responsible. A real DTU course page names one and shows their
+       face, so this one does too, and it is where the host's name lives on the
+       page a guest actually looks at rather than only inside the fold. */
+    'hero.host.role': 'Course responsible',
 
     /* The date itself is never written here. renderSaveDate builds it from
        config.startsAt through Intl, so the weekday and the month name come out
@@ -303,7 +308,7 @@ window.PARTY_COPY = {
      ITALIANO
      ====================================================================== */
   it: {
-    'meta.title': 'La festa di laurea di Sirio: Tesi Discussa, Fegato in Sospeso',
+    'meta.title': '03102 Introduzione alla Celebrazione Applicata: la laurea magistrale di Sirio',
     'meta.description': 'Corso 03102, 5 CFU. Durata una serata minimo. La presenza non è obbligatoria ma è data per scontata.',
 
     'nav.skip': 'Vai al contenuto principale',
@@ -363,11 +368,13 @@ window.PARTY_COPY = {
     'photos.seealbum': 'Guarda tutte le foto',
 
     'hero.eyebrow': 'Corso 03102 · 5 CFU · Autunno 2026',
-    'hero.title': 'Thesis Defended, Liver Pending',
+    'hero.title': 'Introduzione alla Celebrazione Applicata',
     'hero.cta.enrol': 'Iscriviti al corso',
     'hero.cta.location': 'Trova la sede',
     'hero.cta.access': 'Quale porta',
     'hero.deadline': 'Le iscrizioni chiudono il {date}',
+
+    'hero.host.role': 'Responsabile del corso',
 
     'savedate.eyebrow': 'Segna la data',
     'savedate.cta': 'Aggiungi al calendario',
@@ -583,7 +590,7 @@ window.PARTY_COPY = {
      kursusansvarlig) is the part they will actually recognise.
      ====================================================================== */
   da: {
-    'meta.title': 'Sirios kandidatfest: Speciale Forsvaret, Lever Afventer',
+    'meta.title': '03102 Introduktion til Anvendt Fejring: Sirios kandidatfest',
     'meta.description': 'Kursus 03102, 5 ECTS. Varighed én aften minimum. Fremmøde er ikke obligatorisk, men forventes.',
 
     'nav.skip': 'Gå til hovedindhold',
@@ -643,11 +650,13 @@ window.PARTY_COPY = {
     'photos.seealbum': 'Se hele albummet',
 
     'hero.eyebrow': 'Kursus 03102 · 5 ECTS · Efterår 2026',
-    'hero.title': 'Thesis Defended, Liver Pending',
+    'hero.title': 'Introduktion til Anvendt Fejring',
     'hero.cta.enrol': 'Tilmeld dig kurset',
     'hero.cta.location': 'Find stedet',
     'hero.cta.access': 'Hvilken dør',
     'hero.deadline': 'Tilmelding lukker {date}',
+
+    'hero.host.role': 'Kursusansvarlig',
 
     'savedate.eyebrow': 'Sæt kryds i kalenderen',
     'savedate.cta': 'Tilføj til din kalender',

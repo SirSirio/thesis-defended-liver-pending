@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-<title data-i18n="meta.title">Sirio&rsquo;s Graduation Party: Thesis Defended, Liver Pending</title>
+<title data-i18n="meta.title">03102 Introduction to Applied Celebration: Sirio&rsquo;s Master&rsquo;s Party</title>
 <meta name="description" data-i18n="meta.description" data-i18n-attr="content"
       content="Course 03102, 5 ECTS. One evening minimum. Attendance is not mandatory but is strongly expected.">
 <meta name="theme-color" content="#0B0B0C">
@@ -14,7 +14,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Course 03102">
 <meta property="og:title" data-i18n="meta.title" data-i18n-attr="content"
-      content="Sirio&rsquo;s Graduation Party: Thesis Defended, Liver Pending">
+      content="03102 Introduction to Applied Celebration: Sirio&rsquo;s Master&rsquo;s Party">
 <meta property="og:description" data-i18n="meta.description" data-i18n-attr="content"
       content="Course 03102, 5 ECTS. One evening minimum. Attendance is not mandatory but is strongly expected.">
 <meta property="og:url" content="https://sirsirio.github.io/thesis-defended-liver-pending/">
@@ -23,14 +23,14 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 
-<link rel="icon" href="assets/favicon.svg?v=7" type="image/svg+xml">
-<link rel="apple-touch-icon" href="assets/favicon.svg?v=7">
+<link rel="icon" href="assets/favicon.svg?v=8" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/favicon.svg?v=8">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Saira:wght@500;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=7">
+<link rel="stylesheet" href="styles.css?v=8">
 </head>
 
 <body>
@@ -69,7 +69,7 @@
       <!-- Official DTU White RGB lockup, unaltered, from designguide.dtu.dk.
            alt is empty on purpose: this link already carries an aria-label, so a
            described image here would announce the same thing twice. -->
-      <img class="mark__logo" src="assets/dtu-logo.png?v=7" width="27" height="40"
+      <img class="mark__logo" src="assets/dtu-logo.png?v=8" width="27" height="40"
            alt="" decoding="async">
       <span class="mark__badge" id="course-mark" aria-hidden="true">03102</span>
       <span class="mark__dept" data-i18n="nav.dept">Department of Graduation Studies</span>
@@ -183,7 +183,28 @@
 
       <p class="eyebrow" data-i18n="hero.eyebrow">Course 03102 · 5 ECTS · Autumn 2026</p>
 
-      <h1 class="hero__title" data-i18n="hero.title">Thesis Defended, Liver Pending</h1>
+      <h1 class="hero__title" data-i18n="hero.title">Introduction to Applied Celebration</h1>
+
+      <!-- THE COURSE RESPONSIBLE
+
+           A real DTU course page names one and shows their face, so this one
+           does too. It is also the answer to a plainer problem: the host's name
+           only appeared inside a fold, on a page that is an invitation from
+           him.
+
+           Both the name and the photograph are written by renderSchedule from
+           config.course, so neither is hardcoded here. The picture is optional
+           and degrades to the initial in a disc, which reads as deliberate
+           rather than as a missing image. The disc is aria-hidden because the
+           name is sitting directly beside it and a described image would
+           announce the same thing twice. -->
+      <div class="hostcard">
+        <span class="hostcard__pic" id="hostcard-pic" data-mono="1" aria-hidden="true">S</span>
+        <span class="hostcard__text">
+          <span class="hostcard__name" id="hostcard-name">Sirio</span>
+          <span class="hostcard__role" data-i18n="hero.host.role">Course responsible</span>
+        </span>
+      </div>
 
       <!-- SAVE THE DATE
            The largest thing on the page, and that ranking is deliberate. The
@@ -596,12 +617,12 @@
      built the page and cannot hold up first paint of the practical
      information. motion.js checks for window.gsap and returns if it is not
      there, so a 404 on either of the first two costs the page nothing. -->
-<script defer src="assets/vendor/gsap.min.js?v=7"></script>
-<script defer src="assets/vendor/ScrollTrigger.min.js?v=7"></script>
-<script defer src="motion.js?v=7"></script>
+<script defer src="assets/vendor/gsap.min.js?v=8"></script>
+<script defer src="assets/vendor/ScrollTrigger.min.js?v=8"></script>
+<script defer src="motion.js?v=8"></script>
 
-<script src="config.js?v=7"></script>
-<script src="copy.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script src="copy.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

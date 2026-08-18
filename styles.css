@@ -981,6 +981,81 @@ main, .footer { overflow-x: clip; }
   margin-bottom: var(--s-4);
 }
 
+/* --------------------------------------------------------------------------
+   THE COURSE RESPONSIBLE
+
+   A real DTU course page names a lecturer and shows their face. This is that,
+   directly under the headline, and it is also where the host's name lives on
+   the page: it used to appear only inside a fold, on a site that is an
+   invitation from him.
+
+   Deliberately small and quiet. It sits between the title and the date, and
+   the date is the largest thing on the page by design, so anything here that
+   competed with it would be the wrong trade.
+   -------------------------------------------------------------------------- */
+
+.hostcard {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-bottom: var(--s-6);
+  padding: var(--s-2) var(--s-4) var(--s-2) var(--s-2);
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: color-mix(in oklab, var(--surface) 70%, transparent);
+}
+
+.hostcard__pic {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--rule-lit);
+}
+
+.hostcard__pic img {
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+
+/* The state with no photograph in config. An initial in a disc, in the display
+   face, which reads as a considered placeholder rather than as an image that
+   failed. */
+.hostcard__pic[data-mono="1"] {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  letter-spacing: 0;
+}
+
+.hostcard__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.hostcard__name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.hostcard__role {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
 /* The 16ch measure is a desktop instruction, not a universal one. On a phone
    it forces this headline onto a third line for no reason and costs the save
    the date block 42px of the only viewport that matters. Applied from the

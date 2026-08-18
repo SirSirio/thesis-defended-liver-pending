@@ -1026,8 +1026,54 @@
     var badge = $('#course-mark');
     if (badge && CFG.course && CFG.course.number) badge.textContent = CFG.course.number;
 
+    var hostName = (CFG.course && CFG.course.host) || '';
+
     var host = $('#fact-host');
-    if (host && CFG.course && CFG.course.host) host.textContent = CFG.course.host;
+    if (host && hostName) host.textContent = hostName;
+
+    /* The course responsible in the hero, name and face.
+
+       Both come from config.course and neither is written in the markup, so
+       the name appears in exactly one place in this file and the fold row and
+       the hero card cannot disagree about who is hosting.
+
+       The photograph is optional and degrades to the initial in a disc. That
+       is the rule every unset value on this site follows: a placeholder has to
+       read as deliberate rather than as something that failed to load. A path
+       that is configured but 404s falls back the same way, because a broken
+       frame in the hero is the one outcome worse than no photograph at all. */
+    var cardName = $('#hostcard-name');
+    if (cardName && hostName) cardName.textContent = hostName;
+
+    var pic = $('#hostcard-pic');
+    if (pic) {
+      var initial = hostName ? hostName.charAt(0).toUpperCase() : '';
+
+      /* A var rather than a block scoped function declaration. Declaring a
+         function inside a block is a syntax error in ES5 strict mode, which is
+         the dialect this file is written in, and it is exactly the kind of
+         thing that passes a parse check here and fails on an older phone. */
+      var monogram = function () {
+        pic.textContent = '';
+        pic.setAttribute('data-mono', '1');
+        pic.textContent = initial;
+      };
+
+      var photo = CFG.course && CFG.course.photo;
+      if (!photo) {
+        monogram();
+      } else {
+        var img = document.createElement('img');
+        img.alt = '';                      // decorative: the name is beside it
+        img.decoding = 'async';
+        img.onerror = monogram;
+        img.src = photo;
+
+        pic.textContent = '';
+        pic.removeAttribute('data-mono');
+        pic.appendChild(img);
+      }
+    }
 
     var loc = $('#fact-location');
     if (loc) {

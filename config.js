@@ -285,6 +285,18 @@ window.PARTY_CONFIG = {
     number: '03102',
     ects: 5,
     host: 'Sirio',
+
+    /* The course responsible's photograph, shown beside the name under the
+       hero title, the way a real course page shows a lecturer.
+
+       Optional. Left null it degrades to the initial in a disc, which reads as
+       deliberate rather than as a missing image, so the page is correct today
+       and better the moment a file exists. Drop one in assets/ and put its
+       path here, for example 'assets/host.jpg'. Square crops best: it is
+       displayed in a circle at 48px, so anything wider is centre cropped.
+
+       Nothing else changes anywhere when this is set. */
+    photo: null,
   },
 
   /* ---------------------------------------------------------------------
