@@ -3443,6 +3443,112 @@ details[open] > .fold__sum .fold__chev {
 .photos__toalbum { margin-top: var(--s-5); }
 
 /* ==========================================================================
+   THE DOOR TO THE ALBUM
+
+   The album used to be a section sitting directly under the uploader. It is a
+   page of its own now, and this is what replaced it here.
+
+   It is deliberately the widest, quietest thing in this half of the page. Two
+   different intentions were sharing one screen: submitting is a task with a
+   control and a limit, and looking at everybody's photographs is not a task at
+   all. Giving the second one a door rather than a grid is the separation.
+
+   Nothing is fetched to draw it, so it stands at full strength whether the
+   album holds nothing, two hundred photographs, or cannot be reached at all.
+   ========================================================================== */
+
+.aportal {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-6) var(--s-5);
+  text-decoration: none;
+  color: var(--ink);
+
+  /* The double bezel, on the one element in this section that is a
+     destination rather than a control: a hairline shell over a raised
+     surface, with an inner highlight so it reads as a machined panel instead
+     of a tinted rectangle. */
+  border-radius: var(--r-lg);
+  border: 1px solid var(--rule);
+  background:
+    linear-gradient(180deg,
+      color-mix(in oklab, var(--surface-2) 92%, transparent),
+      color-mix(in oklab, var(--surface) 92%, transparent));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--ink) 7%, transparent);
+
+  transition: transform var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out);
+}
+
+.aportal__text { display: block; }
+
+.aportal__t {
+  display: block;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 6vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: var(--s-2);
+}
+
+.aportal__b {
+  display: block;
+  color: var(--ink-dim);
+  font-size: 14.5px;
+  line-height: 1.55;
+  max-width: 38ch;
+}
+
+/* The mark rides in its own disc flush inside the panel rather than floating
+   naked beside the text, and it is what carries the movement: the panel itself
+   barely shifts, because a whole card sliding under a thumb reads as the page
+   being unstable rather than as the control being alive. */
+.aportal__go {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px; height: 52px;
+  border-radius: 999px;
+  border: 1px solid var(--rule-lit);
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1;
+  transition: transform var(--t-base) var(--ease-out),
+              background-color var(--t-base) var(--ease-out);
+}
+
+.aportal:active { transform: scale(0.99); }
+.aportal:active .aportal__go { transform: translate(2px, -2px); }
+
+@media (hover: hover) and (pointer: fine) {
+  .aportal:hover { border-color: var(--rule-lit); }
+  .aportal:hover .aportal__go {
+    transform: translate(2px, -2px);
+    background: var(--accent);
+  }
+}
+
+.aportal:focus-visible {
+  outline: 2px solid var(--accent-lit);
+  outline-offset: 3px;
+}
+
+@media (max-width: 520px) {
+  .aportal { padding: var(--s-5) var(--s-4); gap: var(--s-3); }
+  .aportal__go { width: 44px; height: 44px; font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aportal, .aportal__go { transition-duration: 1ms; }
+  .aportal:active { transform: none; }
+}
+
+/* ==========================================================================
    THE LIGHTBOX
 
    D-10 chose not to build one and that decision is overturned in app.js, with

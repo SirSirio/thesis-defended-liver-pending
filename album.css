@@ -1,0 +1,572 @@
+/* ==========================================================================
+   THE ALBUM PAGE
+
+   A standalone wall of photographs. It borrows every token, both fonts and
+   the ambient aura from styles.css and adds only what a wall of photographs
+   needs, so the two pages cannot drift into two design languages.
+
+   Three rules inherited from the design brief and not negotiable here:
+   only transform and opacity animate, every radius comes from a --r-* token,
+   and DTU red is the single accent. A gallery is exactly the place where a
+   second accent hue and a filter based reveal would feel clever and cost the
+   frame rate on the phone the guest is actually holding.
+   ========================================================================== */
+
+.album-page {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  min-height: 100dvh;
+  /* The one place the aura is allowed to be seen through. */
+  overflow-x: clip;
+}
+
+/* --------------------------------------------------------------------------
+   THE BAR
+
+   A floating glass pill, which is what the invitation's own top bar becomes
+   once the mask has slipped. It is the visual promise that these two pages are
+   the same site, kept on the page a guest reaches by tapping away from it.
+
+   Sticky rather than fixed, and it carries the safe area inset, because on iOS
+   a fixed bar and a collapsing browser toolbar disagree about where the top of
+   the screen is.
+   -------------------------------------------------------------------------- */
+
+.abar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-topbar);
+  padding: calc(env(safe-area-inset-top, 0px) + var(--s-2)) var(--s-3) var(--s-2);
+}
+
+.abar__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 52px;
+  padding: var(--s-1) var(--s-2) var(--s-1) var(--s-1);
+  max-width: var(--wrap);
+  margin: 0 auto;
+
+  /* The double bezel: a hairline shell holding an inner surface, so the bar
+     reads as a machined object sitting on the page rather than a rectangle
+     painted onto it. calc keeps the two radii concentric. */
+  border-radius: var(--r-lg);
+  border: 1px solid color-mix(in oklab, var(--ink) 8%, transparent);
+  background: color-mix(in oklab, var(--surface) 72%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--ink) 6%, transparent);
+
+  /* Permitted here and nowhere else on this page: the bar is sticky, so it is
+     its own compositing layer and the blur is rasterised once rather than on
+     every scrolled frame. The grid below never gets one. */
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+.abar__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 44px;
+  padding: 0 var(--s-3);
+  border-radius: calc(var(--r-lg) - 4px);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 14.5px;
+  font-weight: 500;
+  transition: transform var(--t-base) var(--ease-out),
+              background-color var(--t-fast) var(--ease-out);
+}
+
+/* The chevron moves and the label does not, so the control reads as pointing
+   back rather than sliding away. */
+.abar__chev {
+  display: inline-block;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--accent-lit);
+  transition: transform var(--t-base) var(--ease-out);
+}
+
+.abar__back:active { transform: scale(0.97); }
+.abar__back:active .abar__chev { transform: translateX(-3px); }
+
+@media (hover: hover) and (pointer: fine) {
+  .abar__back:hover { background: color-mix(in oklab, var(--ink) 6%, transparent); }
+  .abar__back:hover .abar__chev { transform: translateX(-3px); }
+}
+
+.abar__count {
+  margin: 0 0 0 auto;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.abar__lang { flex: 0 0 auto; }
+
+/* The count is the first thing to go: on a narrow phone the way back and the
+   language matter more than a number the hero states in full anyway. */
+@media (max-width: 400px) {
+  .abar__count { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   THE HERO
+
+   Heavy vertical breathing above a dense grid, deliberately. The wall of
+   photographs is loud, and the only way a title survives next to it is to be
+   given room that nothing else competes for.
+   -------------------------------------------------------------------------- */
+
+.ahero {
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: var(--s-8) var(--s-4) var(--s-6);
+  text-align: center;
+}
+
+.ahero__eyebrow {
+  display: inline-block;
+  margin: 0 0 var(--s-4);
+  padding: 6px var(--s-3);
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: color-mix(in oklab, var(--surface) 60%, transparent);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.ahero__h {
+  font-family: var(--font-display);
+  font-weight: 800;
+  /* The brief's display ceiling is 6rem and its letter spacing floor is
+     -0.04em. Both are respected: this is a title above a gallery, not the
+     countdown, and the countdown is the one thing on this site allowed to
+     break the ceiling. */
+  font-size: clamp(2.75rem, 12vw, 5.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  margin: 0 0 var(--s-4);
+  text-wrap: balance;
+}
+
+.ahero__lede {
+  max-width: 46ch;
+  margin: 0 auto var(--s-6);
+  color: var(--ink-dim);
+  font-size: 15.5px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.ahero__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  justify-content: center;
+}
+
+.ahero__acts .btn { min-height: 52px; }
+
+@media (max-width: 460px) {
+  .ahero__acts { flex-direction: column; }
+  .ahero__acts .btn { width: 100%; }
+}
+
+/* The nested trailing mark: it sits in its own disc flush inside the button
+   rather than floating naked beside the label, and it carries the kinetic
+   tension on press so the whole control feels sprung rather than tinted. */
+.ashuffle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.ashuffle__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 999px;
+  background: color-mix(in oklab, #FFFFFF 18%, transparent);
+  font-size: 13px;
+  line-height: 1;
+  transition: transform var(--t-base) var(--ease-out);
+}
+
+.ashuffle:active .ashuffle__dot { transform: translate(2px, -2px) scale(1.06); }
+
+@media (hover: hover) and (pointer: fine) {
+  .ashuffle:hover .ashuffle__dot { transform: translate(2px, -2px) scale(1.06); }
+}
+
+/* --------------------------------------------------------------------------
+   THE GRID
+
+   A mosaic rather than a contact sheet. Every seventh frame on a phone and
+   every ninth on a desktop takes two columns at twice the aspect, which packs
+   perfectly against its neighbours because a 2:1 tile is exactly as tall as
+   the 1:1 tiles beside it. No masonry, no row span arithmetic, no JavaScript
+   measuring anything: the rhythm is nth-child and it survives any number of
+   photographs, including one.
+   -------------------------------------------------------------------------- */
+
+.agrid-host {
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 0 var(--s-3) var(--s-9);
+}
+.agrid-host:focus { outline: none; }
+
+.agrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s-2);
+}
+
+.atile {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  aspect-ratio: 1;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  /* The frame is the shell of the double bezel and the photograph is its core:
+     a hairline and an inner highlight, so a dark photograph still has an edge
+     against a dark page instead of bleeding into it. */
+  background: var(--surface);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--ink) 7%, transparent),
+              inset 0 1px 0 color-mix(in oklab, var(--ink) 8%, transparent);
+
+  /* The reveal's resting state. Tiles start here and the observer resolves
+     them; a tile that never gets observed is still fully visible, because a
+     photograph hidden by a broken script is worse than an unanimated one. */
+  transition: transform 700ms var(--ease-out),
+              opacity 700ms var(--ease-out),
+              box-shadow var(--t-base) var(--ease-out);
+}
+
+.atile[data-wide] { grid-column: span 2; aspect-ratio: 2; }
+.agrid .atile:nth-child(7n + 1) { grid-column: span 2; aspect-ratio: 2; }
+
+.atile img {
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  /* Slightly overscaled at rest so the settle on reveal, and the lift on
+     press, never expose an edge of empty frame. */
+  transform: scale(1.04);
+  transition: transform 900ms var(--ease-out);
+}
+
+/* A frame with no photograph in it is worse than one fewer frame. Same rule
+   the invitation follows, and it also covers the owner clearing an object from
+   the dashboard, which this page cannot know about in advance. */
+.atile[data-broken] { display: none; }
+
+.atile:active { transform: scale(0.975); }
+.atile:active img { transform: scale(1.08); }
+
+@media (hover: hover) and (pointer: fine) {
+  .atile:hover {
+    box-shadow: 0 0 0 1px var(--accent-lit),
+                inset 0 1px 0 color-mix(in oklab, var(--ink) 10%, transparent);
+  }
+  .atile:hover img { transform: scale(1.09); }
+  .atile:hover .atile__by { opacity: 1; transform: translateY(0); }
+}
+
+.atile:focus-visible {
+  outline: 2px solid var(--accent-lit);
+  outline-offset: 3px;
+}
+
+/* The name rides on the photograph over a scrim rather than taking a row of
+   its own, so the grid stays a grid of pictures. It is always readable on
+   touch, where there is no hover to reveal it. */
+.atile__by {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  margin: 0;
+  padding: var(--s-5) var(--s-3) var(--s-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-align: left;
+  background: linear-gradient(to top,
+              rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.28) 55%, transparent);
+  pointer-events: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .atile__by {
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity var(--t-base) var(--ease-out),
+                transform var(--t-base) var(--ease-out);
+  }
+}
+
+/* THE REVEAL
+
+   Photographs come up like prints in a tray: they arrive slightly small and
+   low and settle into place, staggered so the wall assembles rather than
+   snapping into existence. The stagger is written as a custom property by
+   album.js so the delay belongs to the tile rather than to a rule per index.
+
+   Transform and opacity only. A blurred or desaturated reveal was the obvious
+   move here and it is declined on purpose: filter animation on forty tiles
+   repaints the whole grid every frame on a phone, which is the exact device
+   this page exists for. */
+.atile[data-reveal="0"] {
+  opacity: 0;
+  transform: translateY(26px) scale(0.94);
+  transition-delay: var(--d, 0ms);
+}
+
+@media (min-width: 720px) {
+  .agrid { grid-template-columns: repeat(4, 1fr); gap: var(--s-3); }
+  .agrid .atile:nth-child(7n + 1) { grid-column: auto; aspect-ratio: 1; }
+  .agrid .atile:nth-child(9n + 4) { grid-column: span 2; aspect-ratio: 2; }
+  .agrid-host { padding: 0 var(--s-5) var(--s-10); }
+}
+
+@media (min-width: 1100px) {
+  .agrid { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* --------------------------------------------------------------------------
+   THE STATES
+
+   Loading, empty and failed each say one true thing and stop. No skeleton
+   anywhere: a grid of grey squares is a claim about content this page does not
+   have.
+   -------------------------------------------------------------------------- */
+
+.astate {
+  margin: var(--s-8) auto;
+  max-width: 42ch;
+  text-align: center;
+  color: var(--ink-dim);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.astate__t {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: var(--s-2);
+}
+
+/* --------------------------------------------------------------------------
+   THE LIGHTBOX
+   -------------------------------------------------------------------------- */
+
+.alb {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Nearly opaque, deliberately. At 88% the red aura came through behind the
+     photograph and tinted it, which on a wall of pictures is the one thing the
+     overlay exists to prevent: in here the photograph is the only object
+     allowed to carry colour. */
+  background: color-mix(in oklab, #000000 96%, transparent);
+  opacity: 0;
+  transition: opacity var(--t-base) var(--ease-out);
+  /* Fixed, so the blur rasterises once. */
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  padding: calc(env(safe-area-inset-top, 0px) + 76px) var(--s-3)
+           calc(env(safe-area-inset-bottom, 0px) + 76px);
+}
+.alb[hidden] { display: none; }
+.alb[data-show="1"] { opacity: 1; }
+
+.alb__stage {
+  position: relative;
+  width: 100%; height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alb__img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--r-md);
+  opacity: 0;
+  transform: scale(0.97);
+  transition: opacity 320ms var(--ease-out), transform 320ms var(--ease-out);
+}
+.alb__img[data-in="1"] { opacity: 1; transform: none; }
+
+/* Above the stage in every case. The photograph is sized to the stage and was
+   painting straight over both arrows, so a control that looked present was
+   not clickable at all. */
+.alb__close,
+.alb__step {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px; height: 52px;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--ink) 12%, transparent);
+  background: color-mix(in oklab, var(--surface) 70%, transparent);
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform var(--t-base) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out);
+}
+
+.alb__close {
+  top: calc(env(safe-area-inset-top, 0px) + var(--s-3));
+  right: var(--s-3);
+}
+
+.alb__step--prev { left: var(--s-3); top: 50%; margin-top: -26px; }
+.alb__step--next { right: var(--s-3); top: 50%; margin-top: -26px; }
+
+.alb__close:active,
+.alb__step:active { transform: scale(0.92); }
+
+@media (hover: hover) and (pointer: fine) {
+  .alb__close:hover,
+  .alb__step:hover { border-color: var(--accent-lit); }
+}
+
+.alb__bar {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--s-3));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+  padding: 0 var(--s-4);
+  text-align: center;
+}
+
+.alb__by {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.alb__count {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.alb__open {
+  color: var(--accent-lit);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* On a desktop the arrows sit beside the photograph rather than on it, so the
+   stage gives up exactly the lane they occupy. */
+@media (min-width: 621px) {
+  .alb__stage { padding: 0 76px; }
+}
+
+/* On a phone they leave the photograph altogether and take the bottom corners,
+   flanking the caption.
+
+   A 44px target on top of a picture is 44px of picture a thumb cannot touch,
+   and the gesture here is a swipe anyway. The arrows stay in the document
+   rather than being hidden, because swipe is not a keyboard and not everybody
+   on a narrow screen is using a finger. */
+@media (max-width: 620px) {
+  .alb__step {
+    width: 44px; height: 44px; font-size: 20px;
+    top: auto; margin-top: 0;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--s-3));
+  }
+  .alb__step--prev { left: var(--s-3); }
+  .alb__step--next { right: var(--s-3); }
+
+  .alb__bar {
+    left: 64px; right: 64px;
+    gap: var(--s-2) var(--s-3);
+    min-height: 44px;
+  }
+  .alb__by { font-size: 13px; }
+}
+
+/* --------------------------------------------------------------------------
+   THE FOOTER
+   -------------------------------------------------------------------------- */
+
+.afoot {
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: var(--s-6) var(--s-4) calc(env(safe-area-inset-bottom, 0px) + var(--s-7));
+  border-top: 1px solid var(--rule);
+  text-align: center;
+}
+
+.afoot p {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 12.5px;
+}
+
+/* --------------------------------------------------------------------------
+   REDUCED MOTION
+
+   Mandatory. The wall still assembles, it simply arrives rather than travels:
+   every tile is fully visible and in place, and only the interpolation goes.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .atile,
+  .atile img,
+  .alb,
+  .alb__img,
+  .abar__back,
+  .abar__chev,
+  .ashuffle__dot {
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
+  .atile[data-reveal="0"] { opacity: 1; transform: none; }
+  .atile img { transform: none; }
+  .atile:active { transform: none; }
+}

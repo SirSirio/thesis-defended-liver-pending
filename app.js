@@ -156,9 +156,11 @@
        and the reserve it measures must be taken after every string in the bar
        has been rewritten, which nothing in the photos section touches. */
     renderPhotos();
-    // Beside the photos section and after it, for the same reasons: non
-    // blocking, and a switch has to re-render its head and its captions.
-    renderGallery();
+    /* The album used to be re-rendered here. It is a page of its own now
+       (album.html), it resolves its own language from the same storage key,
+       and this page no longer holds a node for it, so a call from here would
+       be a call to nothing. That is exactly the shape of the defect this
+       section just fixed, and it is not being recreated one line lower. */
 
     /* Last, and after the sweep above has rewritten every string in the bar.
        Danish wraps the nudge copy onto a second line, which makes the bar
@@ -4925,189 +4927,6 @@
       .then(function (res) { done(classifyPhotoInsert(res)); });
   }
 
-  /* ----------------------------------------------------------------------
-     THE ALBUM
-
-     renderSocialProof()'s shape, one for one, and for the same reasons: two
-     callers can have a read out at the same time (the language chain and the
-     post upload refetch, D-12), so the sequence token is claimed before the
-     request goes out and checked above the clear.
-     ---------------------------------------------------------------------- */
-
-  var albumSeq = 0;
-
-  /* The sentence, separated from the node that carries it, because the count
-     can change after the node is in the document: a tile whose object 404s is
-     taken out of the layout, and a register that keeps claiming twelve above
-     eleven frames is the exact lie the pre-count filter below was written to
-     prevent. One function so the two readings cannot drift apart. */
-  function albumHeadText(state, n) {
-    if (state === 'loading') return t('photos.album.loading');
-    if (state === 'empty')   return t('photos.album.empty');
-    if (n === 1)             return t('photos.album.count.one');
-    return t('photos.album.count.many').replace('{n}', String(n));
-  }
-
-  function albumHead(state, n) {
-    var p = document.createElement('p');
-    p.className = 'album__head';
-    p.textContent = albumHeadText(state, n);
-    return p;
-  }
-
-  /* Every value below arrives from the database and every one of them goes in
-     through textContent or through a property, never through innerHTML. That
-     is the same discipline pendingBlock() applies to config.js values, and
-     here it is load bearing rather than tidy: this renders one guest's name
-     into every other guest's browser.
-
-     The tile is a plain anchor to the public URL. That is the deliberate non
-     lightbox (D-10): the browser's own image viewer already gives pinch zoom,
-     save and share for zero code and zero bytes.
-
-     Nothing splits a name here. public.album applies split_part server side,
-     so a surname is not there to render rather than being rendered and then
-     hidden. Asking the view for guest_id answers 42703. */
-  function albumTile(row, onBroken, items, i) {
-    var url = photoPublicUrl(row.storage_path);
-
-    /* Still an anchor to the real object, not a button. The click is
-       intercepted for the lightbox, but the href is what keeps everything
-       D-10 bought: a long press offers save, a middle click opens a tab, and
-       a guest whose JavaScript died still gets the photograph. */
-    var a = document.createElement('a');
-    a.className = 'album__tile';
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.setAttribute('aria-label', t('photos.album.open').replace('{name}', String(row.first_name || '')));
-
-    a.addEventListener('click', function (e) {
-      // Never swallow a modified click: that is the guest asking for a tab.
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-      e.preventDefault();
-      lbOpen(items, i, a);
-    });
-
-    var frame = document.createElement('span');
-    frame.className = 'album__frame';
-
-    var img = document.createElement('img');
-    img.loading = 'lazy';       // D-11
-    img.decoding = 'async';
-    img.alt = '';               // decorative; the anchor's accessible name carries the meaning
-    /* A frame with no photograph in it is worse than one fewer frame, so a
-       tile whose object 404s is hidden rather than shown as an empty box. The
-       head is told, because a tile taken out of the layout is a submission the
-       guest cannot see and the register must not go on counting it. Hiding it
-       in CSS and leaving the number alone broke the same invariant the filter
-       in renderAlbum() exists to hold. */
-    img.onerror = function () {
-      a.setAttribute('data-broken', '1');
-      if (typeof onBroken === 'function') onBroken();
-    };
-    img.src = url;
-
-    frame.appendChild(img);
-
-    var cap = document.createElement('span');
-    cap.className = 'album__by';
-    cap.textContent = row.first_name;
-
-    a.appendChild(frame);
-    a.appendChild(cap);
-    return a;
-  }
-
-  /* Read through public.album and never through public.photos. The view is
-     what applies the first name truncation and what does not carry guest_id.
-
-     Failure is silent and the whole block including the head is removed
-     (D-14). A guest can submit evidence without being able to read the
-     register, and the two are independent. There is no skeleton: a grid of
-     grey squares is a fabricated claim about content the site does not have. */
-  function renderAlbum(host) {
-    if (!host || !sbConfigured()) return;
-
-    var seq = ++albumSeq;
-
-    host.textContent = '';
-    host.appendChild(albumHead('loading', 0));
-
-    // 8000ms, matching social proof. Non blocking decoration; nobody waits on it.
-    sbRequest('GET',
-      '/rest/v1/album?select=first_name,storage_path,created_at&order=created_at.desc',
-      null, null, 8000)
-      .then(function (res) {
-        // A newer read is already out or has landed. Writing anything from
-        // here, the clear included, would replace a fresher answer.
-        if (seq !== albumSeq) return;
-        if (!stillMounted(host)) return;
-
-        host.textContent = '';
-
-        if (!res.ok || !Array.isArray(res.body)) return;   // silent, D-14
-
-        /* Filtered before anything is counted or concatenated, so a row whose
-           path does not match the shape is skipped silently AND excluded from
-           the head count. The two have to agree or the register lies. */
-        var rows = [];
-        for (var i = 0; i < res.body.length; i++) {
-          var r = res.body[i];
-          if (r && typeof r.storage_path === 'string' && STORAGE_PATH_RE.test(r.storage_path)) rows.push(r);
-        }
-
-        if (!rows.length) {
-          host.appendChild(albumHead('empty', 0));
-          return;
-        }
-
-        /* The head is held rather than appended and forgotten, because the
-           count it states is not final until every object has answered. The
-           filter above removes a row whose PATH is wrong; this removes a row
-           whose OBJECT is gone, which is the documented cleanup path when the
-           owner clears something from the dashboard. Both have to reach the
-           number or the register lies.
-
-           Rewritten in place, never re-appended, so a language tap or a newer
-           read is still the only thing that replaces this node. If one has
-           already replaced it the write lands on a node nobody can see, which
-           is the same harmless no-op the upload driver relies on. */
-        var shown = rows.length;
-        var head = albumHead('count', shown);
-        host.appendChild(head);
-
-        function tileBroken() {
-          shown--;
-          head.textContent = shown > 0
-            ? albumHeadText('count', shown)
-            : albumHeadText('empty', 0);
-        }
-
-        /* One items array shared by every tile, so the lightbox can step
-           through the whole album from whichever frame was tapped rather than
-           opening one photograph in isolation. */
-        var items = rows.map(function (r) {
-          return { path: r.storage_path, name: String(r.first_name || '') };
-        });
-
-        var grid = document.createElement('div');
-        grid.className = 'album';
-
-        /* A mosaic rather than a uniform grid. Every fifth frame is given two
-           columns, which is what stops a wall of identical squares reading as
-           a contact sheet. Purely presentational: the order is still the
-           order the view returned, newest first. */
-        rows.forEach(function (row, i) {
-          var tile = albumTile(row, tileBroken, items, i);
-          if (i % 5 === 0) tile.setAttribute('data-wide', '1');
-          grid.appendChild(tile);
-        });
-
-        host.appendChild(grid);
-      });
-  }
-
   /* ======================================================================
      THE LIGHTBOX
 
@@ -5758,33 +5577,60 @@
       renderMine();
       /* The figure and nothing else, for the same reason renderPhotos() is not
          called on this branch: the control is standing and it keeps what it is
-         holding. refreshPhotosState() is deliberately not reused here, because
-         its album read points at an element this strip replaced. */
+         holding. */
       if (photoUploader) {
         var fig = $('.uploader__count', photoUploader);
         if (fig) fig.textContent = String(photosRemaining());
       }
     }
 
-    renderGallery();
+    /* The shared album is not touched from here, and does not need to be. It
+       is a page of its own now and it reads public.album on open, so the row
+       this function just removed is simply not in the next read. There is no
+       cached copy of it on this page to correct. */
   }
 
   /* The strip alone, rebuilt from storage. renderPhotos() would do this too
      and would also discard the uploader, its transcript and any batch still
      settling, which is the wrong price for one frame leaving a row. */
   function renderMine() {
+    var body = $('#photos-body');
+    if (!body) return;
+
     var host = mineHost();
-    if (!host) return;
+    var mine = buildMine();
+
+    /* Nothing to show. The host goes rather than standing empty, and the next
+       recorded photograph builds a new one through the branch below. */
+    if (!mine) {
+      if (host && host.parentNode) host.parentNode.removeChild(host);
+      return;
+    }
+
+    /* The host is created here and not only in renderPhotos(), which is the
+       whole of the bug this function was missing.
+
+       A guest with no submissions yet has no strip in the document at all, so
+       a version of this that could only refill an existing host did nothing on
+       the one upload that matters most: the first. The photograph landed, the
+       count moved, and the frame appeared only after a reload. Creating the
+       host is one branch and it removes the entire class of "it worked, come
+       back later and you will see it". */
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'photos-mine';
+      /* Above the way through to the album and below the control, which is the
+         order renderPhotos() builds and the order the section reads in: submit,
+         then what you submitted, then everybody's. Appending blindly would put
+         a guest's own photographs underneath the link that leaves for the
+         album. */
+      var after = $('.photos__toalbum', body);
+      if (after) body.insertBefore(host, after);
+      else body.appendChild(host);
+    }
 
     host.textContent = '';
-
-    var mine = buildMine();
-    if (mine) { host.appendChild(mine); return; }
-
-    // The last one is gone, so the host goes with it rather than standing
-    // empty. renderPhotos() builds a new one the next time there is anything
-    // to put in it.
-    if (host.parentNode) host.parentNode.removeChild(host);
+    host.appendChild(mine);
   }
 
   /* The line the block is replaced by when the owner has not run
@@ -6212,7 +6058,20 @@
       if (fig) fig.textContent = String(photosRemaining());
       setUploaderState(photoUploader, photoState);
     }
-    renderAlbum($('#photos-album'));
+
+    /* This line used to read renderAlbum($('#photos-album')) and had been dead
+       since the album was split out of this section: #photos-album stopped
+       existing, renderAlbum null-guards its host, and so every recorded
+       photograph fanned out to precisely nothing. The count moved and neither
+       the strip nor the album did, which is why a guest had to reload before
+       they could see, or remove, the thing they had just submitted.
+
+       The strip is rebuilt from storage rather than appended to, so the tile,
+       its removal control and the counted head are all one function of the
+       same list and cannot drift from it. It runs per recorded file rather
+       than once at settle, so a photograph appears under the control while the
+       next one is still uploading. */
+    renderMine();
   }
 
   /* formatSchedule()'s shape, one for one: the same three way locale ternary,
@@ -7108,38 +6967,21 @@
       host.appendChild(mineHost);
     }
 
-    // The way through to the whole album, from the place a guest has just
-    // finished adding to it.
+    /* The way through to the whole album, from the place a guest has just
+       finished adding to it.
+
+       A page rather than an anchor since the album moved off this page. It
+       stays a plain link to a real URL, so a middle click, a long press and
+       "open in new tab" all work through the browser rather than through
+       anything written here. */
     if (sbConfigured()) {
       var more = document.createElement('a');
       more.className = 'btn btn--ghost photos__toalbum';
-      more.href = '#gallery';
+      more.href = 'album.html';
       more.setAttribute('data-i18n', 'photos.seealbum');
       more.textContent = t('photos.seealbum');
       host.appendChild(more);
     }
-  }
-
-  /* ======================================================================
-     THE GALLERY
-
-     The shared album, in its own section, read from public.album exactly as
-     before. Moved here rather than rebuilt: renderAlbum is unchanged in what
-     it asks the database for and what it trusts.
-     ====================================================================== */
-
-  function renderGallery() {
-    var sec = $('#gallery');
-    var host = $('#gallery-body');
-    if (!sec || !host) return;
-
-    /* No credentials means no album to show and no honest placeholder to show
-       instead, so the section is not there at all. Hidden rather than emptied,
-       so it also leaves the page order alone. */
-    if (!sbConfigured()) { sec.hidden = true; return; }
-    sec.hidden = false;
-
-    renderAlbum(host);
   }
 
   /* ======================================================================

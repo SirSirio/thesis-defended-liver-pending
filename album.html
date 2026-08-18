@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en" data-awake="1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The album: Course 03102</title>
+<meta name="description" content="Photographic evidence submitted by the students of course 03102.">
+
+<!-- Deliberately not indexed. The album is guests' faces, and the invitation
+     itself is unlisted. -->
+<meta name="robots" content="noindex, nofollow">
+
+<meta name="theme-color" content="#0B0B0C">
+
+<link rel="icon" href="assets/favicon.svg?v=6" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/favicon.svg?v=6">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Saira:wght@500;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<!-- The token system, the fonts and the aura come from the invitation's own
+     stylesheet, so this page cannot drift into a second design language. Only
+     what is specific to a wall of photographs lives in album.css. -->
+<link rel="stylesheet" href="styles.css?v=6">
+<link rel="stylesheet" href="album.css?v=6">
+
+<!-- data-awake is set in the markup rather than by script, and it is the one
+     place on this site where that is right.
+
+     The invitation opens as a DTU course page and stays one for five seconds
+     before the mask slips. That joke is the invitation's, it is paid for by
+     the hero, and re-running it here would hold a guest's own photographs
+     behind an animation they have already seen. The album is what is BEHIND
+     the mask, so it opens already awake: rounded, lit, glass. -->
+</head>
+
+<body class="album-page">
+
+<a class="skip-link" href="#grid" data-i18n="nav.skip">Skip to the photographs</a>
+
+<!-- The same two red masses as the invitation, so walking between the two
+     pages does not feel like walking between two websites. No third hue: the
+     brief reserves the DTU secondary palette for transient motion, and ambient
+     light is not transient. -->
+<div class="aura" aria-hidden="true">
+  <span class="aura__a"></span>
+  <span class="aura__b"></span>
+  <span class="aura__touch" id="aura-touch"></span>
+</div>
+
+<header class="abar">
+  <div class="abar__inner">
+    <a class="abar__back" href="index.html#photos">
+      <span class="abar__chev" aria-hidden="true">&#8249;</span>
+      <span data-i18n="album.back">The invitation</span>
+    </a>
+
+    <p class="abar__count mono" id="abar-count" aria-live="polite"></p>
+
+    <div class="langswitch abar__lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en">EN</button>
+      <button type="button" data-lang="it">IT</button>
+      <button type="button" data-lang="da">DA</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="ahero">
+    <p class="ahero__eyebrow mono" data-i18n="album.eyebrow">Course 03102 &middot; Documentation</p>
+    <h1 class="ahero__h" data-i18n="album.heading">The album</h1>
+    <p class="ahero__lede" data-i18n="album.lede">Everything handed in so far, newest first. Tap any photograph to open it.</p>
+
+    <div class="ahero__acts">
+      <button type="button" class="btn btn--primary ashuffle" id="album-shuffle" hidden>
+        <span data-i18n="album.shuffle">Show me a random one</span>
+        <span class="ashuffle__dot" aria-hidden="true">&#8599;</span>
+      </button>
+      <a class="btn btn--ghost" href="index.html#photos" data-i18n="album.addyours">Add yours</a>
+    </div>
+  </section>
+
+  <!-- Filled by album.js. Ships holding the loading line rather than a grid of
+       grey squares: a skeleton is a fabricated claim about content this page
+       does not have yet, and on a slow connection it is a lie that lasts. -->
+  <div id="grid" class="agrid-host" tabindex="-1">
+    <p class="astate" data-i18n="album.loading">Retrieving the album.</p>
+  </div>
+</main>
+
+<footer class="afoot">
+  <p data-i18n="album.foot">Course 03102. Photographs belong to whoever took them.</p>
+</footer>
+
+<script src="config.js?v=6"></script>
+<script src="copy.js?v=6"></script>
+<script src="album.js?v=6"></script>
+</body>
+</html>

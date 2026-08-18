@@ -23,14 +23,14 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 
-<link rel="icon" href="assets/favicon.svg?v=5" type="image/svg+xml">
-<link rel="apple-touch-icon" href="assets/favicon.svg?v=5">
+<link rel="icon" href="assets/favicon.svg?v=6" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/favicon.svg?v=6">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Saira:wght@500;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 
 <body>
@@ -69,7 +69,7 @@
       <!-- Official DTU White RGB lockup, unaltered, from designguide.dtu.dk.
            alt is empty on purpose: this link already carries an aria-label, so a
            described image here would announce the same thing twice. -->
-      <img class="mark__logo" src="assets/dtu-logo.png?v=5" width="27" height="40"
+      <img class="mark__logo" src="assets/dtu-logo.png?v=6" width="27" height="40"
            alt="" decoding="async">
       <span class="mark__badge" id="course-mark" aria-hidden="true">03102</span>
       <span class="mark__dept" data-i18n="nav.dept">Department of Graduation Studies</span>
@@ -155,7 +155,7 @@
            guest opens this site to find. -->
       <a href="#access" data-key="1"><span class="navmenu__n mono">05</span><span class="navmenu__l" data-i18n="nav.access">Building access</span></a>
       <a href="#photos"><span class="navmenu__n mono">06</span><span class="navmenu__l" data-i18n="nav.photos">Documentation</span></a>
-      <a href="#gallery"><span class="navmenu__n mono">07</span><span class="navmenu__l" data-i18n="nav.gallery">The album</span></a>
+      <a href="album.html"><span class="navmenu__n mono">07</span><span class="navmenu__l" data-i18n="nav.gallery">The album</span></a>
     </nav>
 
     <!-- The language switch lives here on a phone rather than in the bar. Logo,
@@ -485,25 +485,31 @@
     </div>
   </section>
 
-  <!-- THE ALBUM
-       Split out of the documentation section on purpose. Under the uploader a
-       guest now sees only their own submissions, because that is what somebody
-       who has just uploaded is looking for; everybody's photographs live here,
-       where looking at them is the intention rather than a side effect of
-       submitting.
+  <!-- THE WAY TO THE ALBUM
 
-       Ships hidden. renderGallery clears the attribute once Supabase
-       credentials are present, so a site without them has no empty gallery
-       standing in the page order. No entry is added to the bar at the top for
-       this section either, for the reason recorded on the announcements
-       section: six items is what that bar fits at desktop and a seventh
-       reopens a defect that was closed. The full screen menu has room and
-       carries it, and the documentation section links straight down here. -->
-  <section class="section" id="gallery" data-zone="unhinged" hidden>
+       The album used to be a section on this page, directly under the
+       uploader. It is a page of its own now (album.html), and the separation
+       is the point rather than a side effect of tidying.
+
+       Two different intentions were sharing one screen. Submitting is a task:
+       it has a control, a limit, a transcript and a guest's own five frames.
+       Looking at everybody's photographs is not a task at all, it is the thing
+       people will actually do on the night and the week after, and it wants
+       the whole screen with nothing else competing for it.
+
+       So this is a door, not a gallery. It states what is behind it and goes
+       there. Nothing is fetched to draw it, which is what lets it stand at
+       full strength on a page whose album may be empty, unreachable, or
+       hundreds of photographs long. -->
+  <section class="section" id="gallery" data-zone="unhinged">
     <div class="wrap">
-      <h2 class="section__h" data-i18n="gallery.heading">The album</h2>
-      <p class="section__lede" data-i18n="gallery.lede">Everything submitted so far, newest first. Tap any photograph to open it.</p>
-      <div id="gallery-body"></div>
+      <a class="aportal" href="album.html">
+        <span class="aportal__text">
+          <span class="aportal__t" data-i18n="gallery.portal.t">The album</span>
+          <span class="aportal__b" data-i18n="gallery.portal.b">Everybody&rsquo;s photographs, on a page of their own.</span>
+        </span>
+        <span class="aportal__go" aria-hidden="true">&#8599;</span>
+      </a>
     </div>
   </section>
 
@@ -550,12 +556,12 @@
      built the page and cannot hold up first paint of the practical
      information. motion.js checks for window.gsap and returns if it is not
      there, so a 404 on either of the first two costs the page nothing. -->
-<script defer src="assets/vendor/gsap.min.js?v=5"></script>
-<script defer src="assets/vendor/ScrollTrigger.min.js?v=5"></script>
-<script defer src="motion.js?v=5"></script>
+<script defer src="assets/vendor/gsap.min.js?v=6"></script>
+<script defer src="assets/vendor/ScrollTrigger.min.js?v=6"></script>
+<script defer src="motion.js?v=6"></script>
 
-<script src="config.js?v=5"></script>
-<script src="copy.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="config.js?v=6"></script>
+<script src="copy.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
