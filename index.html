@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-<title data-i18n="meta.title">Course 03102: Thesis Defended, Liver Pending</title>
+<title data-i18n="meta.title">Sirio&rsquo;s Graduation Party: Thesis Defended, Liver Pending</title>
 <meta name="description" data-i18n="meta.description" data-i18n-attr="content"
       content="Course 03102, 5 ECTS. One evening minimum. Attendance is not mandatory but is strongly expected.">
 <meta name="theme-color" content="#0B0B0C">
@@ -14,7 +14,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Course 03102">
 <meta property="og:title" data-i18n="meta.title" data-i18n-attr="content"
-      content="Course 03102: Thesis Defended, Liver Pending">
+      content="Sirio&rsquo;s Graduation Party: Thesis Defended, Liver Pending">
 <meta property="og:description" data-i18n="meta.description" data-i18n-attr="content"
       content="Course 03102, 5 ECTS. One evening minimum. Attendance is not mandatory but is strongly expected.">
 <meta property="og:url" content="https://sirsirio.github.io/thesis-defended-liver-pending/">
@@ -23,14 +23,14 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 
-<link rel="icon" href="assets/favicon.svg?v=6" type="image/svg+xml">
-<link rel="apple-touch-icon" href="assets/favicon.svg?v=6">
+<link rel="icon" href="assets/favicon.svg?v=7" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/favicon.svg?v=7">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Saira:wght@500;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=6">
+<link rel="stylesheet" href="styles.css?v=7">
 </head>
 
 <body>
@@ -69,7 +69,7 @@
       <!-- Official DTU White RGB lockup, unaltered, from designguide.dtu.dk.
            alt is empty on purpose: this link already carries an aria-label, so a
            described image here would announce the same thing twice. -->
-      <img class="mark__logo" src="assets/dtu-logo.png?v=6" width="27" height="40"
+      <img class="mark__logo" src="assets/dtu-logo.png?v=7" width="27" height="40"
            alt="" decoding="async">
       <span class="mark__badge" id="course-mark" aria-hidden="true">03102</span>
       <span class="mark__dept" data-i18n="nav.dept">Department of Graduation Studies</span>
@@ -256,37 +256,53 @@
     <div class="wrap">
       <h2 class="section__h" data-i18n="facts.heading">Course information</h2>
 
-      <!-- Twelve rows became four and a fold, and which four is the whole
-           decision. These are the rows that answer a question a guest actually
-           has: when, where, do I have to do anything, and by when. They are
-           never behind a disclosure and they are never below one.
+      <!-- THE COURSE INDEX, in the page rather than only in the bottom sheet.
 
-           The eight rows underneath are the joke. The joke is the point of
-           this site and it is not being cut, only folded, which is exactly
-           what a real course page does with the half nobody reads. Every id
-           travels with its row, so renderSchedule keeps writing to the same
-           four nodes it always did. -->
-      <dl class="facts">
-        <div class="facts__row">
-          <dt data-i18n="facts.schedule">Scheduled</dt>
-          <dd class="mono" id="fact-schedule">3 October 2026, 16:00</dd>
-        </div>
-        <div class="facts__row">
-          <dt data-i18n="facts.location">Location</dt>
-          <dd id="fact-location" data-i18n="facts.location.tbd">To be announced</dd>
-        </div>
-        <div class="facts__row">
-          <dt data-i18n="facts.registration">Registration</dt>
-          <dd>
-            <span data-i18n="facts.registration.value">Required. Places are limited by the size of the room.</span>
-            <a class="inline-link" href="#enrol" data-i18n="facts.registration.link">Register here</a>
-          </dd>
-        </div>
-        <div class="facts__row">
-          <dt data-i18n="facts.deadline">Registration deadline</dt>
-          <dd class="mono" id="fact-deadline">26 September 2026</dd>
-        </div>
-      </dl>
+           This position used to hold four fact rows: scheduled, location,
+           registration and deadline. They have not been deleted, they have
+           moved into the fold below, which now carries the whole course
+           description in one place instead of the useful half being out and
+           the funny half being folded.
+
+           What replaces them is the thing a guest arriving at the top of the
+           page actually needs. The date is directly above this and it is the
+           largest thing on the site; once somebody has read it, the only
+           remaining question is where to go next, and six tiles answer that in
+           one glance where a table of values does not answer it at all.
+
+           Plain anchors to real fragments, so every one of them works with the
+           script dead, opens in a new tab on a modified click, and is already
+           in the tab order. Nothing here needed inventing: the bottom sheet has
+           carried the same seven destinations since it was built, and this is
+           that list, in the page, minus the section it is standing in. -->
+      <nav class="navdeck" aria-label="Course sections">
+        <a class="navdeck__t" href="#objectives">
+          <span class="navdeck__n mono">01</span>
+          <span class="navdeck__l" data-i18n="nav.objectives">Learning objectives</span>
+        </a>
+        <a class="navdeck__t" href="#enrol">
+          <span class="navdeck__n mono">02</span>
+          <span class="navdeck__l" data-i18n="nav.enrol">Registration</span>
+        </a>
+        <a class="navdeck__t" href="#location">
+          <span class="navdeck__n mono">03</span>
+          <span class="navdeck__l" data-i18n="nav.location">Location</span>
+        </a>
+        <!-- The one a guest standing outside a building in the dark needs, so
+             it is marked and it is never the tile that gets cut. -->
+        <a class="navdeck__t navdeck__t--key" href="#access">
+          <span class="navdeck__n mono">04</span>
+          <span class="navdeck__l" data-i18n="nav.access">Building access</span>
+        </a>
+        <a class="navdeck__t" href="#photos">
+          <span class="navdeck__n mono">05</span>
+          <span class="navdeck__l" data-i18n="nav.photos">Documentation</span>
+        </a>
+        <a class="navdeck__t" href="album.html">
+          <span class="navdeck__n mono">06</span>
+          <span class="navdeck__l" data-i18n="nav.gallery">The album</span>
+        </a>
+      </nav>
 
       <!-- A native details, not a scripted accordion. It opens with no
            JavaScript at all, it is in the tab order for free, a screen reader
@@ -299,6 +315,30 @@
         </summary>
         <div class="fold__body">
           <dl class="facts">
+            <!-- The four rows that used to stand above the fold. They answer
+                 when, where, must I do anything, and by when. Every id travels
+                 with its row, so renderSchedule keeps writing to the same nodes
+                 it always did and the deadline, the schedule and the address
+                 still arrive from config. -->
+            <div class="facts__row">
+              <dt data-i18n="facts.schedule">Scheduled</dt>
+              <dd class="mono" id="fact-schedule">3 October 2026, 16:00</dd>
+            </div>
+            <div class="facts__row">
+              <dt data-i18n="facts.location">Location</dt>
+              <dd id="fact-location" data-i18n="facts.location.tbd">To be announced</dd>
+            </div>
+            <div class="facts__row">
+              <dt data-i18n="facts.registration">Registration</dt>
+              <dd>
+                <span data-i18n="facts.registration.value">Required. Places are limited by the size of the room.</span>
+                <a class="inline-link" href="#enrol" data-i18n="facts.registration.link">Register here</a>
+              </dd>
+            </div>
+            <div class="facts__row">
+              <dt data-i18n="facts.deadline">Registration deadline</dt>
+              <dd class="mono" id="fact-deadline">26 September 2026</dd>
+            </div>
             <div class="facts__row">
               <dt data-i18n="facts.number">Course number</dt>
               <dd class="mono" id="fact-number">03102</dd>
@@ -556,12 +596,12 @@
      built the page and cannot hold up first paint of the practical
      information. motion.js checks for window.gsap and returns if it is not
      there, so a 404 on either of the first two costs the page nothing. -->
-<script defer src="assets/vendor/gsap.min.js?v=6"></script>
-<script defer src="assets/vendor/ScrollTrigger.min.js?v=6"></script>
-<script defer src="motion.js?v=6"></script>
+<script defer src="assets/vendor/gsap.min.js?v=7"></script>
+<script defer src="assets/vendor/ScrollTrigger.min.js?v=7"></script>
+<script defer src="motion.js?v=7"></script>
 
-<script src="config.js?v=6"></script>
-<script src="copy.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="config.js?v=7"></script>
+<script src="copy.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

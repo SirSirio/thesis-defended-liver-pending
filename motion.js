@@ -513,7 +513,27 @@
     var tbox = target ? target.getBoundingClientRect() : null;
     var vw = window.innerWidth || 390;
 
-    var landX = tbox ? tbox.left + tbox.width * 0.5 : vw / 2;
+    /* WHERE THE DROP FALLS, and this is the constraint the whole rig is built
+       around rather than an afterthought.
+
+       The instrument hangs in a narrow column at the right edge, and the
+       needle hangs in that same column. It does NOT reach across to the middle
+       of the date, and that is the fix for a defect this file has now produced
+       twice: a tube routed from a pump on the right to a needle over the
+       centre has to cross the headline to get there, and it laid a lit red
+       line straight through the two words the page is named after.
+
+       Tubing hangs, it does not traverse. So the needle stays under the head,
+       the drop falls straight down, and it lands on the right hand end of the
+       date instead of its middle. Still on the subject, and nothing crosses a
+       word on the way. The clamp keeps it on the number on any layout where
+       the date is narrower than the column is far in. */
+    var colX = vw - 66;
+    var landX = colX;
+    if (tbox) {
+      landX = Math.max(tbox.left + 24, Math.min(colX, tbox.right - 24));
+    }
+
     // Low on the date rather than through its middle, which buys the drop
     // another 40px of visible fall on a phone where every pixel is spoken for.
     var landY = tbox ? tbox.top + tbox.height * 0.86 : (window.innerHeight || 800) * 0.45;
@@ -536,15 +556,23 @@
 
        Top down cannot collapse: the pump gets its space first, the tube gets a
        fixed run below it, and only the fall absorbs what is left over. */
-    var HOUSING_R = 30;
-    var TUBE_RUN = 84;                       // vertical drop from pump to needle
-    var NEEDLE_LEN = 28;
+    var COL_W = 32;                     // the reservoir's width, and the column's
+    var HOUSING_R = 33;                 // pump casing, outer radius
+    var OCC_R = HOUSING_R - 9;          // the radius the tube is pinched at
+    var ROLLER_R = 7;
+    var BOTTLE_H = 50;
+    var HUB_H = 12;                     // the luer fitting
+    var CANNULA = 18;                   // the steel, and no more than that
 
-    var pumpX = vw - 58;
-    var pumpY = 64 + HOUSING_R + 12;         // clear of the 64px top bar
-    var exitY = pumpY + HOUSING_R;
-    var needleY = exitY + TUBE_RUN;
-    var tipY = needleY + NEEDLE_LEN;
+    /* The column axis is computed above, with the landing, because the two are
+       the same decision: everything hangs on it, including the needle. */
+    var bottleY = 68;
+    var bottleBottom = bottleY + BOTTLE_H;
+
+    var pumpX = colX;
+    var pumpY = bottleBottom + 12 + HOUSING_R;
+    var needleY = pumpY + HOUSING_R + 56;      // top of the luer hub
+    var tipY = needleY + HUB_H + CANNULA;
 
     /* If the target sits above the tip on some layout, drop onto the hero
        instead of flying upward into the date. Physics before aim. */
@@ -556,86 +584,132 @@
 
     var sheet = svg('svg', {
       class: 'rig__svg',
-      width: vw, height: 300,
-      viewBox: '0 0 ' + vw + ' 300',
+      width: vw, height: 380,
+      viewBox: '0 0 ' + vw + ' 380',
       fill: 'none'
     });
 
-    /* THE PUMP. A peristaltic head: a housing, and a rotor carrying three
-       rollers that occlude a tube wrapped around the inside of it. Three is
-       the low end of the range the thesis analyses, and it is also the count
-       that reads unmistakably as peristaltic at 44 pixels across. */
+    /* THE RESERVOIR
+
+       Added because the owner's note was exactly right: a pump head on its own
+       is a wheel with dots in it. A pump reads as a pump only when you can see
+       what it is moving and where that is coming from, so the liquid now has
+       somewhere to come FROM. A capped bottle, part full, with the tube leaving
+       the bottom and running round to the head.
+
+       Part full rather than brimming, deliberately. A full bottle reads as a
+       drawing of a bottle; one with a level in it reads as one being drawn
+       down, which is the claim the whole animation is making. */
+    var bx = colX + 6;                   // the bottle sits a little off the axis
+    var bw = COL_W;
+    var res = svg('g', { class: 'rig__res' });
+
+    res.appendChild(svg('rect', {
+      x: bx - 9, y: bottleY - 7, width: 18, height: 7, rx: 2, class: 'rig__cap'
+    }));
+    res.appendChild(svg('rect', {
+      x: bx - bw / 2, y: bottleY, width: bw, height: BOTTLE_H, rx: 5,
+      class: 'rig__bottle'
+    }));
+
+    /* The level, inset by the wall thickness so it sits inside the bottle
+       rather than on top of its outline. Its own element because it drops as
+       the run proceeds. */
+    var LIQ_TOP = bottleY + BOTTLE_H * 0.34;
+    var liqRect = svg('rect', {
+      x: bx - bw / 2 + 2.5, y: LIQ_TOP,
+      width: bw - 5, height: bottleBottom - LIQ_TOP - 2.5,
+      rx: 3.5, class: 'rig__bottleliq'
+    });
+    res.appendChild(liqRect);
+    sheet.appendChild(res);
+
+    /* THE PUMP HEAD
+
+       A casing, a tube wrapped around the inside of it, and a rotor carrying
+       three rollers that pinch that tube against the casing. Three is the low
+       end of the range the thesis analyses and it is the count that still reads
+       as peristaltic at this size.
+
+       The casing is an open C with the gap at the bottom, because that gap is
+       most of what separates a pump head from a logo: a closed ring with dots
+       in it is a badge, an open one with tube entering one side and leaving the
+       other is a machine. The tube enters at the lower right from the reservoir
+       and leaves at the lower left toward the needle. */
     var pump = svg('g', { class: 'rig__pump' });
 
-    /* The housing is drawn as an open C rather than a closed circle, with the
-       gap at the bottom where the tube enters and leaves. That gap is most of
-       what makes it read as a pump head instead of a wheel: a closed ring with
-       dots in it is a logo, an open one with a tube running out of it is a
-       machine.
+    var A_IN = 0.75;                     // lower right, where the tube enters
+    var A_OUT = 2.39;                    // lower left, where it leaves
 
-       The first build was a closed circle at 26px under 3.4px of blur, and the
-       owner's verdict was that it was not recognisable as a pump. It is now
-       larger, opened, given a wrapped tube and spokes, and much less blurred. */
-    var occ = HOUSING_R - 7;          // radius the tube is pinched at
-
-    // Housing: an arc from 55 degrees round to 125 degrees, leaving the bottom open.
-    var hx1 = pumpX + Math.cos(0.96) * HOUSING_R, hy1 = pumpY + Math.sin(0.96) * HOUSING_R;
-    var hx2 = pumpX + Math.cos(2.18) * HOUSING_R, hy2 = pumpY + Math.sin(2.18) * HOUSING_R;
+    var hx1 = pumpX + Math.cos(A_IN) * HOUSING_R, hy1 = pumpY + Math.sin(A_IN) * HOUSING_R;
+    var hx2 = pumpX + Math.cos(A_OUT) * HOUSING_R, hy2 = pumpY + Math.sin(A_OUT) * HOUSING_R;
     pump.appendChild(svg('path', {
-      d: 'M ' + hx1 + ' ' + hy1 + ' A ' + HOUSING_R + ' ' + HOUSING_R + ' 0 1 0 ' + hx2 + ' ' + hy2,
+      d: 'M ' + hx1 + ' ' + hy1 + ' A ' + HOUSING_R + ' ' + HOUSING_R +
+         ' 0 1 0 ' + hx2 + ' ' + hy2,
       class: 'rig__housing'
     }));
 
-    // The tube itself, wrapped around the inside of the housing and pinched
-    // by the rollers. Red, because it is full of the liquid being moved.
-    var ox1 = pumpX + Math.cos(1.02) * occ, oy1 = pumpY + Math.sin(1.02) * occ;
-    var ox2 = pumpX + Math.cos(2.12) * occ, oy2 = pumpY + Math.sin(2.12) * occ;
+    // The tube in the race, full of what is being moved.
+    var inX = pumpX + Math.cos(A_IN) * OCC_R, inY = pumpY + Math.sin(A_IN) * OCC_R;
+    var outX = pumpX + Math.cos(A_OUT) * OCC_R, outY = pumpY + Math.sin(A_OUT) * OCC_R;
     pump.appendChild(svg('path', {
-      d: 'M ' + ox1 + ' ' + oy1 + ' A ' + occ + ' ' + occ + ' 0 1 0 ' + ox2 + ' ' + oy2,
+      d: 'M ' + inX + ' ' + inY + ' A ' + OCC_R + ' ' + OCC_R + ' 0 1 0 ' + outX + ' ' + outY,
       class: 'rig__race'
     }));
 
-    /* The rotor: three rollers on spokes. The spokes are what turn three
-       floating dots into a rotating assembly, and rotation is only legible if
-       there is something radial to watch. */
+    /* The rotor: a plate carrying three rollers, rather than three dots on
+       spokes. The plate is what makes the spin legible, because a roller
+       passing in front of a solid body is unmistakable movement where three
+       thin lines at this size mostly disappear. The rollers sit exactly on the
+       race radius, so each is drawn ON the tube and reads as occluding it. */
     var rotor = svg('g', { class: 'rig__rotor' });
+    rotor.appendChild(svg('circle', {
+      cx: pumpX, cy: pumpY, r: OCC_R - 8, class: 'rig__plate'
+    }));
+
     for (var i = 0; i < 3; i++) {
       var a = (i / 3) * Math.PI * 2;
-      var rx = pumpX + Math.cos(a) * occ;
-      var ry = pumpY + Math.sin(a) * occ;
+      var rx = pumpX + Math.cos(a) * OCC_R;
+      var ry = pumpY + Math.sin(a) * OCC_R;
       rotor.appendChild(svg('line', {
         x1: pumpX, y1: pumpY, x2: rx, y2: ry, class: 'rig__spoke'
       }));
-      rotor.appendChild(svg('circle', { cx: rx, cy: ry, r: 6.5, class: 'rig__roller' }));
+      rotor.appendChild(svg('circle', { cx: rx, cy: ry, r: ROLLER_R, class: 'rig__roller' }));
+      // The bright edge that says this is a cylinder being turned, not a dot.
+      rotor.appendChild(svg('circle', {
+        cx: rx - 1.4, cy: ry - 1.4, r: ROLLER_R * 0.42, class: 'rig__rollerlit'
+      }));
     }
     pump.appendChild(rotor);
-    pump.appendChild(svg('circle', { cx: pumpX, cy: pumpY, r: 5, class: 'rig__hub' }));
+    pump.appendChild(svg('circle', { cx: pumpX, cy: pumpY, r: 4.5, class: 'rig__hub' }));
+
+    /* THE FEED. Reservoir to head, routed round the outside of the casing
+       rather than cutting across it, which is how tubing actually lies. */
+    var feed = 'M ' + bx + ' ' + bottleBottom +
+               ' C ' + bx + ' ' + (bottleBottom + 18) + ', ' +
+                       (pumpX + HOUSING_R + 7) + ' ' + (pumpY - 10) + ', ' +
+                       inX + ' ' + inY;
+    pump.appendChild(svg('path', { d: feed, class: 'rig__tube rig__tube--wall' }));
+    pump.appendChild(svg('path', { d: feed, class: 'rig__tube rig__tube--liquid' }));
+
     sheet.appendChild(pump);
 
-    /* THE TUBE. One path, drawn three times: a soft wide pass that reads as
-       the out of focus tube, the tube wall itself, and the liquid inside it.
-       The liquid is a dashed stroke whose offset is animated, which is how a
-       fluid front moves along a path without a plugin. */
-    /* A real tube leaves a fitting along the fitting's axis and arrives at the
-       next one along that one's axis; it does not cut a diagonal between two
-       points. So this leaves the bottom of the pump heading straight down and
-       arrives at the top of the needle heading straight down, with both
-       control points vertical. The result is a single smooth sag with no
-       kink, which is what a length of silicone tube actually does.
+    /* THE DELIVERY TUBE. One path drawn three times: a soft wide pass that is
+       the out of focus tube, the wall, and the liquid inside it. The liquid is
+       a dashed stroke whose offset is animated, which is how a fluid front
+       moves along a path without a plugin.
 
-       Two earlier routes were wrong in different ways: the first cut
-       diagonally across the headline, laying a blurred red line over the two
-       words the page is named after, and the second was an S with horizontal
-       control points that bent the tube in a way no tube bends. */
-    var sag = (needleY - exitY) * 0.62;
+       A real tube leaves a fitting along that fitting's axis and arrives along
+       the next one's; it does not cut a diagonal between two points. So this
+       leaves the head heading down and arrives at the needle heading down, with
+       both control points vertical, giving one smooth sag and no kink. */
+    var sag = (needleY - outY) * 0.62;
 
-    var d = 'M ' + pumpX + ' ' + exitY +
-            ' C ' + pumpX + ' ' + (exitY + sag) + ', ' +
+    var d = 'M ' + outX + ' ' + outY +
+            ' C ' + outX + ' ' + (outY + sag) + ', ' +
                     landX + ' ' + (needleY - sag) + ', ' +
                     landX + ' ' + needleY;
 
-    // The out of focus pass sits outside the near group, because it is the far
-    // end of the shot and never sharpens.
     sheet.appendChild(svg('path', { d: d, class: 'rig__tube rig__tube--halo' }));
 
     /* Everything that racks into focus, in one group, so the focus pull is one
@@ -645,9 +719,30 @@
     var liquid = svg('path', { d: d, class: 'rig__tube rig__tube--liquid' });
     near.appendChild(liquid);
 
-    // THE NEEDLE. Short, and hanging off the end of the tube.
+    /* THE NEEDLE. A blunt dispensing needle, which is a luer hub with a short
+       length of steel in it, and that is all.
+
+       The previous one was a bare line, which is a scratch rather than an
+       instrument: nothing said where the tube ended and the needle began. The
+       hub is what fixes that. It is the tapered collar every dispensing tip
+       actually has, it gives the tube something to terminate INTO, and it makes
+       the steel below it read as short, because there is finally something to
+       read it as short against. */
+    var hubTop = needleY, hubBot = needleY + HUB_H;
+    near.appendChild(svg('rect', {
+      x: landX - 7.5, y: hubTop - 3.5, width: 15, height: 4, rx: 1.2,
+      class: 'rig__collar'
+    }));
+    near.appendChild(svg('path', {
+      d: 'M ' + (landX - 6.5) + ' ' + hubTop +
+         ' L ' + (landX + 6.5) + ' ' + hubTop +
+         ' L ' + (landX + 3.2) + ' ' + hubBot +
+         ' L ' + (landX - 3.2) + ' ' + hubBot + ' Z',
+      class: 'rig__luer'
+    }));
+
     var needle = svg('line', {
-      x1: landX, y1: needleY, x2: landX, y2: tipY, class: 'rig__needle'
+      x1: landX, y1: hubBot, x2: landX, y2: tipY, class: 'rig__needle'
     });
     near.appendChild(needle);
     sheet.appendChild(near);
@@ -682,15 +777,34 @@
 
     tl.to(sheet, { opacity: 1, duration: 0.3, ease: 'power2.out' });
 
-    // The rotor turns for the whole of the run up, and keeps turning while the
-    // liquid is in the tube. A peristaltic head does not coast.
+    /* The rotor turns for the whole of the run up and keeps turning while the
+       liquid is in the tube. A peristaltic head does not coast.
+
+       Faster than the first build, which took 1.9s per revolution. At three
+       rollers that is a roller passing a given point every 630ms, which on a
+       58px head is slow enough to read as drift rather than as drive. At 1.15s
+       a roller passes every 380ms and the thing is unmistakably being turned,
+       which was the owner's actual objection. */
     gsap.to(rotor, {
       rotation: 360,
       transformOrigin: pumpX + 'px ' + pumpY + 'px',
-      duration: 1.9,
+      duration: 1.15,
       ease: 'none',
       repeat: -1
     });
+
+    /* The level falls while the head is running. Small, and it is most of what
+       makes the reservoir a reservoir rather than a drawing of one: a bottle
+       that never empties is scenery, and one that visibly gives something up is
+       the source of what is about to land on the date. */
+    tl.to(liqRect, {
+      attr: {
+        y: LIQ_TOP + 7,
+        height: Math.max(4, bottleBottom - LIQ_TOP - 2.5 - 7)
+      },
+      duration: LEAD,
+      ease: 'none'
+    }, 0.2);
 
     // The liquid front runs down the tube toward the needle.
     tl.to(liquid, {

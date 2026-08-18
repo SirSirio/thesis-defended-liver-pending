@@ -218,32 +218,71 @@
   overflow: visible;
 }
 
-/* THE PUMP. The far end of the shot: a peristaltic head, soft and dim,
-   because a camera focused on the needle is not focused on this. It never
-   sharpens, which is what sells the depth. */
-/* Softened, not obliterated. The first build sat at 3.4px of blur and 55%
-   opacity, and the owner could not tell it was a pump. It still reads as the
-   far end of the shot, but it now reads as a thing. */
+/* THE INSTRUMENT.
+
+   Three builds of this have now been rejected for the same reason, so the
+   reason is worth writing down: at 3.4px of blur, and then at 1.3px, a
+   peristaltic head reads as a grey ring with dots in it. Depth of field was
+   costing more than it was buying. The head is the thing the owner wanted to
+   see, so it is now essentially sharp and the rack focus is carried entirely
+   by the near group below.
+
+   What actually makes it legible as a pump is not the blur budget, it is
+   having all three parts present: something the liquid comes FROM, a rotor
+   that visibly turns, and rollers that sit ON the tube rather than beside it. */
 .rig__pump {
-  filter: blur(1.3px);
-  opacity: 0.82;
+  filter: blur(0.35px);
+  opacity: 0.96;
 }
+
+/* THE RESERVOIR. Glass, so the level inside it is the point. */
+.rig__bottle {
+  fill: rgba(244, 244, 245, 0.05);
+  stroke: #8A8A90;
+  stroke-width: 2;
+}
+.rig__bottleliq {
+  fill: rgba(232, 63, 72, 0.55);
+  stroke: none;
+}
+.rig__cap {
+  fill: #6E6E73;
+  stroke: #8A8A90;
+  stroke-width: 1;
+}
+
 .rig__housing {
   fill: none;
-  stroke: #8A8A90;
-  stroke-width: 5;
+  stroke: #9A9AA0;
+  stroke-width: 5.5;
   stroke-linecap: round;
 }
-/* The tube inside the head, full of what is being moved. */
+
+/* The tube inside the head, full of what is being moved. Drawn under the
+   rotor, so every roller sits on top of it and reads as pinching it shut. */
 .rig__race {
   fill: none;
-  stroke: rgba(232, 63, 72, 0.85);
-  stroke-width: 6.5;
+  stroke: rgba(232, 63, 72, 0.78);
+  /* Thinner than the casing it runs inside, and thinner than the first build.
+     At 7px the race was the loudest thing in the head and the rollers riding on
+     it disappeared into the glow, which is most of why the mechanism was not
+     reading as a mechanism. */
+  stroke-width: 5.5;
   stroke-linecap: round;
 }
-.rig__spoke  { stroke: #6E6E73; stroke-width: 2.5; }
-.rig__roller { fill: #E4E4E8; stroke: #6E6E73; stroke-width: 1.5; }
-.rig__hub    { fill: #8A8A90; }
+
+/* The rotor plate. A roller passing in front of a solid body is unmistakable
+   rotation; three thin lines at this size are not, which is why the spin was
+   not registering. */
+.rig__plate {
+  fill: rgba(110, 110, 115, 0.55);
+  stroke: #6E6E73;
+  stroke-width: 1;
+}
+.rig__spoke  { stroke: #8A8A90; stroke-width: 2.5; }
+.rig__roller { fill: #F2F2F5; stroke: #45454A; stroke-width: 1.6; }
+.rig__rollerlit { fill: rgba(255, 255, 255, 0.9); }
+.rig__hub    { fill: #B4B4BA; }
 
 /* THE TUBE, drawn three times over one path. The halo is the out of focus
    pass and stays soft; the wall and the liquid sit inside the near group and
@@ -265,12 +304,26 @@
   filter: drop-shadow(0 0 5px rgba(232, 63, 72, 0.75));
 }
 
-/* THE NEEDLE. Short. It is the last few millimetres of an instrument, not a
-   spike hanging from the ceiling, and the first build had it at 118px which
-   read as the latter. */
+/* THE NEEDLE. A blunt dispensing tip: a knurled collar, a tapered luer hub,
+   and a short length of steel. The previous one was a bare 28px line, which is
+   a scratch rather than an instrument, and nothing in it said where the tube
+   ended and the needle began. The hub is what says that, and it is also what
+   makes the steel read as short, because there is finally something to read it
+   as short against. */
+.rig__collar {
+  fill: #8A8A90;
+  stroke: #55555A;
+  stroke-width: 0.8;
+}
+.rig__luer {
+  fill: #C8C8CE;
+  stroke: #6E6E73;
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
 .rig__needle {
-  stroke: #D8D8DD;
-  stroke-width: 2.6;
+  stroke: #E4E4E8;
+  stroke-width: 2.2;
   stroke-linecap: round;
 }
 
@@ -3439,6 +3492,100 @@ details[open] > .fold__sum .fold__chev {
    component. This adds the clearance it needs under a strip instead of under a
    panel row, and nothing else. */
 .mine__confirm { margin-top: var(--s-4); }
+
+/* ==========================================================================
+   THE COURSE INDEX, IN THE PAGE
+
+   Six tiles where four fact rows used to be. The date directly above is the
+   largest thing on the site, and once it has been read the only question left
+   is where to go next; a table of values does not answer that and this does,
+   in one glance.
+
+   The same two column grid the bottom sheet uses, for the same reason it uses
+   it: six lines of text is a list somebody has to read, and six tiles is a
+   shape somebody can aim at. It is deliberately NOT the sheet's stylesheet
+   reused, because that one lives inside a dialog with its own ground and its
+   own moving spot, and sharing rules across those two would make every future
+   change to either a change to both.
+   ========================================================================== */
+
+.navdeck {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s-2);
+  margin-top: var(--s-5);
+}
+
+.navdeck__t {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--s-4);
+  min-height: 92px;
+  padding: var(--s-4);
+  text-decoration: none;
+  color: var(--ink);
+
+  /* A hairline shell over a raised surface with an inner highlight, so the
+     tiles read as machined plates rather than as tinted rectangles. */
+  border-radius: var(--r-md);
+  border: 1px solid var(--rule);
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--ink) 5%, transparent);
+
+  transition: transform var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              background-color var(--t-base) var(--ease-out);
+}
+
+.navdeck__n {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+  transition: color var(--t-base) var(--ease-out);
+}
+
+.navdeck__l {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+/* The one a guest standing outside a building in the dark needs. It carries a
+   red number rather than a red fill: a filled tile among five outlined ones
+   would read as the primary action, and the primary action on this page is
+   registering, not finding a door you have not arrived at yet. */
+.navdeck__t--key .navdeck__n { color: var(--accent-lit); }
+
+.navdeck__t:active { transform: scale(0.98); }
+
+@media (hover: hover) and (pointer: fine) {
+  .navdeck__t:hover {
+    border-color: var(--rule-lit);
+    background: color-mix(in oklab, var(--surface-2) 92%, transparent);
+  }
+  .navdeck__t:hover .navdeck__n { color: var(--ink-dim); }
+  .navdeck__t--key:hover .navdeck__n { color: var(--accent-lit); }
+}
+
+.navdeck__t:focus-visible {
+  outline: 2px solid var(--accent-lit);
+  outline-offset: 3px;
+}
+
+@media (pointer: coarse) {
+  .navdeck__t { min-height: 100px; }
+}
+
+@media (min-width: 720px) {
+  .navdeck { grid-template-columns: repeat(3, 1fr); gap: var(--s-3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navdeck__t { transition-duration: 1ms; }
+  .navdeck__t:active { transform: none; }
+}
 
 .photos__toalbum { margin-top: var(--s-5); }
 

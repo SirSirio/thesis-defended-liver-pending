@@ -14,7 +14,7 @@ window.PARTY_COPY = {
      ENGLISH
      ====================================================================== */
   en: {
-    'meta.title': 'Course 03102: Thesis Defended, Liver Pending',
+    'meta.title': 'Sirio’s Graduation Party: Thesis Defended, Liver Pending',
     'meta.description': 'Course 03102, 5 ECTS. One evening minimum. Attendance is not mandatory but is strongly expected.',
 
     'nav.skip': 'Skip to main content',
@@ -126,7 +126,7 @@ window.PARTY_COPY = {
     'facts.deadline': 'Registration deadline',
     'facts.exam': 'Form of examination',
     'facts.exam.value': 'Continuous assessment, conducted informally',
-    'facts.more': 'The rest of the course description',
+    'facts.more': 'The full course description',
 
     'obj.heading': 'Learning objectives',
     'obj.intro': 'A student who has met the objectives of the course will be able to:',
@@ -303,7 +303,7 @@ window.PARTY_COPY = {
      ITALIANO
      ====================================================================== */
   it: {
-    'meta.title': 'Corso 03102: Thesis Defended, Liver Pending',
+    'meta.title': 'La festa di laurea di Sirio: Tesi Discussa, Fegato in Sospeso',
     'meta.description': 'Corso 03102, 5 CFU. Durata una serata minimo. La presenza non è obbligatoria ma è data per scontata.',
 
     'nav.skip': 'Vai al contenuto principale',
@@ -411,7 +411,7 @@ window.PARTY_COPY = {
     'facts.deadline': 'Scadenza iscrizioni',
     'facts.exam': 'Modalità di esame',
     'facts.exam.value': 'Valutazione continua, condotta in modo informale',
-    'facts.more': 'Il resto della descrizione del corso',
+    'facts.more': 'La descrizione completa del corso',
 
     'obj.heading': 'Obiettivi formativi',
     'obj.intro': 'Lo studente che ha raggiunto gli obiettivi del corso sarà in grado di:',
@@ -583,7 +583,7 @@ window.PARTY_COPY = {
      kursusansvarlig) is the part they will actually recognise.
      ====================================================================== */
   da: {
-    'meta.title': 'Kursus 03102: Thesis Defended, Liver Pending',
+    'meta.title': 'Sirios kandidatfest: Speciale Forsvaret, Lever Afventer',
     'meta.description': 'Kursus 03102, 5 ECTS. Varighed én aften minimum. Fremmøde er ikke obligatorisk, men forventes.',
 
     'nav.skip': 'Gå til hovedindhold',
@@ -686,7 +686,7 @@ window.PARTY_COPY = {
     'facts.prereq.value': 'Ingen. Fremmøde ved selve forsvaret var heller ikke påkrævet.',
     'facts.exam': 'Eksamensform',
     'facts.exam.value': 'Løbende evaluering, gennemført uformelt',
-    'facts.more': 'Resten af kursusbeskrivelsen',
+    'facts.more': 'Hele kursusbeskrivelsen',
     'facts.responsible': 'Kursusansvarlig',
     'facts.registration': 'Tilmelding',
     'facts.registration.value': 'Påkrævet. Antallet af pladser er begrænset af lokalets størrelse.',
