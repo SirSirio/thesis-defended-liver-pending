@@ -2007,6 +2007,27 @@
       store.set('photo_paths', JSON.stringify(list));
     },
 
+    /* addPhotoPath's mirror, written the day a guest was allowed to take a
+       photograph back out of the album.
+
+       It reads through photoPaths() rather than through the raw string, which
+       means the write also re-validates: a list that has been sitting in
+       storage since a previous version of this file, or that a guest has
+       edited by hand, is cleaned by the removal rather than preserved by it.
+       Same reasoning as the read side, applied on the way past.
+
+       Silent on a path that is not in the list. The caller has already been
+       told the photograph is gone, and this feature deliberately cannot tell
+       "not yours" from "already removed" anywhere else either. */
+    removePhotoPath: function (p) {
+      if (typeof p !== 'string') return;
+      var list = this.photoPaths();
+      var at = list.indexOf(p);
+      if (at === -1) return;
+      list.splice(at, 1);
+      store.set('photo_paths', JSON.stringify(list));
+    },
+
     /* Withdrawing clears the registration, not the identity (D-15). Forgetting
        the device clears both, and that is what this is for.
 
@@ -5225,6 +5246,37 @@
     }
   }
 
+  /* A photograph that has left the album must not stay steppable.
+
+     lbItems is captured when the strip or the gallery is built and it outlives
+     both: it is still held after the overlay closes, and rebuilding the tiles
+     hands the NEXT open a fresh array without touching the one already stored.
+     So a removal has to reach in here as well, or the guest closes the
+     overlay, removes a photograph, reopens a neighbour, presses next, and is
+     shown the thing they just deleted.
+
+     Open on the removed photograph is not reachable today, because the removal
+     control lives in the strip underneath an overlay that covers the screen.
+     It is handled anyway rather than argued about: closing costs one line, and
+     the alternative is a comment claiming an ordering nobody will re-check the
+     next time a tile grows a second control. */
+  function lbForget(path) {
+    if (!lbItems || !lbItems.length) return;
+
+    var kept = [];
+    for (var i = 0; i < lbItems.length; i++) {
+      if (lbItems[i] && lbItems[i].path !== path) kept.push(lbItems[i]);
+    }
+    if (kept.length === lbItems.length) return;
+
+    // Standing over a set that just changed under it. Closing is the honest
+    // answer: re-indexing mid view would slide a different photograph under a
+    // caption the guest is reading.
+    if (lbEl && !lbEl.hidden) { lbClose(); return; }
+
+    lbItems = kept;
+  }
+
   function buildLightbox() {
     var el = document.createElement('div');
     el.className = 'lb';
@@ -5390,7 +5442,23 @@
      a connection that cannot reach the album at all.
      ====================================================================== */
 
+  /* One frame is two controls, because there are two things a guest wants to
+     do with their own photograph and only one of them is looking at it.
+
+     They are separate targets rather than one target with a corner hotspot. A
+     52px hit area in the corner of a 104px frame is a quarter of the frame, so
+     the tap that means "show me this bigger" would land on the tap that means
+     "destroy it" often enough to be the feature's defining experience. The
+     removal gets its own full width control under the frame instead, at the
+     52px this section holds every other control to.
+
+     No control of either kind appears in #gallery. That is the shared album
+     and those photographs are not this guest's to remove: the strip is the
+     only place on the site that knows which ones are. */
   function mineTile(path, items, i) {
+    var item = document.createElement('div');
+    item.className = 'mine__item';
+
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'mine__tile';
@@ -5403,13 +5471,30 @@
     img.alt = '';
     /* A frame with no photograph in it is worse than one fewer frame. Same
        rule the album tiles follow, and here it also covers the owner clearing
-       an object from the dashboard, which this device cannot know about. */
-    img.onerror = function () { btn.setAttribute('data-broken', '1'); };
+       an object from the dashboard, which this device cannot know about.
+
+       The whole item is hidden rather than the frame alone, because a removal
+       control hanging under nothing is worse than either of them. */
+    img.onerror = function () { item.setAttribute('data-broken', '1'); };
     img.src = photoPublicUrl(path);
 
     btn.appendChild(img);
     btn.addEventListener('click', function () { lbOpen(items, i, btn); });
-    return btn;
+
+    /* The label is the plain verb and the accessible name is the whole
+       sentence, because five identical squares in a row make "Remove" on its
+       own a question rather than an answer to a screen reader guest. */
+    var rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'mine__remove';
+    rm.setAttribute('aria-label',
+      t('photos.mine.remove.aria').replace('{i}', String(i + 1)));
+    rm.textContent = t('photos.mine.remove');
+    rm.addEventListener('click', function () { askRemove(path, item, rm); });
+
+    item.appendChild(btn);
+    item.appendChild(rm);
+    return item;
   }
 
   function buildMine() {
@@ -5435,7 +5520,355 @@
     }
     box.appendChild(strip);
 
+    /* The confirmation lands here and nowhere else, and the slot is in the
+       document from the first render rather than created on demand.
+
+       Under the strip rather than inside it, deliberately: the strip scrolls
+       sideways, so a question mounted in a 104px frame can be scrolled off the
+       screen while it is being read, and the two answers with it. */
+    var slot = document.createElement('div');
+    slot.className = 'mine__slot';
+    box.appendChild(slot);
+
     return box;
+  }
+
+  /* ----------------------------------------------------------------------
+     TAKING ONE BACK
+
+     The only destructive request this site can make, and the only place on
+     the page a photograph can be removed from.
+     ---------------------------------------------------------------------- */
+
+  /* withdrawEnrollment()'s shape, and for the same reason it has that shape.
+     A delete against public.photos is refused: section 5 grants anon insert
+     and nothing else, and section 8 deliberately made the table unreadable
+     because it carries guest_id. A security definer function takes the
+     credential as an argument, checks it server side, and never hands the
+     table back.
+
+     BOTH arguments are the check, and only one of them is a secret. A storage
+     path proves nothing at all: those are public URLs, and every guest who has
+     opened the album is holding all of them. The guest_id is the credential,
+     exactly as it is for amending a registration, and this site never
+     publishes it. The function requires the pair to match a row.
+
+     Three answers, read from the integer the function hands back and from its
+     error code, never from a status code. On this project a status code is not
+     proof of anything: a blocked read answers with an empty list and a blocked
+     delete answers 204, and both look exactly like success.
+
+       gone     one row or zero rows, and they are one answer on purpose. One
+                means it was theirs and it is deleted. Zero means it was not
+                theirs, or somebody removed it already. The caller must not be
+                able to tell those apart, or this becomes a way to ask whether
+                a given path belongs to a given id, and the ids are what the
+                whole scheme rests on. Either way the honest thing to say is
+                that the photograph is gone
+       absent   the owner has not run supabase/10-delete-own-photo.sql, so
+                nothing was deleted and the guest is told exactly that
+       failed   the request never arrived */
+  function deleteOwnPhoto(ident, path) {
+    var args = { p_guest_id: ident.guest_id, p_storage_path: path };
+
+    return sbRequest('POST', '/rest/v1/rpc/delete_own_photo', args, null)
+      .then(function (res) {
+        if (res.status === 404 && res.code === 'PGRST202') return { result: 'absent' };
+
+        // A bare integer: rows deleted. One and zero are one answer.
+        if (res.ok && (res.body === 1 || res.body === 0)) return { result: 'gone' };
+
+        /* Anything else, the 2xx carrying something that is not a number
+           included. A body this function cannot read is not a deletion it can
+           claim, and claiming one is the single worst thing this file could
+           do here. */
+        return { result: 'failed', code: res.code };
+      });
+  }
+
+  function mineHost() { return $('#photos-mine'); }
+
+  /* Both halves of the reveal undone together: the question goes and the frame
+     it was pointing at stops being singled out. Written as a sweep over the
+     strip rather than a held reference, because the strip is rebuilt from
+     storage on several paths and a held node outlives the frame it named. */
+  function clearRemoveConfirm() {
+    var host = mineHost();
+    if (!host) return;
+
+    $$('.mine__item[data-confirming]', host).forEach(function (n) {
+      n.removeAttribute('data-confirming');
+    });
+
+    var slot = $('.mine__slot', host);
+    if (slot) slot.textContent = '';
+  }
+
+  /* Step one, and buildWithdrawConfirm()'s component rather than a second one
+     written for photographs. The same question paragraph, the same destructive
+     control that names what happens and never says yes or ok, the same way
+     back that is not a button at all, and the same sweep bar for the wait. The
+     page keeps one vocabulary for "are you sure", across the two controls on
+     this site that destroy something.
+
+     No reveal animation and no timer, for the two reasons that function's
+     header gives in full: a destructive confirmation that fades in is one a
+     thumb already in motion can tap through, and one that expires is one that
+     vanishes while somebody is still reading it.
+
+     No data-i18n anywhere in the block, which is the withdrawal's rule for the
+     same reason. These labels depend on the block's state, and the language
+     sweep would put "Remove the photograph" back on a control that is mid
+     request. A language tap rebuilds the strip through renderPhotos() and this
+     block goes with it, which is the correct outcome: nothing has been sent
+     and the guest is asked again in the language they just chose. */
+  function buildRemoveConfirm(path, item, opener) {
+    var box = document.createElement('div');
+    box.className = 'withdraw-confirm mine__confirm';
+    box.setAttribute('data-state', 'idle');
+
+    var bar = document.createElement('div');
+    bar.className = 'sweep';
+    box.appendChild(bar);
+
+    var q = document.createElement('p');
+    q.className = 'withdraw-confirm__q';
+    q.textContent = t('photos.mine.confirm.q');
+    box.appendChild(q);
+
+    var yes = document.createElement('button');
+    yes.type = 'button';
+    yes.className = 'btn btn--ghost panel__confirm';
+    yes.textContent = t('photos.mine.confirm.yes');
+    yes.addEventListener('click', function () { doRemove(path, box, yes); });
+    box.appendChild(yes);
+
+    var row = document.createElement('div');
+    row.className = 'panel__row';
+
+    var no = document.createElement('button');
+    no.type = 'button';
+    no.className = 'subtle-action';
+    no.textContent = t('photos.mine.confirm.no');
+    no.addEventListener('click', function () { keepPhoto(opener); });
+    row.appendChild(no);
+    box.appendChild(row);
+
+    /* Escape reverts, bound to the block rather than to the document because
+       the block owns the state it reverts, and it dies with the node rather
+       than accumulating one more copy every time a frame is tapped. Ignored in
+       flight: at that point the request has left the device. */
+    box.addEventListener('keydown', function (ev) {
+      var key = ev.key || ev.keyCode;
+      if (key !== 'Escape' && key !== 'Esc' && key !== 27) return;
+      if (box.getAttribute('data-state') === 'submitting') return;
+      ev.preventDefault();
+      keepPhoto(opener);
+    });
+
+    return box;
+  }
+
+  /* The frame is marked while its question stands. Five of these are
+     interchangeable grey squares, so a sentence saying "this photograph" has
+     to be able to point at one, and the mark is what makes the question
+     answerable rather than a guess. */
+  function askRemove(path, item, opener) {
+    var slot = $('.mine__slot', mineHost() || document);
+    if (!slot) return;
+
+    // A second question replaces the first rather than joining it. Two
+    // confirmations standing at once, each pointing at a different frame, is
+    // two ways to remove the wrong photograph.
+    clearRemoveConfirm();
+
+    item.setAttribute('data-confirming', '1');
+    slot.appendChild(buildRemoveConfirm(path, item, opener));
+
+    // Focus onto the control that does the thing, which is deliberate in both
+    // directions: the question is heard and then the consequence named in
+    // full, and a keyboard guest is one key from either answer.
+    var yes = $('.panel__confirm', slot);
+    if (yes && yes.focus) yes.focus();
+  }
+
+  /* Declined, by two routes: the keep control and the Escape key. Both put the
+     strip back exactly as it was with nothing sent, and hand focus to the
+     control the guest was standing on when they changed their mind. */
+  function keepPhoto(opener) {
+    clearRemoveConfirm();
+    if (opener && opener.focus) {
+      try { opener.focus(); } catch (e) { /* detached */ }
+    }
+  }
+
+  /* setWithdrawState()'s shape, including the part that matters: the freeze
+     covers the whole strip and not just the box.
+
+     Every other frame in the strip carries a removal control, and each of
+     those calls askRemove(), which empties the slot and tears this box out of
+     the document while its request is still on the wire. Freezing the box
+     alone would leave four ways to destroy the block that is waiting for an
+     answer. */
+  function setRemoveState(box, state) {
+    box.setAttribute('data-state', state);
+
+    var busy = (state === 'submitting');
+    var host = mineHost();
+    $$('button', host || box).forEach(function (el) { el.disabled = busy; });
+
+    var yes = $('.panel__confirm', box);
+    if (!yes) return;
+
+    yes.textContent = busy ? t('photos.mine.busy') : t('photos.mine.confirm.yes');
+    yes.setAttribute('aria-busy', busy ? 'true' : 'false');
+  }
+
+  /* The reconciliation, in one function, because it is one act.
+
+     Four visible things are projections of the two storage keys written here,
+     and a caller that does three of them leaves the page telling two different
+     stories about the same photograph. The count and the strip in particular
+     are read from photo_count and photo_paths, which are written on the same
+     branch on the way in and are written on the same branch here on the way
+     out, so they cannot drift apart unless somebody writes one and forgets the
+     other.
+
+     The ladder is why the count is not merely a number in a table. A guest at
+     the five photograph maximum is looking at the quota body and has no
+     uploader at all, so freeing a slot has to put the control back, and
+     renderPhotos() owns that decision. It is called on that transition and on
+     no other, because everywhere else it would rebuild the uploader and throw
+     away a transcript the guest may still be reading.
+
+     The shared album is read back rather than edited in place. A status code
+     is not proof (D-27), and the view is the only thing that knows what is
+     actually in the album now. */
+  function forgetPhoto(path) {
+    var wasFull = identity.photoCount() >= photosMaxPerGuest();
+
+    identity.removePhotoPath(path);
+    identity.setPhotoCount(Math.max(0, identity.photoCount() - 1));
+
+    lbForget(path);
+
+    if (wasFull) {
+      renderPhotos();
+    } else {
+      renderMine();
+      /* The figure and nothing else, for the same reason renderPhotos() is not
+         called on this branch: the control is standing and it keeps what it is
+         holding. refreshPhotosState() is deliberately not reused here, because
+         its album read points at an element this strip replaced. */
+      if (photoUploader) {
+        var fig = $('.uploader__count', photoUploader);
+        if (fig) fig.textContent = String(photosRemaining());
+      }
+    }
+
+    renderGallery();
+  }
+
+  /* The strip alone, rebuilt from storage. renderPhotos() would do this too
+     and would also discard the uploader, its transcript and any batch still
+     settling, which is the wrong price for one frame leaving a row. */
+  function renderMine() {
+    var host = mineHost();
+    if (!host) return;
+
+    host.textContent = '';
+
+    var mine = buildMine();
+    if (mine) { host.appendChild(mine); return; }
+
+    // The last one is gone, so the host goes with it rather than standing
+    // empty. renderPhotos() builds a new one the next time there is anything
+    // to put in it.
+    if (host.parentNode) host.parentNode.removeChild(host);
+  }
+
+  /* The line the block is replaced by when the owner has not run
+     supabase/10-delete-own-photo.sql. amendPendingLine()'s treatment exactly,
+     including the programmatic focus: the control the guest pressed is gone,
+     so focus would otherwise fall to the document body, and a screen reader
+     guest would be told nothing at all about why the thing they pressed did
+     not happen. Landing on the sentence is both the announcement and the
+     answer.
+
+     It says nothing was changed, because nothing was. This is the one branch
+     where a silent no-op would be indistinguishable from success, and the
+     photograph is still sitting in the strip and still in the album to prove
+     the sentence right. */
+  function mineAbsentLine() {
+    var line = document.createElement('p');
+    line.className = 'panel__pending';
+    line.setAttribute('tabindex', '-1');
+    line.textContent = t('photos.mine.absent');
+    return line;
+  }
+
+  /* Step two, and this whole block exists for it.
+
+     doWithdraw()'s shape, including the part that matters most: the answer
+     that changes the world is applied before any mounted test, because it
+     writes storage and module state and then re-renders out of those rather
+     than into this node. A language tap landing mid request tears this box out
+     of the document, and bailing there would leave the device still listing a
+     photograph the database has already dropped, which is the exact
+     disagreement the function was written to prevent, running backwards.
+
+     Below that, every branch renders into this box and into nothing else, so a
+     box that has left the document has nowhere to put its answer. */
+  function doRemove(path, box, yes) {
+    if (box.getAttribute('data-state') === 'submitting') return;
+
+    var ident = identity.get();
+
+    setRemoveState(box, 'submitting');
+
+    deleteOwnPhoto(ident, path).then(function (res) {
+      if (res.result === 'gone') {
+        forgetPhoto(path);
+        /* Nothing is un-frozen on this branch and nothing needs to be. The
+           strip was rebuilt out of storage above, so every control now in the
+           document is a new one, and the box this ran from is detached. */
+        toast(t('photos.mine.removed'));
+        return;
+      }
+
+      if (!stillMounted(box)) return;
+
+      // Out of the freeze first on both remaining branches. It covers every
+      // control in the strip, so without this the whole strip stays disabled
+      // for the rest of the page's life with no re-render scheduled.
+      setRemoveState(box, 'idle');
+
+      if (res.result === 'absent') {
+        var slot = $('.mine__slot', mineHost() || document);
+        clearRemoveConfirm();
+        if (!slot) return;
+
+        var line = mineAbsentLine();
+        slot.appendChild(line);
+        if (line.focus) { try { line.focus(); } catch (e) { /* older browser */ } }
+        return;
+      }
+
+      /* The wire failed. The confirmation stays exactly where it is, because
+         replacing it with a paragraph would take away the only way to remove
+         this photograph for the rest of the page's life over one bad moment of
+         mobile data. The question becomes the line that names the state, the
+         control becomes a retry, and focus moves onto it, which is where the
+         guest's attention is standing already. */
+      setRemoveState(box, 'failure');
+
+      var q = $('.withdraw-confirm__q', box);
+      if (q) q.textContent = t('photos.mine.fail');
+
+      if (!yes) return;
+      yes.textContent = t('photos.mine.retry');
+      if (yes.focus) yes.focus();
+    });
   }
 
   /* ----------------------------------------------------------------------

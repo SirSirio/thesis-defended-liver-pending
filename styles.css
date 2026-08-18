@@ -3348,26 +3348,97 @@ details[open] > .fold__sum .fold__chev {
 }
 .mine__strip::-webkit-scrollbar { display: none; }
 
-.mine__tile {
+/* The frame and its removal control travel together, so the item is what the
+   strip lays out and what scroll snapping addresses. Hiding the frame alone
+   when its object is gone would leave a Remove button hanging under nothing,
+   which is why the broken rule moved up here from the frame. */
+.mine__item {
   flex: 0 0 auto;
-  width: 104px; height: 104px;
+  width: 104px;
+  scroll-snap-align: start;
+}
+.mine__item[data-broken] { display: none; }
+
+.mine__tile {
+  display: block;
+  width: 100%; height: 104px;
   padding: 0;
   appearance: none; cursor: pointer;
   overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: var(--r-md);
-  scroll-snap-align: start;
   transition: transform var(--t-fast) var(--ease-out),
               border-color var(--t-fast) var(--ease-out);
 }
-.mine__tile[data-broken] { display: none; }
 .mine__tile:active { transform: scale(0.96); }
 .mine__tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
 @media (hover: hover) and (pointer: fine) {
   .mine__tile:hover { border-color: var(--accent-lit); }
 }
+
+/* The frame the standing question is about. Five interchangeable grey squares
+   in a row make "this photograph" meaningless without it.
+
+   Border and dimming rather than a transform, because the item is the scroll
+   snap target and moving it would drag the strip under the reading guest. The
+   other frames recede instead of this one advancing, which says the same thing
+   and moves nothing. */
+.mine__item[data-confirming] .mine__tile { border-color: var(--accent-lit); }
+.mine__strip:has([data-confirming]) .mine__item:not([data-confirming]) {
+  opacity: 0.45;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+/* Its own control under the frame, never a corner hotspot on it. A 52px hit
+   area in the corner of a 104px frame is a quarter of the frame, so "open
+   this" and "destroy this" would land on each other. Full width, at the 52px
+   the uploader holds every other control to, and dim at rest: it is reachable
+   without advertising itself, which is the treatment .subtle-action already
+   carries elsewhere for exactly this reason. */
+.mine__remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  margin-top: var(--s-2);
+  padding: 0 var(--s-2);
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mine__remove:not(:disabled):hover {
+    color: var(--accent-lit);
+    border-color: var(--accent-lit);
+  }
+}
+
+/* Frozen while a removal is on the wire. The colour does not move, for the
+   same arithmetic .subtle-action:disabled records: dimming a 12px grey any
+   further puts it under the floor. The cursor is the whole signal. */
+.mine__remove:disabled { cursor: default; }
+
+/* Where the confirmation lands. Empty and zero height until it is asked for,
+   and outside the sideways scrolling strip, so a question cannot be scrolled
+   off the screen while it is being read. */
+.mine__slot:empty { display: none; }
+
+/* Reusing .withdraw-confirm verbatim rather than growing a second confirmation
+   component. This adds the clearance it needs under a strip instead of under a
+   panel row, and nothing else. */
+.mine__confirm { margin-top: var(--s-4); }
 
 .photos__toalbum { margin-top: var(--s-5); }
 
