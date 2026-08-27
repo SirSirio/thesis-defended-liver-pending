@@ -39,3 +39,7 @@ desktop.ini
 
 # GSD research fetch cache. Hash named, regenerated on demand, not project history.
 .planning/research/.cache/
+
+# Owner master copy of the door clip. The repository ships the encoded
+# derivative at assets/door.mp4 instead. See quick task 260827-dvr.
+EntranceVideo.mp4

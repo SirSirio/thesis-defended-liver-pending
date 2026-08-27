@@ -105,8 +105,8 @@ window.PARTY_CONFIG = {
      --------------------------------------------------------------------- */
 
   door: {
-    videoSrc: null,    // e.g. 'assets/door.mp4'
-    posterSrc: null,   // e.g. 'assets/door-poster.jpg'
+    videoSrc: 'assets/door.mp4',          // Set 2026-08-27. 21s, 960x540, 3.3 MB
+    posterSrc: 'assets/door-poster.jpg',  // The courtyard the clip arrives at
 
     /* The shape of the clip, wide by tall. Almost every phone films upright,
        so IF YOU FILMED IT UPRIGHT ON YOUR PHONE, CHANGE THIS TO '9/16' and the
