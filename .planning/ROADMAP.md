@@ -199,7 +199,7 @@ These unblock as inputs arrive. None of them gate a phase.
 |---|---|---|
 | ~~Venue address~~ | ~~LOC-01 to LOC-03~~ | **Resolved 2026-08-13.** Trongårdsvej 46, 2800 Kongens Lyngby, confirmed by the owner and recorded as D-01. Phase 2 ships the location section live rather than as a placeholder. |
 | ~~Supabase credentials~~ | ~~ENR-03, PH-03~~ | **Resolved.** In `config.js` and verified, and the schema has since been applied. |
-| Door video file | ACC-01 to ACC-03 | Placeholder player, written directions carry the section. Phase 2 builds the whole slot against `videoSrc: null`, so one config line turns it on with no code change. Film it landscape if you can; if you film it portrait, set `door.aspect` and the slot adapts. |
+| ~~Door video file~~ | ~~ACC-01 to ACC-03~~ | **Resolved 2026-08-27.** Filmed landscape, delivered as `EntranceVideo.mp4`, encoded down to 3.3 MB and shipped as `assets/door.mp4` with a poster frame. Two config lines, no code change, exactly as phase 2 promised. Quick task 260827-dvr. |
 | Entrance, floor, buzzer, parking | Nothing, but it is the highest value input left | `venue.notes` in `config.js`. Every line optional, whole block absent when empty. For a 76 unit kollegium these are what actually get a guest to the right door, more than the video does. |
 | Kahoot link | KAH-02, KAH-03 | Unlock mechanism built and testable against a dummy link |
 | Confirmed date and time | CD-01 | Currently 2026-10-03 16:00, one line to change |

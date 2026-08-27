@@ -7,8 +7,8 @@ current_phase_name: photos
 status: executing
 stopped_at: Phase 4 UI-SPEC approved
 last_updated: "2026-08-15T22:32:20.240Z"
-last_activity: 2026-08-16
-last_activity_desc: Phase 04 execution started
+last_activity: 2026-08-27
+last_activity_desc: Quick task 260827-dvr, the door video is live
 progress:
   total_phases: 3
   completed_phases: 2
@@ -133,6 +133,15 @@ activates itself. Do not replace this with a config flag.
 - Phase 2: **An iframe load event proves a document arrived and nothing more.** `data-state="ready"` was redefined from 'the map is ready' to 'a document arrived', so the map guidance was promoted out of the conditional waiting layer into an always present caption, and the load handler no longer cancels the 8000ms fallback.
 - Phase 2: **The map fallback caption holds its box in every state**, hidden by visibility and never removed from flow, so the moment the map paints nothing below it moves. The reserved gap while mounting and blocked is the deliberate price of the D-09 no reflow guarantee.
 - Phase 2: **WR-04's frame.clientHeight check was rejected.** The frame is absolutely positioned at inset 0 with height 100%, so it measures the slot and is non-zero for Google's error page exactly as for a working map. It would close the gap on paper and leave it open in fact.
+- Quick 260827-dvr: **The door clip is re-encoded rather than shipped as filmed.** Aerial
+  footage over foliage is worst case for H.264, so a routine CRF 25 pass came out larger than
+  the 8.7 MB source. Denoising before scaling cut it to 3.3 MB at 960x540 with the door, the
+  wall sign and the bicycles all still legible. The slot is 327 CSS pixels wide on a phone, so
+  720p was never being resolved anyway, and the guest paying for it is standing outdoors on
+  mobile data.
+- Quick 260827-dvr: **The poster frame is the destination, not the first frame.** With
+  `preload="metadata"` the poster is all most guests ever see of the clip, and the opening
+  frame is a dim road junction 300 metres from the door.
 - Phase 2: **Requirement checkboxes are derived per ID from the verification report**, never from the summaries or from how complete the code looks. Nine phase 02 IDs checked, three left unchecked pending the D-23 device pass recorded on 02-DEVICE-PASS.md.
 
 ### Pending Todos
@@ -141,13 +150,13 @@ None yet.
 
 ### Blockers/Concerns
 
-None blocking. Six owner inputs are tracked and five are still outstanding, each with a
+None blocking. Six owner inputs are tracked and four are still outstanding, each with a
 graceful placeholder:
 
 | Input | Unblocks | Status |
 |---|---|---|
 | Venue address | Location section | Set. config.js:44, confirmed per D-01 |
-| Door video file | Access section | Placeholder |
+| Door video file | Access section | **Set 2026-08-27.** `assets/door.mp4`, config.js:108, quick task 260827-dvr |
 | Written door directions | Access section. The fast path on a weak signal, per D-12 | Placeholder. config.js:120, door.directions is null |
 | Kahoot link | Easter egg unlock | Placeholder |
 | Confirmed date and time | Countdown target | Provisional 2026-10-03 16:00 |
@@ -178,6 +187,7 @@ invitations go out.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260817-txl | Save the date as the hero anchor, add to calendar, full screen mobile menu, GSAP motion layer | 2026-08-17 | 6ff3d3c | [260817-txl-frontend-motion-and-save-the-date](./quick/260817-txl-frontend-motion-and-save-the-date/) |
+| 260827-dvr | The door video arrives: denoised 3.3 MB encode, poster frame at the courtyard, two config lines | 2026-08-27 | 49ac19f | [260827-dvr-door-video-arrives](./quick/260827-dvr-door-video-arrives/) |
 | 260817-ulc | Five second DTU-to-dynamic morph announced by a peristaltic dispense, responsive aura, album split into own photos plus a gallery with a lightbox, progressive disclosure, course index sheet, sideways scroll fixed | 2026-08-17 | 38799b7 | [260817-ulc-course-index-sheet-and-progressive-discl](./quick/260817-ulc-course-index-sheet-and-progressive-discl/) |
 
 ## Deferred Items
