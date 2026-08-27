@@ -3043,6 +3043,62 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   #photos-body[data-body="gate"] .btn { display: flex; width: 100%; }
 }
 
+/* --------------------------------------------------------------------------
+   THE CARD, AND THE AWAKENING THIS BLOCK WAS NEVER PART OF
+
+   Read this before changing a radius anywhere below.
+
+   :root ships the institutional DTU shape (--r-sm 2px, --r-md 8px, --r-lg
+   10px, --glass 0, --lift 0) and :root[data-awake="1"] transitions the same
+   five properties to 10px, 18px, 28px, 1 and 1 over roughly 1.0 to 1.4
+   seconds. That softening is the page's central visual joke: the mask is
+   square, and it slips.
+
+   This block did not take part in it. .uploader declared no radius, no
+   background, no border and no padding, so it was not a card at all: it was a
+   naked stack of a definition list, a paragraph, a button and some hairline
+   separated log lines sitting directly on the page background. Worse, its
+   primary button reached for --r-sm, the SMALLEST value in the system, so the
+   single most important control in the phase computed 10px awake while the
+   thumbnails 24 pixels below it computed 18px.
+
+   Measured on the live page at 390px with data-awake set, which is what a
+   guest actually gets:
+
+     .uploader              0px, transparent, no border, no padding
+     .uploader__acts .btn  10px
+     .queue                 0px
+     .uploader__status      0px
+     .mine__tile           18px   <- the rest of the page
+
+   So "make it less squared" is not a request for a new rounded style. It is
+   this block finally speaking the language the page already speaks, which is
+   also the only version of the fix that leaves the DTU parody standing.
+
+   --r-md and not --r-lg, deliberately. 28px on a full width card at 390px
+   reads as a consumer app and loses the syllabus. 18px is soft and still
+   institutional, and it is the same value .mine__tile already carries, so the
+   card and the thumbnails inside it are one family rather than two.
+
+   The shadow expression is copied verbatim from .album__tile rather than
+   invented, so there is exactly one lift value on this page. */
+.uploader {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  padding: var(--s-5);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, calc(0.34 * var(--lift)));
+}
+
+@media (max-width: 400px) {
+  .uploader { padding: var(--s-4); }
+}
+
+/* The submit control, brought up to the card's own radius. It inherited
+   --r-sm from .btn, which is correct for a button sitting loose on the page
+   and wrong for the one filled button inside a card that is itself --r-md. */
+.uploader__acts .btn { border-radius: var(--r-md); }
+
 .uploader__note {
   font-size: 13px;
   line-height: 1.5;
