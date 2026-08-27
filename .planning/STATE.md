@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04
-current_phase_name: photos
-status: executing
-stopped_at: Phase 4 UI-SPEC approved
-last_updated: "2026-08-15T22:32:20.240Z"
+current_phase: 04.1
+current_phase_name: the-upload-rebuilt
+status: planned
+stopped_at: Phase 04.1 planned, plan 1 ready to execute
+last_updated: "2026-08-27T20:51:16.704Z"
 last_activity: 2026-08-27
-last_activity_desc: Quick task 260818-rmv, photo removal, standalone album, pump and title
+last_activity_desc: Phase 04.1 inserted, context, UI spec and two plans written
 progress:
-  total_phases: 3
-  completed_phases: 2
+  total_phases: 4
+  completed_phases: 3
   total_plans: 19
-  completed_plans: 14
+  completed_plans: 19
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 
 ## Current Position
 
-Phase: 04 (photos) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 04
-Last activity: 2026-08-18 - Completed quick task 260818-rmv: photo removal, the album as its own page, the pump, the title and the host card
+Phase: 04.1 (the upload rebuilt) — PLANNED, not started
+Plan: 0 of 2
+Status: Context, UI spec and two plans written. Plan 1 is next.
+Last activity: 2026-08-27 - Phase 04.1 inserted after phase 4. The uploader was measured rather than eyeballed: it declares no radius on its container and reaches for --r-sm on its primary button, so it is the one block that never joins the data-awake softening the rest of the page rides. Owner decisions taken: video capped at 50 MB and 60 seconds, one video per guest spending one of the existing five slots, soft cards as the direction.
 
 Progress: [██████████] 100%
 
@@ -143,9 +143,11 @@ activates itself. Do not replace this with a config flag.
   wall sign and the bicycles all still legible. The slot is 327 CSS pixels wide on a phone, so
   720p was never being resolved anyway, and the guest paying for it is standing outdoors on
   mobile data.
+
 - Quick 260827-dvr: **The poster frame is the destination, not the first frame.** With
   `preload="metadata"` the poster is all most guests ever see of the clip, and the opening
   frame is a dim road junction 300 metres from the door.
+
 - Phase 2: **Requirement checkboxes are derived per ID from the verification report**, never from the summaries or from how complete the code looks. Nine phase 02 IDs checked, three left unchecked pending the D-23 device pass recorded on 02-DEVICE-PASS.md.
 - Quick 260818-rmv: **One row deleted and zero rows deleted are one answer.** `delete_own_photo` returns a count and the site treats 1 and 0 identically. Distinguishing them would turn the RPC into a way to ask whether a given storage path belongs to a given guest_id, and those ids are the whole credential scheme.
 - Quick 260818-rmv: **The guest_id is the credential, the storage path is not.** Paths are public URLs and every guest who opened the album holds all of them, so the function requires the pair to match a row and `public.album` still carries no guest_id (T-04-01 holds).
@@ -218,6 +220,10 @@ the drops is a one line change.
 | 260827-dvr | The door video arrives: denoised 3.3 MB encode, poster frame at the courtyard, two config lines | 2026-08-27 | 49ac19f | [260827-dvr-door-video-arrives](./quick/260827-dvr-door-video-arrives/) |
 | 260817-ulc | Five second DTU-to-dynamic morph announced by a peristaltic dispense, responsive aura, album split into own photos plus a gallery with a lightbox, progressive disclosure, course index sheet, sideways scroll fixed | 2026-08-17 | 38799b7 | [260817-ulc-course-index-sheet-and-progressive-discl](./quick/260817-ulc-course-index-sheet-and-progressive-discl/) |
 | 260818-rmv | A guest can remove their own photograph, uploads appear without a reload, the album becomes its own page, the pump gets a reservoir and rollers that read, the course gets a name and a face | 2026-08-18 | 7834786 | [260818-rmv-delete-own-photo-and-standalone-album](./quick/260818-rmv-delete-own-photo-and-standalone-album/) |
+
+### Roadmap Evolution
+
+- Phase 04.1 inserted after Phase 4: The upload rebuilt: one minute of video, and an interface that is not a form (URGENT)
 
 ## Deferred Items
 

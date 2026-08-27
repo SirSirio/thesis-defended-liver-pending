@@ -173,6 +173,41 @@ refused with a joke rather than an error.
 
 ---
 
+### Phase 04.1: The upload rebuilt: one minute of video, and an interface that is not a form (INSERTED)
+
+**Goal:** The upload control stops reading as a form, and one minute of video is accepted end
+to end.
+
+**Requirements**: PH-01 to PH-07 revisited, plus the owner decisions D-1 to D-6 in
+`04.1-CONTEXT.md`
+**Depends on:** Phase 4
+**Plans:** 2 plans
+
+The diagnosis is measured rather than felt. `:root[data-awake="1"]` already softens the whole
+page from 2/8/10px to 10/18/28px, and the uploader is the one block that declares no radius on
+its container and reaches for the smallest token on its primary button. It is not a card, it
+is a naked stack. So the visual half of this phase is the uploader finally joining the
+awakening the rest of the site already rides, rather than a second rounded style invented
+beside it. That is also what keeps the DTU parody intact.
+
+The video half is constrained by there being no build step: nothing is re-encoded in the
+browser, so the bucket ceiling is the only real size control and it had to be a decided
+number. It is 50 MiB, one video per guest, spending one of the existing five slots.
+
+Plans:
+
+- [ ] 04.1-01-PLAN.md — The card, the allowance meter, the stated limits, the drop zone and
+      the chips. Ships alone, no Supabase, so the direction can be judged before the pipeline
+      is built on it.
+- [ ] 04.1-02-PLAN.md — One minute of video through every layer: migration first and verified
+      from the untrusted position, then the path contract in all three places, then the
+      validator, the upload, the rendering and the copy.
+
+**Done when:** the uploader computes 18px awake and reads as a card, the transcript reads as
+chips with nothing reflowing when a batch starts, a 60 second video uploads from a real phone
+and appears with no reload, a second video is refused by the database rather than only by the
+client, and the three languages are still at parity with zero em dashes.
+
 ## Phase 5: Spectacle and polish
 
 **Goal:** The degradation arc, the easter egg, and the pass that makes it good rather than done.
