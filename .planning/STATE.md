@@ -8,7 +8,7 @@ status: executing
 stopped_at: Phase 4 UI-SPEC approved
 last_updated: "2026-08-15T22:32:20.240Z"
 last_activity: 2026-08-27
-last_activity_desc: Quick task 260827-dvr, the door video is live
+last_activity_desc: Quick task 260818-rmv, photo removal, standalone album, pump and title
 progress:
   total_phases: 3
   completed_phases: 2
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 Phase: 04 (photos) — EXECUTING
 Plan: 1 of 5
 Status: Executing Phase 04
-Last activity: 2026-08-17 — Completed quick task 260817-txl: save the date, mobile menu, motion layer
+Last activity: 2026-08-18 - Completed quick task 260818-rmv: photo removal, the album as its own page, the pump, the title and the host card
 
 Progress: [██████████] 100%
 
@@ -47,6 +47,10 @@ Progress: [██████████] 100%
 | Supabase RLS, verified | Guest can enroll (201). Raw `enrollments` reads back `[]` even holding rows, so notes stay private to the host. `attendees` view exposes first name and guest count only. Anonymous delete is refused. Note that both `[]` on a blocked read and `204` on a blocked delete look like success, so verify by inserting a row and querying after, never by status code alone. |
 | Supabase key | `sb_publishable_` key, verified active by differential test. The old service_role key was exposed in chat and the owner has since disabled it. |
 | Local preview | `Preview locally.cmd`, or `node tools/preview.js`, serves at 127.0.0.1:4173 |
+| Pages | TWO now. `index.html` is the invitation. `album.html` is the shared album, added 2026-08-18, with its own `album.css` and `album.js`. The invitation links to it from the nav, the deck tile and the photos section, and holds no gallery of its own. |
+| Asset versions | `?v=8` on every asset in both pages. **Bump this on every deploy** or phones serve stale files for ten minutes. `index.html` itself carries no version and is cached 600s by GitHub Pages, so a hard refresh is needed to see a new deploy. |
+| Photo removal | **Live and security verified 2026-08-18.** `public.delete_own_photo(uuid, text)` is applied. Proved from the untrusted position with the publishable key: a wrong guest_id returns 0 and leaves the row, the right one returns 1, a replay returns 0, anon cannot read `public.photos` (42501) and cannot DELETE against it (401). |
+| Supabase MCP | `.mcp.json` at the repo root, project scoped, plus `enabledMcpjsonServers` in `.claude/settings.local.json`. A session can apply migrations directly after the owner authenticates once through `/mcp`. No secret is stored: project_ref is already public and auth is per user OAuth. |
 
 ## What phase 1 actually shipped
 
@@ -143,6 +147,16 @@ activates itself. Do not replace this with a config flag.
   `preload="metadata"` the poster is all most guests ever see of the clip, and the opening
   frame is a dim road junction 300 metres from the door.
 - Phase 2: **Requirement checkboxes are derived per ID from the verification report**, never from the summaries or from how complete the code looks. Nine phase 02 IDs checked, three left unchecked pending the D-23 device pass recorded on 02-DEVICE-PASS.md.
+- Quick 260818-rmv: **One row deleted and zero rows deleted are one answer.** `delete_own_photo` returns a count and the site treats 1 and 0 identically. Distinguishing them would turn the RPC into a way to ask whether a given storage path belongs to a given guest_id, and those ids are the whole credential scheme.
+- Quick 260818-rmv: **The guest_id is the credential, the storage path is not.** Paths are public URLs and every guest who opened the album holds all of them, so the function requires the pair to match a row and `public.album` still carries no guest_id (T-04-01 holds).
+- Quick 260818-rmv: **The removal control lives only in the strip under the uploader**, never in the shared album, and the frame and the removal are separate hit targets rather than one target with a corner hotspot.
+- Quick 260818-rmv: **The album is a page, not a section** (`album.html`). Submitting is a task and looking is not, and the two were sharing one screen. What is left on the invitation is a door that fetches nothing to draw itself.
+- Quick 260818-rmv: **album.js is a second script rather than a reuse of app.js**, and the duplicated contracts (request helper, path validator, URL builder, language resolver) are named in its header. If one changes in app.js it changes here in the same commit.
+- Quick 260818-rmv: **Dead render calls are deleted, not left null-guarding.** The reload bug was one dead call surviving a refactor, so the album machinery was removed from app.js rather than left pointing at an element that no longer exists.
+- Quick 260818-rmv: **The album page opens already awake.** The five second DTU mask is the invitation's joke and is paid for by its hero; re-running it would hold a guest's photographs behind an animation they have already seen.
+- Quick 260818-rmv: **The reveal animates transform and opacity only.** A blur or desaturate reveal was the obvious move and was declined: filter animation over forty tiles repaints the whole grid every frame on the phone the page exists for.
+- Quick 260818-rmv: **A pump is legible only when the whole system is present.** Blur budget was never the problem. A reservoir it draws from, a rotor plate that makes rotation readable, and rollers drawn ON the tube rather than beside it are what made it read.
+- Quick 260818-rmv: **Tubing hangs, it does not traverse.** The needle hangs in the same column as the head and the drop falls straight down onto the right hand end of the date. Routing it to the centre made the tube cross the headline, which this file had now done twice.
 
 ### Pending Todos
 
@@ -182,6 +196,20 @@ whether the `.ics` blob download opens the iOS calendar import sheet, and GSAP f
 older Android are the four things emulation cannot answer. A device pass is owed before
 invitations go out.
 
+Concern: quick task 260818-rmv added a whole second page, rebuilt the opening instrument and
+changed the hero, and **none of it has been seen at real frame rates**. The headless browser
+used for verification runs GSAP's ticker at roughly 1.5 frames per second, so every still
+produced was a forced frame. Geometry, event timing and DOM state are verified. The rotor's
+1.15s revolution, whether the album holds frame rate with forty tiles on an older Android, and
+whether the lightbox swipe fights iOS Safari's edge back gesture, are not. The device pass owed
+above now covers both tasks.
+
+Concern, open and reported by the owner: something white moving up the sides during the opening
+reads as buggy. Diagnosed as `tinyRing` in `dispensing()` (motion.js), the 287px expanding
+circles each falling droplet leaves behind. The owner elected to keep the droplet system as it
+is, so this is **unresolved by choice, not by oversight**. Removing only the rings while keeping
+the drops is a one line change.
+
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Directory |
@@ -189,6 +217,7 @@ invitations go out.
 | 260817-txl | Save the date as the hero anchor, add to calendar, full screen mobile menu, GSAP motion layer | 2026-08-17 | 6ff3d3c | [260817-txl-frontend-motion-and-save-the-date](./quick/260817-txl-frontend-motion-and-save-the-date/) |
 | 260827-dvr | The door video arrives: denoised 3.3 MB encode, poster frame at the courtyard, two config lines | 2026-08-27 | 49ac19f | [260827-dvr-door-video-arrives](./quick/260827-dvr-door-video-arrives/) |
 | 260817-ulc | Five second DTU-to-dynamic morph announced by a peristaltic dispense, responsive aura, album split into own photos plus a gallery with a lightbox, progressive disclosure, course index sheet, sideways scroll fixed | 2026-08-17 | 38799b7 | [260817-ulc-course-index-sheet-and-progressive-discl](./quick/260817-ulc-course-index-sheet-and-progressive-discl/) |
+| 260818-rmv | A guest can remove their own photograph, uploads appear without a reload, the album becomes its own page, the pump gets a reservoir and rollers that read, the course gets a name and a face | 2026-08-18 | 7834786 | [260818-rmv-delete-own-photo-and-standalone-album](./quick/260818-rmv-delete-own-photo-and-standalone-album/) |
 
 ## Deferred Items
 
