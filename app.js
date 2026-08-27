@@ -5624,10 +5624,7 @@
       /* The figure and nothing else, for the same reason renderPhotos() is not
          called on this branch: the control is standing and it keeps what it is
          holding. */
-      if (photoUploader) {
-        var fig = $('.uploader__count', photoUploader);
-        if (fig) fig.textContent = String(photosRemaining());
-      }
+      writeAllowance();
     }
 
     /* The shared album is not touched from here, and does not need to be. It
@@ -5854,6 +5851,65 @@
      above the maximum is a drifted count, not a negative allowance. */
   function photosRemaining() {
     return Math.max(0, photosMaxPerGuest() - identity.photoCount());
+  }
+
+  /* The allowance, written in one place.
+
+     Four separate call sites used to carry this three line block:
+
+       var fig = $('.uploader__count', photoUploader);
+       if (fig) fig.textContent = String(photosRemaining());
+
+     Four copies of one intent was survivable while the intent was one number.
+     It stops being survivable the moment the same fact is also drawn as five
+     pips, because a call site that updates the digit and forgets the pips
+     produces a control that contradicts itself on screen, and the site with the
+     lowest traffic is the one nobody would test. So all four now call this and
+     the duplication is gone rather than tripled.
+
+     The pip count comes from config through photosMaxPerGuest(), never from a
+     literal five. config.js already warns that the limit is a three file change
+     and that two of the three will not complain if you forget them; a hardcoded
+     five here would have made it four.
+
+     Pips are rebuilt rather than mutated. There are at most five of them, this
+     runs once per recorded file, and a rebuild cannot leave a stale attribute
+     on a pip that changed meaning. */
+  function writeAllowance(uploader) {
+    var host = uploader || photoUploader;
+    if (!host) return;
+
+    var max = photosMaxPerGuest();
+    var used = Math.min(max, Math.max(0, identity.photoCount()));
+
+    var fig = $('.uploader__count', host);
+    if (fig) fig.textContent = String(photosRemaining());
+
+    var pips = $('.allow__pips', host);
+    if (!pips) return;
+
+    pips.textContent = '';
+    for (var i = 0; i < max; i++) {
+      var pip = document.createElement('span');
+      pip.className = 'allow__pip';
+      /* Spent or free, and nothing in between. The video variant is built by
+         the same branch reading a kind the records do not carry yet, so it is
+         written here rather than bolted on later, and it stays unreachable
+         until the video work lands. */
+      if (i < used) pip.setAttribute('data-spent', photoKindAt(i) === 'video' ? 'video' : '1');
+      pips.appendChild(pip);
+    }
+  }
+
+  /* What kind of thing occupies slot i. Photographs only, today.
+
+     public.photos has no column saying what a row is, so there is nothing to
+     read and this answers 'photo' for everything. It exists so that
+     writeAllowance() above is written once, correctly, against the shape the
+     video work needs, rather than being rewritten the moment that shape
+     arrives. Returning a constant is the honest version of not knowing yet. */
+  function photoKindAt(_i) {
+    return 'photo';
   }
 
   /* setFormState()'s shape, one for one. One attribute drives everything: CSS
@@ -6100,8 +6156,7 @@
      below the control while the next file is still decoding. */
   function refreshPhotosState() {
     if (photoUploader) {
-      var fig = $('.uploader__count', photoUploader);
-      if (fig) fig.textContent = String(photosRemaining());
+      writeAllowance(photoUploader);
       setUploaderState(photoUploader, photoState);
     }
 
@@ -6297,24 +6352,48 @@
        would then re-translate half the control on a language tap whose render
        was skipped mid batch, which is exactly the half translated state the
        skip exists to prevent. */
-    var list = document.createElement('dl');
-    list.className = 'facts facts--record';
+    /* The allowance. It was a facts--record definition list, which is to say a
+       spreadsheet row, and .facts--record draws a hairline above and below its
+       row. Loose on the page that read as the fact table it borrowed from; the
+       moment .uploader became a card those two rules were two lines drawn
+       across the inside of it for no reason.
 
-    var line = document.createElement('div');
-    line.className = 'facts__row';
+       So the list goes and the same two pieces of information stay: the label
+       and the number. Both keep their existing class names deliberately, because
+       four separate call sites write .uploader__count and syncUploaderLanguage()
+       writes .uploader__label, and renaming them here would be a rename with
+       four chances to miss one.
 
-    var label = document.createElement('dt');
+       What is added is the pip row, which is the actual answer to "how many do
+       I have left". A digit is read; five blocks are seen. */
+    var allow = document.createElement('div');
+    allow.className = 'allow';
+
+    var head = document.createElement('div');
+    head.className = 'allow__head';
+
+    var label = document.createElement('span');
     label.className = 'uploader__label';
 
     // Mono with tabular figures, because the number changes as files land and
     // a proportional face would shift the value cell sideways every time.
-    var fig = document.createElement('dd');
+    var fig = document.createElement('span');
     fig.className = 'mono uploader__count';
 
-    line.appendChild(label);
-    line.appendChild(fig);
-    list.appendChild(line);
-    box.appendChild(list);
+    head.appendChild(label);
+    head.appendChild(fig);
+    allow.appendChild(head);
+
+    /* aria-hidden, and not negotiable. The label and the number directly above
+       already say the same thing in a sentence a screen reader can read in one
+       breath. Five unlabelled spans announced one at a time is the same fact
+       delivered five times worse. */
+    var pips = document.createElement('div');
+    pips.className = 'allow__pips';
+    pips.setAttribute('aria-hidden', 'true');
+    allow.appendChild(pips);
+
+    box.appendChild(allow);
 
     /* Above the button rather than below it. It is information a guest needs
        in order to decide, so it has to be read before the picker opens, and it
@@ -6424,8 +6503,7 @@
     var label = $('.uploader__label', uploader);
     if (label) label.textContent = t('photos.remaining.label');
 
-    var fig = $('.uploader__count', uploader);
-    if (fig) fig.textContent = String(photosRemaining());
+    writeAllowance(uploader);
 
     var note = $('.uploader__note', uploader);
     if (note) note.textContent = t('photos.permanent');
@@ -6692,10 +6770,7 @@
     /* The figure and nothing else. Deliberately not refreshPhotosState(),
        which also refetches the album: D-12 gives the album exactly one
        trigger, a photograph landing, and nothing landed here. */
-    if (photoUploader) {
-      var fig = $('.uploader__count', photoUploader);
-      if (fig) fig.textContent = String(photosRemaining());
-    }
+    writeAllowance();
   }
 
   /* The batch settles. The terminal control state is computed from the

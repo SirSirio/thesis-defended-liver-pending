@@ -3099,6 +3099,79 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
    and wrong for the one filled button inside a card that is itself --r-md. */
 .uploader__acts .btn { border-radius: var(--r-md); }
 
+/* --------------------------------------------------------------------------
+   THE ALLOWANCE
+
+   A segmented meter rather than a spreadsheet row. The label and the number
+   are unchanged in meaning and in class name; what is new is that the same
+   fact is also SHOWN, as one block per slot, so the answer to "how many do I
+   have left" is available without reading a digit.
+
+   Blocks and not a single bar with a percentage, because the quantity is five
+   discrete things and a continuous bar would imply a fraction of a photograph
+   is a state you can be in.
+   -------------------------------------------------------------------------- */
+.allow { margin: 0 0 var(--s-5); }
+
+.allow__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin: 0 0 var(--s-3);
+}
+
+.uploader__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* Tabular figures are the whole reason this is mono. The number changes as
+   files land and a proportional face would shift it sideways every time. */
+.uploader__count {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.allow__pips {
+  display: flex;
+  gap: var(--s-2);
+}
+
+/* flex: 1 rather than a fixed width, so the meter spans the card at every
+   width and the pip count can change with config without a media query. */
+.allow__pip {
+  flex: 1 1 0;
+  height: 6px;
+  border-radius: var(--r-sm);
+  background: var(--rule);
+  transition: background-color var(--t-fast) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+
+.allow__pip[data-spent] { background: var(--ink-dim); }
+
+/* The one video, when the video work lands. Unreachable today: photoKindAt()
+   answers 'photo' for everything because public.photos has no column saying
+   what a row is. It is written now so the meter is built once against the
+   shape it will need. */
+.allow__pip[data-spent="video"] { background: var(--accent-lit); }
+
+/* Never from scale(0). A pip that grows out of nothing reads as an element
+   arriving; this one is a state changing on an element already there. */
+@media (prefers-reduced-motion: no-preference) {
+  .allow__pip[data-spent] { transform: scaleY(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .allow__pip { transition: none; }
+}
+
 .uploader__note {
   font-size: 13px;
   line-height: 1.5;
