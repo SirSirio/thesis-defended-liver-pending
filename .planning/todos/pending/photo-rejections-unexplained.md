@@ -34,6 +34,16 @@ kind: bug
 >
 > **The next step on this todo is no longer a code change. It is a tap.**
 
+> **2026-08-28, third pass: HEIC is closed.** The owner restated the requirement as "any
+> format", which was the call the HEIC decoder had been waiting on since the 17th. The site
+> now carries libheif as WebAssembly, loaded only when the browser's own decode fails on a
+> file whose bytes say HEIF, so Safari and every JPEG never fetch it. Proved through the
+> real uploader in every guise Files produces, and the failure path proved to refuse in
+> under 300 ms with the control left open. See
+> `.planning/quick/260828-hef-any-picture-is-a-picture/`. With the HEVC video half closed
+> by 260828-rfd, the high efficiency camera setting is no longer a reason for a refusal on
+> either kind. **What remains is the tap above.**
+
 Owner observation from a real phone during the phase 04 device pass: the uploader works, but
 **some pictures are refused and it is not obvious why**. The refusal names the file, so it is not
 a silent drop, but the reason is wrong or the rule is wrong.

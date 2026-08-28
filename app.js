@@ -5069,6 +5069,157 @@
     el.src = url;
   }
 
+  /* HEIC AND HEIF, WHICH NO CHROMIUM CAN OPEN ON ITS OWN.
+
+     Every iPhone shoots HEIC by default, and every recent Samsung and Pixel
+     can be set to, under a "high efficiency" switch. When the picker is the
+     photo album the operating system converts to JPEG on the way out, which
+     is why accept="image/*" is load bearing and is never widened. When the
+     picker is Files, a share sheet or a cloud provider, the HEIC arrives as
+     itself, and no Chromium anywhere can decode it: not on Android, not on
+     Windows, not on a Mac. Safari can. So a guest on the wrong phone was told
+     their photograph could not be opened, about a photograph.
+
+     The site now carries its own reader: libheif compiled to WebAssembly,
+     vendored in assets/vendor/ as libheif.js (81 KB) and libheif.wasm (1.0 MB)
+     from libheif-js 1.19.8, LGPL-3.0, licence text beside it. The split build
+     rather than the single file bundle, because the bundle carries the same
+     binary as base64 and is a third larger for nothing.
+
+     NOTHING IS LOADED UNTIL A HEIF IS ACTUALLY ON THE TABLE. The browser's
+     own decoder runs first and decides every file it can decode, so on Safari,
+     and for every JPEG everywhere, these bytes are never fetched. Only when
+     that decode fails AND the file's own signature says HEIF does the reader
+     load, once, for the life of the page.
+
+     The signature is read from the bytes and never from file.type, because a
+     HEIC that came through Files arrives with an empty type or with
+     application/octet-stream as often as with image/heic. Thirty two bytes
+     settle it: 'ftyp' at offset four, then a HEIF brand in the rest. */
+  function sniffHeif(file, cb) {
+    if (!file || !file.slice || typeof FileReader === 'undefined') return cb(false);
+    var fr = new FileReader();
+    fr.onerror = function () { cb(false); };
+    fr.onabort = function () { cb(false); };
+    fr.onload = function () {
+      var b = new Uint8Array(fr.result), s = '';
+      for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+      cb(s.length >= 12 && s.slice(4, 8) === 'ftyp' &&
+         /heic|heix|hevc|hevx|heim|heis|hevm|hevs|mif1|msf1/.test(s.slice(8, 32)));
+    };
+    try { fr.readAsArrayBuffer(file.slice(0, 32)); } catch (e) { cb(false); }
+  }
+
+  /* The version token the page loaded THIS file under, so the reader is
+     fetched under the same one and a deploy that bumps ?v= in the HTML bumps
+     it here without a second place to remember. */
+  function assetVersion() {
+    var s = document.querySelector('script[src*="app.js"]');
+    var m = s && String(s.getAttribute('src') || '').match(/[?&]v=([^&#]+)/);
+    return m ? '?v=' + m[1] : '';
+  }
+
+  /* Memoised, and every caller that arrives while the download is in flight
+     waits on the same one, so a batch of five HEICs costs one download.
+
+     The wasm is fetched by hand and handed in as wasmBinary rather than
+     located by the module, because this build compiles synchronously and
+     would otherwise try a synchronous XHR on the main thread for a megabyte.
+     Fetching it here keeps the request asynchronous and gives every failure,
+     a 404, an offline phone, a browser with no WebAssembly, the same answer:
+     null, and the refusal the guest would have read yesterday. */
+  var heifModule = null;
+  var heifWaiters = null;
+  function loadHeifDecoder(cb) {
+    if (heifModule) return cb(heifModule);
+    if (heifWaiters) return heifWaiters.push(cb);
+    heifWaiters = [cb];
+
+    function settle(mod) {
+      heifModule = mod || null;
+      var w = heifWaiters;
+      heifWaiters = null;
+      for (var i = 0; i < w.length; i++) w[i](heifModule);
+    }
+
+    if (typeof WebAssembly === 'undefined' || typeof XMLHttpRequest === 'undefined') return settle(null);
+
+    var v = assetVersion();
+    var s = document.createElement('script');
+    s.src = 'assets/vendor/libheif.js' + v;
+    s.onerror = function () { settle(null); };
+    s.onload = function () {
+      if (typeof window.libheif !== 'function') return settle(null);
+      var x = new XMLHttpRequest();
+      x.open('GET', 'assets/vendor/libheif.wasm' + v);
+      x.responseType = 'arraybuffer';
+      x.onerror = function () { settle(null); };
+      x.onabort = function () { settle(null); };
+      x.onload = function () {
+        if (x.status !== 200 || !x.response) return settle(null);
+        try { settle(window.libheif({ wasmBinary: x.response })); }
+        catch (e) { settle(null); }
+      };
+      x.send();
+    };
+    document.head.appendChild(s);
+  }
+
+  /* The whole file into memory, decoded to RGBA, painted onto a canvas the
+     size of the photograph. That canvas is the SOURCE for the same scale and
+     encode every JPEG goes through, and the caller releases it the moment the
+     small canvas has been drawn, because at twelve megapixels it is
+     forty eight megabytes and the phone that needs this path is the phone
+     that can least afford to hold two of them.
+
+     Orientation is libheif's to apply and it does, by default: the irot and
+     imir boxes an iPhone writes are honoured inside decode(), so a portrait
+     HEIC arrives here portrait. No rotation code, for the reason written
+     above downscaleToJpeg(). */
+  function decodeHeifToCanvas(file, mod, cb) {
+    var fr = new FileReader();
+    fr.onerror = function () { cb(null); };
+    fr.onabort = function () { cb(null); };
+    fr.onload = function () {
+      var imgs, im, i, w, h, canvas, ctx, id;
+      try { imgs = new mod.HeifDecoder().decode(fr.result); }
+      catch (e) { return cb(null); }
+      if (!imgs || !imgs.length) return cb(null);
+
+      function freeAll() {
+        for (var k = 0; k < imgs.length; k++) { try { imgs[k].free(); } catch (e) { /* already released */ } }
+      }
+
+      /* The largest image is the photograph. Anything smaller beside it is a
+         thumbnail, a depth map or a gain map, and a thumbnail uploaded in
+         place of the picture would be a silent, permanent downgrade. */
+      im = imgs[0];
+      for (i = 1; i < imgs.length; i++) {
+        if (imgs[i].get_width() * imgs[i].get_height() > im.get_width() * im.get_height()) im = imgs[i];
+      }
+      w = im.get_width();
+      h = im.get_height();
+      if (!w || !h) { freeAll(); return cb(null); }
+
+      canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      ctx = canvas.getContext('2d');
+      if (!ctx) { freeAll(); canvas.width = canvas.height = 0; return cb(null); }
+
+      try { id = ctx.createImageData(w, h); }
+      catch (e) { freeAll(); canvas.width = canvas.height = 0; return cb(null); }
+
+      im.display(id, function (out) {
+        freeAll();
+        if (!out) { canvas.width = canvas.height = 0; return cb(null); }
+        ctx.putImageData(id, 0, 0);
+        cb(canvas);
+      });
+    };
+    try { fr.readAsArrayBuffer(file); } catch (e) { cb(null); }
+  }
+
   /* One decode, one draw, one encode, and then everything is released by hand.
 
      There is no orientation code here and that is the point. image-orientation
@@ -5125,11 +5276,44 @@
       done(blob, errKey);
     }
 
-    img.onerror = function () { finish(null, 'photos.err.decode'); };
+    /* The browser said no. Before that is taken as the answer, the bytes are
+       asked whether this is a HEIF, and if so the site's own reader has a go.
+       See sniffHeif() above for why this exists and why it costs nothing
+       until it is needed. */
+    img.onerror = function () {
+      sniffHeif(file, function (isHeif) {
+        if (!isHeif) return finish(null, 'photos.err.decode');
 
-    img.onload = function () {
-      var w = img.naturalWidth, h = img.naturalHeight;
-      if (!w || !h) return finish(null, 'photos.err.decode');
+        /* The reader is a megabyte on the wire and a real second of decode,
+           so the twenty second budget is REPLACED rather than shared: on party
+           wifi the download alone can take longer than that, and refusing a
+           good photograph at second twenty one would be this path failing in
+           exactly the case it was built for. Ninety seconds, and the same
+           refusal as before when it runs out. */
+        clearTimeout(timer);
+        timer = setTimeout(function () { finish(null, 'photos.err.decode'); }, 90000);
+
+        loadHeifDecoder(function (mod) {
+          if (!mod) return finish(null, 'photos.err.decode');
+          decodeHeifToCanvas(file, mod, function (full) {
+            if (!full) return finish(null, 'photos.err.decode');
+            encodeFrom(full, full.width, full.height, function () { full.width = full.height = 0; });
+          });
+        });
+      });
+    };
+
+    img.onload = function () { encodeFrom(img, img.naturalWidth, img.naturalHeight, null); };
+
+    /* The scale and the encode, shared by the browser's own decode and the
+       HEIC reader so the two paths cannot drift apart. releaseSource frees
+       whatever the pixels came from, and it is called on every exit past the
+       canvas allocation for the reason written beside release() below. */
+    function encodeFrom(source, w, h, releaseSource) {
+      if (!w || !h) {
+        if (releaseSource) releaseSource();
+        return finish(null, 'photos.err.decode');
+      }
 
       // Never upscale. A small photo stays small.
       var scale = Math.min(1, maxEdge / Math.max(w, h));
@@ -5146,7 +5330,10 @@
          the ceiling is 1600 by 1600 by four bytes carried into the next file's
          decode, and the drawImage failure below is itself a memory pressure
          signal: the leak would arrive exactly when the heap is already tight. */
-      function release() { canvas.width = canvas.height = 0; }
+      function release() {
+        canvas.width = canvas.height = 0;
+        if (releaseSource) releaseSource();
+      }
 
       var ctx = canvas.getContext('2d');
       if (!ctx) { release(); return finish(null, 'photos.err.decode'); }
@@ -5154,7 +5341,7 @@
       ctx.imageSmoothingQuality = 'high';   // Chromium and WebKit honour it, Firefox ignores it
 
       try {
-        ctx.drawImage(img, 0, 0, cw, ch);
+        ctx.drawImage(source, 0, 0, cw, ch);
       } catch (e) {
         release();
         return finish(null, 'photos.err.decode');
@@ -5171,7 +5358,7 @@
         release();
         finish(blob, null);
       }, 'image/jpeg', quality);
-    };
+    }
 
     img.decoding = 'async';
     img.src = url;
