@@ -3,11 +3,19 @@ id: photo-rejections-unexplained
 created: 2026-08-17
 source: owner device test, phase 04
 resolves_phase: 5
-severity: high
+severity: low
 kind: bug
 ---
 
 # Some photographs are refused that should not be
+
+> **2026-08-28: cause 1 is FIXED and live.** `validateFile()` reported "Not an image file"
+> for any `File` whose `type` is the empty string, which is what iOS and Android share
+> sheets, the Files app and cloud providers hand back. `fileKind()` now falls back to the
+> name's extension and only refuses when a type exists and is neither image nor video.
+> Cause 2's copy now names the limit and says what to do about it. Cause 3 is gone: video is
+> accepted. **This stays open only until the owner re-tests with the files that actually
+> failed**, which is what the todo asks for and what no local test replaces.
 
 Owner observation from a real phone during the phase 04 device pass: the uploader works, but
 **some pictures are refused and it is not obvious why**. The refusal names the file, so it is not
