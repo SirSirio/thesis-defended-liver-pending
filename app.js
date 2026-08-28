@@ -6577,6 +6577,22 @@
     acts.appendChild(retry);
 
     zone.appendChild(acts);
+
+    /* Why the box is dashed, said once, and only where it is true.
+
+       A dashed rectangle with a button in it is not self explanatory: at
+       desktop widths it is a large empty target and nothing on screen says
+       what it is for. This is the sentence that says it.
+
+       It is hidden on a coarse pointer by the stylesheet rather than by a
+       branch here, because there is nothing to drag on a phone and an
+       instruction a guest cannot follow is worse than no instruction. Built
+       unconditionally so the language re-seat has one thing to find. */
+    var hint = document.createElement('span');
+    hint.className = 'uploader__hint';
+    hint.setAttribute('aria-hidden', 'true');
+    zone.appendChild(hint);
+
     box.appendChild(zone);
 
     /* A separate sibling carrying the hidden attribute, never a label wrapping
@@ -6725,6 +6741,9 @@
 
     writeAllowance(uploader);
     writeRules(uploader);
+
+    var hint = $('.uploader__hint', uploader);
+    if (hint) hint.textContent = t('photos.zone.hint');
 
     var note = $('.uploader__note', uploader);
     if (note) note.textContent = t('photos.permanent');

@@ -3163,11 +3163,30 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
    shape it will need. */
 .allow__pip[data-spent="video"] { background: var(--accent-lit); }
 
-/* Never from scale(0). A pip that grows out of nothing reads as an element
-   arriving; this one is a state changing on an element already there. */
-@media (prefers-reduced-motion: no-preference) {
-  .allow__pip[data-spent] { transform: scaleY(1); }
-}
+/* A pip fills by changing colour and by nothing else.
+
+   The first version of this carried transform: scaleY(1) under a
+   no-preference query, which is an identity transform: it animated nothing
+   while the comment beside it claimed motion. Removed rather than corrected,
+   because the right answer here is genuinely no transform. A pip is a state
+   changing on an element that is already there, not an element arriving, and
+   growing it would be motion for its own sake on the one control in this
+   section that a guest watches while they wait.
+
+   The reduce guard covers the pip and stops there, deliberately.
+
+   An earlier version of this rule also listed .uploader__zone and
+   .mine__remove. It did nothing for either: both are declared later in this
+   file at equal specificity, so their own transition property won, and the
+   rule was a comment claiming a guarantee it was not delivering. Rather than
+   move it to the end of the section to force the win, it is narrowed to what
+   should actually be here.
+
+   Those two transition border and background COLOUR and nothing else. Colour
+   and opacity are what reduced motion is meant to preserve, because they
+   carry state a guest needs; it is transforms and movement the preference is
+   about. So they are correct as they stand and this block does not touch
+   them. The pip is the only thing here that ever animated anything else. */
 @media (prefers-reduced-motion: reduce) {
   .allow__pip { transition: none; }
 }
@@ -3252,8 +3271,10 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
    -------------------------------------------------------------------------- */
 .uploader__zone {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--s-3);
   min-height: 132px;
   padding: var(--s-6) var(--s-4);
   border: 2px dashed var(--rule-lit);
@@ -3294,8 +3315,30 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
 .uploader__acts {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--s-4);
   width: 100%;
+}
+
+/* The line that says why the box is dashed.
+
+   Absent on a coarse pointer, because there is nothing to drag on a phone and
+   an instruction a guest cannot follow is worse than no instruction. The
+   query is the same (hover: hover) and (pointer: fine) pair this file already
+   uses to gate every hover rule, so the hint appears exactly where the drag
+   behaviour it describes is real. */
+.uploader__hint { display: none; }
+
+@media (hover: hover) and (pointer: fine) {
+  .uploader__hint {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
 }
 
 /* The single most important control in the phase, so it clears the 44px floor
@@ -3338,12 +3381,17 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
    below would step down 24px the moment a batch starts and step back up when
    it ends, under the thumb that started it. Same no-reflow guarantee phase 2
    gave the map slot and phase 3 gave the field error box. */
+/* 16px and not 24px. The reserved box below is 24px tall in every state, so
+   in the idle state the card ends with the status margin plus that reservation
+   plus the card's own padding, which was 72px of nothing under the zone and
+   made the card read as bottom heavy. The reservation itself cannot be given
+   up without losing the no-reflow guarantee, so the margin is what pays. */
 .uploader__status {
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.5;
   color: var(--ink-dim);
-  margin: var(--s-5) 0 0;
+  margin: var(--s-4) 0 0;
   min-height: var(--s-5);
 }
 
@@ -3883,11 +3931,24 @@ details[open] > .fold__sum .fold__chev {
   padding: 0 var(--s-2);
   appearance: none;
   -webkit-appearance: none;
-  background: none;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-sm);
+  /* A pill, and the one place in this section where 999px is used on a
+     control rather than on a chip.
+
+     It sits directly under a 104px thumbnail whose corners are --r-md, and at
+     --r-sm it read as a hard rectangle bolted to the bottom of a soft frame:
+     the exact squared quality the owner named. A pill under a rounded frame
+     resolves that without competing with it, and the shape also says
+     "secondary" beside the filled submit control, which is what this is.
+
+     The fill is a recessed well rather than a border. An outlined box here
+     was one more rectangle in a strip that already has five. */
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid transparent;
+  border-radius: 999px;
   font-family: var(--font-mono);
   font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--ink-dim);
   cursor: pointer;
   transition: color var(--t-fast) var(--ease-out),
