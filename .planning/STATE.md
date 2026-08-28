@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 04.1
 current_phase_name: the-upload-rebuilt
 status: complete
-stopped_at: Phase 04.1 complete and live
-last_updated: "2026-08-27T20:51:16.704Z"
+stopped_at: Quick 260828-rfd complete and live; the Android refusal itself is unreproduced and awaits a check.html report
+last_updated: "2026-08-28T21:05:00.000Z"
 last_activity: 2026-08-28
-last_activity_desc: Phase 04.1 complete: the uploader rebuilt, and one minute of video live end to end
+last_activity_desc: Quick 260828-rfd: the refusal instrument shipped, and the decoder no longer vetoes a video
 progress:
   total_phases: 4
   completed_phases: 3
@@ -59,10 +59,12 @@ Progress: [██████████] 100%
 | Supabase RLS, verified | Guest can enroll (201). Raw `enrollments` reads back `[]` even holding rows, so notes stay private to the host. `attendees` view exposes first name and guest count only. Anonymous delete is refused. Note that both `[]` on a blocked read and `204` on a blocked delete look like success, so verify by inserting a row and querying after, never by status code alone. |
 | Supabase key | `sb_publishable_` key, verified active by differential test. The old service_role key was exposed in chat and the owner has since disabled it. |
 | Local preview | `Preview locally.cmd`, or `node tools/preview.js`, serves at 127.0.0.1:4173 |
-| Pages | TWO now. `index.html` is the invitation. `album.html` is the shared album, added 2026-08-18, with its own `album.css` and `album.js`. The invitation links to it from the nav, the deck tile and the photos section, and holds no gallery of its own. |
+| Pages | TWO guest facing. `index.html` is the invitation. `album.html` is the shared album, added 2026-08-18, with its own `album.css` and `album.js`. The invitation links to it from the nav, the deck tile and the photos section, and holds no gallery of its own. |
+| Diagnostics | `check.html`, added 2026-08-28, **linked from nothing and not a guest surface**. The owner opens it on a device where the uploader refuses a file and it prints what the browser said: name, type, size, the decode and the re-encode as separate outcomes, the `MediaError` code, and which codecs this browser owns. A copy button puts the report on the clipboard. It touches no network at all, which is verified by the harness rather than asserted, and it deliberately does not load `styles.css`. See `.planning/quick/260828-rfd-why-a-file-is-refused/`. |
+| Video duration | Read from the **container**, not only from the decoder. `mp4DurationFromContainer()` walks the ISO base media boxes to `mvhd`, so a browser missing a codec no longer refuses a clip whose bytes are fine. The `<video>` element still runs first and still decides everything it decided before; the container is asked only on the branch that would otherwise refuse. The one minute rule is still enforced either way, proved at 59s accepted against 62s refused with no decoder involved. |
 | Course number | **31026** since 2026-08-28, encoding the whole date 3/10/26. Changed everywhere a guest sees it, including the re-rendered og-image.png. **The `c03102.` localStorage prefix and the `c03102:` event names were deliberately NOT changed**: that prefix is every guest's identity key, and renaming it would orphan every registration and every uploaded photograph. config.js says so where somebody would go looking. |
 | Own-photo recovery | `public.my_photos(uuid)` is live. The removal strip is drawn from `photo_paths` in the browser, and `addPhotoPath()` did not exist until 2026-08-18, so everything uploaded before that left a count and no path: five of the fifteen rows, across two guests, were unremovable by the people who uploaded them. The client now asks the server once per load, and only when it holds fewer paths than its count. Verified live against Miao's real guest_id: empty strip to five frames with five working Remove controls. |
-| Asset versions | `?v=8` on every asset in both pages. **Bump this on every deploy** or phones serve stale files for ten minutes. `index.html` itself carries no version and is cached 600s by GitHub Pages, so a hard refresh is needed to see a new deploy. |
+| Asset versions | `?v=14` on every asset in both pages. **Bump this on every deploy** or phones serve stale files for ten minutes. `index.html` itself carries no version and is cached 600s by GitHub Pages, so a hard refresh is needed to see a new deploy. |
 | Photo removal | **Live and security verified 2026-08-18.** `public.delete_own_photo(uuid, text)` is applied. Proved from the untrusted position with the publishable key: a wrong guest_id returns 0 and leaves the row, the right one returns 1, a replay returns 0, anon cannot read `public.photos` (42501) and cannot DELETE against it (401). |
 | Supabase MCP | `.mcp.json` at the repo root, project scoped, plus `enabledMcpjsonServers` in `.claude/settings.local.json`. A session can apply migrations directly after the owner authenticates once through `/mcp`. No secret is stored: project_ref is already public and auth is per user OAuth. |
 

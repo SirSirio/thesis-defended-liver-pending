@@ -17,6 +17,23 @@ kind: bug
 > accepted. **This stays open only until the owner re-tests with the files that actually
 > failed**, which is what the todo asks for and what no local test replaces.
 
+> **2026-08-28, second pass: the instrument this todo has always needed now exists.**
+> A further report, Android refusing both pictures and videos while the same guest's
+> iPhone accepts them, was investigated and **not reproduced**: the deploy, the asset
+> versions, the language level, the absence of a CSP, the five per guest ceiling and the
+> whole client path were each eliminated, and a JPEG, an H.264 MP4 and an HEVC MP4 all
+> reached ON RECORD in an Android profile browser. See
+> `.planning/quick/260828-rfd-why-a-file-is-refused/`.
+>
+> The instruction below, record `file.name`, `file.type` and `file.size` and do not guess,
+> has been right since the day it was written and has never been followable, because there
+> was no way to get those three values off a phone. **`check.html` is now that way.** It
+> reports them, the decode and the re-encode as separate outcomes, the `MediaError` code,
+> and what the browser can actually read, and it copies the lot to the clipboard. It
+> touches no network, verified by intercepting every request the page makes.
+>
+> **The next step on this todo is no longer a code change. It is a tap.**
+
 Owner observation from a real phone during the phase 04 device pass: the uploader works, but
 **some pictures are refused and it is not obvious why**. The refusal names the file, so it is not
 a silent drop, but the reason is wrong or the rule is wrong.

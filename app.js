@@ -4864,7 +4864,169 @@
      needs the moov atom and nothing more, and on a 50 MB file picked from
      local storage that is fast. This fires only where the browser has stopped
      answering. */
+  /* HOW LONG THE CLIP IS, ASKED OF THE FILE INSTEAD OF THE DECODER.
+
+     probeVideoDurationByElement() below learns a clip's length by handing it
+     to a <video> element, which means the duration gate depends on this
+     browser owning this codec. Those are two different questions, and only one
+     of them is any of our business. A browser without HEVC refuses a clip that
+     every other guest's phone would play, and the bytes were never the
+     problem: they are uploaded whole and never re-encoded, so what this
+     browser can decode has no bearing on what lands in the bucket.
+
+     The container already knows. MP4, MOV and 3GP are all ISO base media
+     files: a flat sequence of boxes, each an unsigned 32 bit size and a four
+     character type, and the movie header box mvhd inside moov carries a
+     timescale and a duration in those units. Reading it is a walk over box
+     headers with a DataView. No decoder, no dependency, no build step.
+
+     Returns SECONDS, or null for anything it is not certain about. Every
+     malformed, truncated, unexpected or simply-not-ISO-BMFF case returns null
+     rather than a guess, because the caller's fallback for null is the
+     refusal that happens today. WebM is Matroska and not this format at all,
+     so it lands on null correctly and without a special case.
+
+     It is not a security control and must never be read as one. The database
+     and the bucket are the authorities on what is stored; this decides which
+     sentence a guest reads. */
+  function mp4DurationFromContainer(file, done) {
+    /* Reads are by slice, so a fifty megabyte clip costs a few kilobytes of
+       memory here. A phone that has already refused to decode this file is not
+       the place to pull the whole thing into an ArrayBuffer.
+
+       FileReader rather than Blob.arrayBuffer(), which is the newer and nicer
+       spelling and is exactly the kind of version floor this file avoids
+       everywhere else. */
+    function slice(start, len, cb) {
+      if (start < 0 || len <= 0 || start >= file.size) return cb(null);
+      var fr = new FileReader();
+      fr.onerror = function () { cb(null); };
+      fr.onabort = function () { cb(null); };
+      fr.onload = function () {
+        try { cb(new DataView(fr.result)); } catch (e) { cb(null); }
+      };
+      try { fr.readAsArrayBuffer(file.slice(start, Math.min(file.size, start + len))); }
+      catch (e) { cb(null); }
+    }
+
+    function type4(dv, at) {
+      var s = '';
+      for (var i = 0; i < 4; i++) s += String.fromCharCode(dv.getUint8(at + i));
+      return s;
+    }
+
+    /* A box header is eight bytes, or sixteen when the 32 bit size is the
+       escape value 1 and a 64 bit size follows the type. Size 0 means the box
+       runs to the end of the file, which is legal and is only ever the last
+       one. Returns null for a header that cannot be believed, and a size
+       smaller than its own header is the shape that walks backwards forever. */
+    function header(dv, at, remaining) {
+      if (at + 8 > dv.byteLength) return null;
+      var size = dv.getUint32(at);
+      var kind = type4(dv, at + 4);
+      var head = 8;
+      if (size === 1) {
+        if (at + 16 > dv.byteLength) return null;
+        /* Assembled from two 32 bit halves because getBigUint64 returns a
+           BigInt, which is both a version floor and a type this file has no
+           other use for. Anything past 2^53 is not a video. */
+        size = (dv.getUint32(at + 8) * 4294967296) + dv.getUint32(at + 12);
+        head = 16;
+      } else if (size === 0) {
+        size = remaining;
+      }
+      if (size < head || size > remaining) return null;
+      return { size: size, head: head, kind: kind };
+    }
+
+    function readMvhd(dv, at) {
+      /* Four bytes of version and flags, then two timestamps whose width the
+         version decides, then the two fields this function exists for. */
+      var version = dv.getUint8(at);
+      var scale, units;
+      if (version === 1) {
+        if (at + 32 > dv.byteLength) return done(null);
+        scale = dv.getUint32(at + 20);
+        units = (dv.getUint32(at + 24) * 4294967296) + dv.getUint32(at + 28);
+      } else {
+        if (at + 20 > dv.byteLength) return done(null);
+        scale = dv.getUint32(at + 12);
+        units = dv.getUint32(at + 16);
+        // The all-ones duration is this format's way of saying it does not know.
+        if (units === 4294967295) return done(null);
+      }
+      if (!scale || !units) return done(null);
+      var secs = units / scale;
+      /* Four hours is not a party video and is far likelier to be a field
+         read at the wrong offset. Refusing to answer is the safe direction:
+         the caller's answer for null is the refusal that happens today. */
+      if (!isFinite(secs) || secs <= 0 || secs > 14400) return done(null);
+      done(secs);
+    }
+
+    /* mvhd is normally the first child of moov, so a quarter of a megabyte is
+       generous. moov itself can be tens of megabytes on a long recording, and
+       reading it whole to reach a field in its first hundred bytes is the
+       memory mistake this whole function exists to avoid. */
+    function findMvhd(start, len) {
+      slice(start, Math.min(len, 262144), function (dv) {
+        if (!dv) return done(null);
+        var at = 0, guard = 64;
+        while (at + 8 <= dv.byteLength && guard-- > 0) {
+          var box = header(dv, at, len - at);
+          if (!box) return done(null);
+          if (box.kind === 'mvhd') return readMvhd(dv, at + box.head);
+          at += box.size;
+        }
+        done(null);
+      });
+    }
+
+    /* The top level walk. moov sits at the front in a file written for
+       streaming and at the very end in one a phone camera wrote, and neither
+       is unusual, so both are simply walked to. The guard bounds a file whose
+       sizes send this in a circle. */
+    function walk(at, guard) {
+      if (guard <= 0 || at + 8 > file.size) return done(null);
+      slice(at, 16, function (dv) {
+        if (!dv) return done(null);
+        var box = header(dv, 0, file.size - at);
+        if (!box) return done(null);
+        if (box.kind === 'moov') return findMvhd(at + box.head, box.size - box.head);
+        walk(at + box.size, guard - 1);
+      });
+    }
+
+    if (!file || !file.size || typeof FileReader === 'undefined' ||
+        typeof DataView === 'undefined' || !file.slice) return done(null);
+    walk(0, 96);
+  }
+
+  /* The gate, in two questions rather than one.
+
+     The <video> element still runs first and still decides every case it
+     decides today, so nothing that works now can start failing. The container
+     is asked ONLY on the branch that would otherwise have refused the file for
+     being unreadable, which is the branch where the element's answer was about
+     the browser rather than about the clip. Every other refusal, too long,
+     already settled, is untouched.
+
+     Ordered this way the worst case is today's behaviour. */
   function probeVideoDuration(file, done) {
+    probeVideoDurationByElement(file, function (errKey) {
+      if (errKey !== 'photos.err.video.read') return done(errKey);
+
+      mp4DurationFromContainer(file, function (secs) {
+        // Nothing legible in the container either. The original refusal stands.
+        if (secs == null) return done('photos.err.video.read');
+        // The same whole second of tolerance the element path allows.
+        if (secs > videoMaxSeconds() + 1) return done('photos.err.video.long');
+        done(null);
+      });
+    });
+  }
+
+  function probeVideoDurationByElement(file, done) {
     var url = URL.createObjectURL(file);
     var el = document.createElement('video');
     var settled = false;
@@ -7166,7 +7328,22 @@
        rather than hoped about. */
     zone.addEventListener('click', function (e) {
       if (photoZoneBusy()) return;
-      if (e.target !== zone) return;      // the button and the retry own their own clicks
+
+      /* The two buttons own their own clicks and must not be answered twice:
+         the pick button already opens the picker, and a tap that reached the
+         zone as well would open it a second time on one tap.
+
+         Everything else inside the zone belongs to the zone, INCLUDING the row
+         the buttons sit in. Testing e.target !== zone made that row a dead
+         area, and on a phone the row is most of the target: the zone is a
+         hundred and thirty pixels tall and the buttons and their surround
+         occupy the middle of it, so the likeliest tap in the whole control
+         did nothing at all. */
+      var n = e.target;
+      while (n && n !== zone) {
+        if (n.tagName === 'BUTTON') return;
+        n = n.parentNode;
+      }
       input.click();
     });
 

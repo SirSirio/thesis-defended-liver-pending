@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0B0B0C">
+<meta name="color-scheme" content="dark">
+<title>31026 File acceptance self test</title>
+<link rel="icon" href="assets/favicon.svg?v=14" type="image/svg+xml">
+
+<!-- THIS PAGE IS AN INSTRUMENT, NOT PART OF THE INVITATION.
+
+     It is linked from nothing and it answers exactly one question: when the
+     uploader refuses a file, what did the BROWSER say about that file?
+
+     Three properties are deliberate and none of them should be traded away.
+
+     1. IT TOUCHES NO NETWORK. No Supabase, no bucket, no row, no fetch of any
+        kind past the one script in this head. A file picked here cannot leave
+        the device, which is the property that makes it safe to hand to a
+        phone and safe to leave on a public URL.
+
+     2. IT REPORTS FACTS, NOT OPINIONS. It never re-implements validateFile().
+        It runs the same operations the uploader runs, the decode, the canvas
+        re-encode, the metadata probe, and prints what came back. Two copies
+        of a rule drift apart; two readings of file.type cannot.
+
+     3. IT IS SELF CONTAINED. It does not load styles.css. A diagnostic that
+        can be broken by a change to the thing it is diagnosing is not one.
+        The tokens below are copied from styles.css on purpose, and they are
+        allowed to fall behind it. -->
+
+<script src="config.js?v=14"></script>
+<style>
+:root {
+  --bg: #0B0B0C; --surface: #141416;
+  --ink: #F4F4F5; --ink-dim: #A1A1A6;
+  /* NOT the site's --ink-faint, and the difference is on purpose. #6E6E73
+     measures 3.63:1 on --surface, which is fine on the invitation where that
+     token carries decoration, and not fine here where every quiet label is a
+     field name in a report somebody has to read on a phone. 5.36:1 on
+     --surface, 5.73:1 on --bg. */
+  --ink-label: #8A8A90;
+  --accent: #990000; --accent-lit: #E83F48; --ok: #4ADE80;
+  --rule: #2A2A2E; --rule-lit: #3A3A40;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px;
+  --r-sm: 10px; --r-md: 18px;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; padding: var(--s-5) var(--s-4) var(--s-6);
+  background: var(--bg); color: var(--ink);
+  font: 15px/1.55 var(--font-body);
+}
+.wrap { max-width: 680px; margin: 0 auto; }
+
+.eyebrow {
+  font: 600 11px/1 var(--font-mono); letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-label); margin: 0 0 var(--s-3);
+}
+h1 { font: 700 26px/1.15 var(--font-body); letter-spacing: -0.02em; margin: 0 0 var(--s-3); text-wrap: balance; }
+.lede { color: var(--ink-dim); margin: 0 0 var(--s-5); max-width: 60ch; text-wrap: pretty; }
+
+.btn {
+  display: block; width: 100%; border: 0; border-radius: var(--r-md);
+  padding: var(--s-4) var(--s-5); font: 600 16px/1.2 var(--font-body);
+  background: var(--accent); color: var(--ink); cursor: pointer;
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.btn:active { transform: scale(0.985); }
+.btn--ghost {
+  background: transparent; color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--rule-lit); margin-top: var(--s-3);
+}
+.btn:focus-visible { outline: 2px solid var(--accent-lit); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+
+.card {
+  background: var(--surface); border: 1px solid var(--rule);
+  border-radius: var(--r-md); padding: var(--s-4); margin: var(--s-4) 0;
+}
+.card__name {
+  font: 600 15px/1.3 var(--font-body); margin: 0 0 var(--s-3);
+  overflow-wrap: anywhere;
+}
+.group {
+  font: 600 10px/1 var(--font-mono); letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-label);
+  margin: var(--s-4) 0 var(--s-2);
+}
+.card > .group:first-child { margin-top: 0; }
+
+dl { display: grid; grid-template-columns: minmax(94px, 34%) 1fr; gap: var(--s-1) var(--s-3); margin: 0; }
+dt { font: 400 12px/1.5 var(--font-mono); color: var(--ink-label); }
+dd { margin: 0; font: 400 13px/1.5 var(--font-mono); color: var(--ink); overflow-wrap: anywhere; }
+dd.yes { color: var(--ok); }
+dd.no  { color: var(--accent-lit); }
+
+.verdict {
+  margin: var(--s-4) 0 0; padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-sm); background: rgba(0, 0, 0, 0.25);
+  font: 500 14px/1.45 var(--font-body); text-wrap: pretty;
+}
+.verdict[data-ok="1"] { color: var(--ok); }
+.verdict[data-ok="0"] { color: var(--accent-lit); }
+
+.busy { color: var(--ink-dim); font: 400 14px/1.5 var(--font-body); margin: var(--s-4) 0 0; }
+.foot { color: var(--ink-label); font-size: 12px; margin-top: var(--s-6); border-top: 1px solid var(--rule); padding-top: var(--s-4); }
+.hide { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">Course 31026 &middot; diagnostics</p>
+  <h1>Why a file was not accepted</h1>
+  <p class="lede">
+    Pick the pictures or videos the album refused. This page asks the browser the same
+    questions the uploader asks, and prints the answers. Nothing is sent anywhere and
+    nothing is uploaded: the files stay on this device.
+  </p>
+
+  <button class="btn" id="pick" type="button">Choose the files that were refused</button>
+  <input type="file" id="input" multiple accept="image/*,video/*" hidden>
+  <button class="btn btn--ghost hide" id="copy" type="button">Copy the whole report</button>
+
+  <div id="out"></div>
+  <div class="card" id="device"></div>
+
+  <p class="foot">
+    This page is a tool. It is not part of the invitation and it is linked from nothing.
+  </p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var CFG = window.PARTY_CONFIG || {};
+  var P = CFG.photos || {};
+  var V = P.video || {};
+  var IMG_MB  = parseFloat(P.maxFileSizeMb) || 12;
+  var VID_MB  = parseFloat(V.maxFileSizeMb) || 50;
+  var VID_SEC = parseFloat(V.maxSeconds) || 60;
+
+  var out     = document.getElementById('out');
+  var input   = document.getElementById('input');
+  var copyBtn = document.getElementById('copy');
+  var report  = [];
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function bytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1024 / 1024).toFixed(2) + ' MB';
+  }
+
+  /* Every printed line goes through here, so what is on the screen and what
+     the copy button puts on the clipboard cannot say different things. */
+  function row(dl, label, value, verdict) {
+    dl.appendChild(el('dt', null, label));
+    dl.appendChild(el('dd', verdict === true ? 'yes' : verdict === false ? 'no' : null, String(value)));
+    report.push('  ' + label + ': ' + value);
+  }
+
+  function group(card, title) {
+    card.appendChild(el('p', 'group', title));
+    report.push('');
+    report.push('[' + title + ']');
+    var dl = document.createElement('dl');
+    card.appendChild(dl);
+    return dl;
+  }
+
+  /* WHAT THE DEVICE IS.
+
+     The codec table is the point of this panel. A browser that answers nothing
+     for H.264 cannot read an ordinary phone video however good the bytes are,
+     and that fact is invisible from every other surface on the site. */
+  function describeDevice() {
+    var card = document.getElementById('device');
+    card.innerHTML = '';
+    report.push('');
+    report.push('=== THIS DEVICE ===');
+
+    var dl = group(card, 'this device');
+    row(dl, 'user agent', navigator.userAgent);
+    row(dl, 'platform', navigator.platform || 'not reported');
+    row(dl, 'memory', navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'not reported');
+    row(dl, 'cores', navigator.hardwareConcurrency || 'not reported');
+    row(dl, 'screen', window.screen.width + ' x ' + window.screen.height +
+        ' at ' + (window.devicePixelRatio || 1) + 'x');
+
+    var v = document.createElement('video');
+    var codecs = [
+      ['MP4, H.264', 'video/mp4; codecs="avc1.42E01E"'],
+      ['MP4, HEVC',  'video/mp4; codecs="hvc1.1.6.L93.B0"'],
+      ['MP4, AV1',   'video/mp4; codecs="av01.0.05M.08"'],
+      ['WebM, VP9',  'video/webm; codecs="vp9"'],
+      ['QuickTime',  'video/quicktime'],
+      ['3GP',        'video/3gpp']
+    ];
+    var dl2 = group(card, 'video this browser can read');
+    for (var i = 0; i < codecs.length; i++) {
+      var ans = '';
+      try { ans = v.canPlayType(codecs[i][1]); } catch (e) { ans = ''; }
+      row(dl2, codecs[i][0], ans || 'no', !!ans);
+    }
+
+    var dl3 = group(card, 'the limits this site is running');
+    row(dl3, 'picture size', IMG_MB + ' MB');
+    row(dl3, 'video size', VID_MB + ' MB');
+    row(dl3, 'video length', VID_SEC + ' seconds');
+    row(dl3, 'video enabled', V.enabled ? 'yes' : 'no', !!V.enabled);
+  }
+
+  /* THE TWO OPERATIONS THE UPLOADER PERFORMS, RUN ONE AT A TIME.
+
+     A photograph is decoded into an <img> and re-encoded through a canvas. A
+     video is handed to a <video> element and read at loadedmetadata. Those are
+     the only two places a good file can be refused for a reason that is about
+     the browser rather than about the file, so those are the two things worth
+     watching directly.
+
+     Both carry the uploader's settle guard and its timer, for the uploader's
+     reason: if neither the load nor the error event ever fires, the walk over
+     the picked files stops forever and the page explains nothing. */
+
+  function testImage(file, done) {
+    var url, img, settled = false, res = { objectUrl: false };
+    try { url = URL.createObjectURL(file); res.objectUrl = true; }
+    catch (e) { res.urlError = String((e && e.message) || e); return done(res); }
+
+    img = new Image();
+    var timer = setTimeout(function () { finish('timed out after 20 seconds'); }, 20000);
+
+    function finish(err) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      res.decodeError = err || res.decodeError || null;
+      try { URL.revokeObjectURL(url); } catch (e) {}
+      img.src = '';
+      done(res);
+    }
+
+    img.onerror = function () { finish('the browser could not decode it'); };
+
+    img.onload = function () {
+      res.width = img.naturalWidth;
+      res.height = img.naturalHeight;
+      if (!res.width || !res.height) return finish('it decoded to zero by zero');
+
+      /* The re-encode, exactly as the uploader does it. A file can decode
+         perfectly and still fail here, and the two failures need different
+         answers, so they are never collapsed into one line. */
+      var maxEdge = parseInt(P.maxEdgePx, 10) || 1600;
+      var scale = Math.min(1, maxEdge / Math.max(res.width, res.height));
+      var cw = Math.max(1, Math.round(res.width * scale));
+      var ch = Math.max(1, Math.round(res.height * scale));
+
+      var c = document.createElement('canvas');
+      c.width = cw; c.height = ch;
+      function release() { c.width = c.height = 0; }
+
+      var ctx = c.getContext('2d');
+      if (!ctx) { res.encodeError = 'there is no 2d canvas here'; release(); return finish(null); }
+
+      try { ctx.drawImage(img, 0, 0, cw, ch); }
+      catch (e) {
+        res.encodeError = 'drawing it threw: ' + ((e && e.message) || e);
+        release();
+        return finish(null);
+      }
+
+      c.toBlob(function (blob) {
+        if (!blob) res.encodeError = 'the encoder returned nothing';
+        else if (blob.size < 256) res.encodeError = 'the encoder returned only ' + blob.size + ' bytes';
+        else { res.jpegBytes = blob.size; res.jpegAt = cw + ' x ' + ch; }
+        release();
+        finish(null);
+      }, 'image/jpeg', parseFloat(P.jpegQuality) || 0.82);
+    };
+
+    img.decoding = 'async';
+    img.src = url;
+  }
+
+  function testVideo(file, done) {
+    var url, v, settled = false, res = { objectUrl: false };
+    try { url = URL.createObjectURL(file); res.objectUrl = true; }
+    catch (e) { res.urlError = String((e && e.message) || e); return done(res); }
+
+    v = document.createElement('video');
+    var timer = setTimeout(function () { finish('timed out after 12 seconds'); }, 12000);
+
+    function finish(err) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      res.probeError = err || null;
+      try { URL.revokeObjectURL(url); } catch (e) {}
+      v.removeAttribute('src');
+      try { v.load(); } catch (e) {}
+      done(res);
+    }
+
+    /* MediaError is the most useful single value on this page, and it is the
+       one thing the uploader throws away. Code 4 means the browser does not
+       own the codec, which is a different problem with a different answer from
+       code 3, which means the bytes themselves are damaged. */
+    v.onerror = function () {
+      var e = v.error;
+      var names = { 1: 'aborted', 2: 'network', 3: 'the bytes would not decode', 4: 'the format is not supported here' };
+      if (!e) return finish('it failed without saying why');
+      res.mediaErrorCode = e.code;
+      finish('MediaError ' + e.code + ', ' + (names[e.code] || 'unknown') +
+             (e.message ? ', ' + e.message : ''));
+    };
+
+    v.onloadedmetadata = function () {
+      res.duration = v.duration;
+      res.width = v.videoWidth;
+      res.height = v.videoHeight;
+      finish(null);
+    };
+
+    v.preload = 'metadata';
+    v.muted = true;
+    v.playsInline = true;
+    v.src = url;
+  }
+
+  /* The uploader's own first question, and the only piece of its logic this
+     page mirrors, because every later answer depends on which pipeline the
+     file would have entered. Kept in the shape of the real fileKind() on
+     purpose, so a reader can put them side by side. */
+  function kindOf(file) {
+    var type = String(file.type || '').toLowerCase();
+    if (type.indexOf('image/') === 0) return 'photograph';
+    if (type.indexOf('video/') === 0) return 'video';
+
+    var name = String(file.name || '').toLowerCase();
+    if (/\.(jpe?g|png|heic|heif|webp|gif|tiff?|bmp|avif|jfif)$/.test(name)) return 'photograph';
+    if (/\.(mp4|mov|m4v|3gp|3gpp|webm|avi|mkv|qt|mpe?g)$/.test(name)) return 'video';
+    if (type.indexOf('application/octet-stream') === 0 && file.size) return 'photograph';
+    return null;
+  }
+
+  function verdictFor(kind, file, res) {
+    if (!file.size) return [false, 'The file arrived with no bytes in it at all. That is usually a picture that lives in the cloud and has not been downloaded onto the phone yet.'];
+    if (!kind) return [false, 'The browser called this neither a picture nor a video, and the file name did not settle it either.'];
+    if (res.urlError) return [false, 'The browser would not open the file at all: ' + res.urlError];
+
+    if (kind === 'video') {
+      if (res.probeError) {
+        /* Code 4 covers two different situations and this page must not pick
+           between them, because it cannot tell them apart: a codec this
+           browser does not own, and a file that is not a video at all, both
+           arrive here. Saying "the file is fine" would be a guess, and the
+           whole point of this page is that nobody has to guess. */
+        if (res.mediaErrorCode === 4) {
+          return [false, 'This browser could not open the clip at all. Either it lacks the format the clip was recorded in, in which case the file is fine and another phone would play it, or the file is not really a video. The uploader now tries to read the length straight out of the file before refusing it, so this alone no longer decides.'];
+        }
+        return [false, 'The browser could not read the clip: ' + res.probeError];
+      }
+      if (!isFinite(res.duration) || res.duration <= 0) return [false, 'The clip reports no usable length, so there is no way to check it against the one minute rule.'];
+      if (res.duration > VID_SEC + 1) return [false, 'Longer than ' + VID_SEC + ' seconds, so the uploader refuses it on purpose.'];
+      if (file.size > VID_MB * 1024 * 1024) return [false, 'Over the ' + VID_MB + ' MB ceiling, so the uploader refuses it on purpose.'];
+      return [true, 'This clip would upload.'];
+    }
+
+    if (file.size > IMG_MB * 1024 * 1024) return [false, 'Over the ' + IMG_MB + ' MB ceiling, so the uploader refuses it on purpose.'];
+    if (res.decodeError) return [false, 'The browser could not open the picture: ' + res.decodeError + '. If this is a HEIC straight from a phone camera, this browser genuinely cannot read that format.'];
+    if (res.encodeError) return [false, 'The picture opened but could not be re-encoded: ' + res.encodeError + '. That is usually a picture too large for the memory this phone will hand to a web page.'];
+    return [true, 'This picture would upload.'];
+  }
+
+  function describe(file, done) {
+    var card = el('div', 'card');
+    card.appendChild(el('p', 'card__name', file.name || 'a file with no name'));
+    out.appendChild(card);
+
+    report.push('');
+    report.push('=== ' + (file.name || 'no name') + ' ===');
+
+    var kind = kindOf(file);
+
+    var dl = group(card, 'what the browser said');
+    row(dl, 'type', file.type || 'nothing at all');
+    row(dl, 'size', bytes(file.size) + ' (' + file.size + ' bytes)');
+    row(dl, 'treated as', kind || 'neither');
+    row(dl, 'modified', file.lastModified
+      ? new Date(file.lastModified).toISOString().slice(0, 19).replace('T', ' ')
+      : 'not reported');
+
+    var busy = el('p', 'busy', 'Opening it...');
+    card.appendChild(busy);
+
+    function finished(res) {
+      card.removeChild(busy);
+
+      var d2 = group(card, kind === 'video'
+        ? 'what happened when it was opened'
+        : 'what happened when it was opened and re-encoded');
+      row(d2, 'handle made', res.objectUrl ? 'yes' : 'no', !!res.objectUrl);
+
+      if (kind === 'video') {
+        row(d2, 'metadata read', res.probeError ? 'no' : 'yes', !res.probeError);
+        if (res.probeError) {
+          row(d2, 'why not', res.probeError, false);
+        } else {
+          row(d2, 'length', (Math.round(res.duration * 100) / 100) + ' s');
+          row(d2, 'size on screen', res.width + ' x ' + res.height);
+        }
+      } else {
+        row(d2, 'decoded', res.decodeError ? 'no' : 'yes', !res.decodeError);
+        if (res.decodeError) {
+          row(d2, 'why not', res.decodeError, false);
+        } else {
+          row(d2, 'dimensions', res.width + ' x ' + res.height);
+          row(d2, 're-encoded', res.encodeError ? 'no' : 'yes', !res.encodeError);
+          if (res.encodeError) row(d2, 'why not', res.encodeError, false);
+          else row(d2, 'jpeg produced', bytes(res.jpegBytes) + ' at ' + res.jpegAt);
+        }
+      }
+
+      var vd = verdictFor(kind, file, res);
+      var p = el('p', 'verdict', vd[1]);
+      p.setAttribute('data-ok', vd[0] ? '1' : '0');
+      card.appendChild(p);
+      report.push('  VERDICT: ' + vd[1]);
+      done();
+    }
+
+    if (!file.size) return finished({ objectUrl: false });
+    if (kind === 'video') testVideo(file, finished);
+    else testImage(file, finished);
+  }
+
+  /* One file at a time, for the reason the uploader does it: exactly one
+     decoded bitmap alive at a time on a phone that may be short of memory. A
+     page that runs out of memory while explaining a file that ran out of
+     memory explains nothing. */
+  function run(files) {
+    out.innerHTML = '';
+    report = [];
+    copyBtn.className = 'btn btn--ghost hide';
+
+    var i = 0;
+    (function next() {
+      if (i >= files.length) {
+        describeDevice();
+        copyBtn.textContent = 'Copy the whole report';
+        copyBtn.className = 'btn btn--ghost';
+        return;
+      }
+      describe(files[i++], next);
+    })();
+  }
+
+  document.getElementById('pick').addEventListener('click', function () { input.click(); });
+
+  input.addEventListener('change', function () {
+    var files = Array.prototype.slice.call(input.files || []);
+    // Cleared so picking the same file twice still fires, as in the uploader.
+    input.value = '';
+    if (files.length) run(files);
+  });
+
+  copyBtn.addEventListener('click', function () {
+    var text = report.join('\n');
+
+    /* execCommand is deprecated and is the only thing that works when the page
+       is opened over plain http or in a browser that gates the async clipboard
+       behind a permission the owner will not be expecting. */
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    function done() { copyBtn.textContent = 'Copied. Paste it into the chat.'; }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(); done(); });
+    } else {
+      fallback();
+      done();
+    }
+  });
+
+  // The device panel stands on its own before a single file has been picked.
+  describeDevice();
+})();
+</script>
+</body>
+</html>
