@@ -151,6 +151,20 @@
 -- happily take. Every row and object created by that run was removed, and the
 -- table is back at fifteen.
 --
+-- 2026-08-28, LATER THE SAME DAY. public.my_photos was added in
+-- supabase/30-my-photos.sql and applied. It lets a guest recover the list of
+-- their own storage paths from their guest_id, which is what makes their own
+-- photographs removable again on a device whose photo_paths list is missing.
+--
+-- Five of the fifteen rows here were unreachable by the people who uploaded
+-- them: addPhotoPath() did not exist until 2026-08-18, so anything uploaded
+-- before that recorded a count on the device and no path. The owner reported
+-- it about the guest named Miao, and it was five photographs, not one.
+--
+-- It is strictly weaker than delete_own_photo, which already lets a holder of
+-- a guest_id destroy those same rows. Read the header of 30-my-photos.sql for
+-- why that is the right comparison to make.
+--
 -- (Superseded note follows.)
 -- NOT YET APPLIED: section 11 was added to this file on 2026-08-17 and has not
 -- been run against project aplaxdplwnnlezffatal. Everything above this

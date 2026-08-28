@@ -1,5 +1,5 @@
 /* ==========================================================================
-   COURSE 03102
+   COURSE 31026
    No framework, no build step. Loaded after config.js and copy.js.
    ========================================================================== */
 
@@ -348,7 +348,7 @@
      who tapped it before a date change gets the moved party rather than a
      second party. */
   function icsUid() {
-    return 'course-03102-' + icsStamp(startMs) + '@thesis-defended-liver-pending';
+    return 'course-31026-' + icsStamp(startMs) + '@thesis-defended-liver-pending';
   }
 
   function buildIcs() {
@@ -361,7 +361,7 @@
     var lines = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//Course 03102//Thesis Defended Liver Pending//EN',
+      'PRODID:-//Course 31026//Thesis Defended Liver Pending//EN',
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
       'BEGIN:VEVENT',
@@ -421,7 +421,7 @@
     var text = buildIcs();
     if (!text) return false;
 
-    var name = 'course-03102.ics';
+    var name = 'course-31026.ics';
 
     function click(href, revoke) {
       var a = document.createElement('a');
@@ -514,7 +514,7 @@
      to happen on a phone that never finished downloading GSAP. motion.js only
      listens for the event and adds the parts that need a tween.
 
-     Three seconds is long enough to read "Course 03102" and the headline and
+     Three seconds is long enough to read "Course 31026" and the headline and
      take the joke at face value, and short enough that nobody has scrolled
      past the hero yet. Nothing it changes is a layout property, so a guest
      who is mid sentence when it fires does not get the sentence moved.
@@ -2045,6 +2045,30 @@
         }
       }
       return out;
+    },
+
+    /* The bulk write, and the only one that can SHRINK the list.
+
+       addPhotoPath appends one at a time, which is right when this device is
+       the thing that just uploaded. It is useless for the case this was added
+       for: a device that holds a guest_id and a count but no paths at all,
+       because it uploaded before paths were recorded. That device has nothing
+       to append to and no way to learn what it is missing.
+
+       Validated exactly as the read side validates, because the list arrives
+       from the network here rather than from this file, and a path that does
+       not match the contract must never reach an img src. */
+    setPhotoPaths: function (list) {
+      if (!Array.isArray(list)) return;
+      var out = [];
+      for (var i = 0; i < list.length; i++) {
+        if (typeof list[i] === 'string' &&
+            STORAGE_PATH_RE.test(list[i]) &&
+            out.indexOf(list[i]) === -1) {
+          out.push(list[i]);
+        }
+      }
+      store.set('photo_paths', JSON.stringify(out));
     },
 
     addPhotoPath: function (p) {
@@ -7711,6 +7735,74 @@
 
      This plan ships three of the five branches and each is final. Plans 03 and
      04 insert the closed and quota branches into this same ladder. */
+  /* ======================================================================
+     FINDING YOUR OWN PHOTOGRAPHS AGAIN
+
+     The strip under the uploader is drawn from photo_paths in this browser,
+     and addPhotoPath() did not exist until the removal feature shipped on
+     2026-08-18. Every photograph uploaded before that day left a count on the
+     device and no path, so those guests watch the count go up, see an empty
+     strip, and cannot take their own photographs back out. Five of the rows in
+     the live table are in exactly that state, which is how this was found.
+
+     It also covers the general case that will keep happening: a photo_paths
+     list lost, truncated, or written by an older version of this file, while
+     the guest_id survives.
+
+     THE SERVER IS ASKED ONCE PER PAGE LOAD AND ONLY WHEN IT CAN HELP. If the
+     device already holds as many paths as the count says it has, there is
+     nothing to recover and no request is made, which is the overwhelmingly
+     common case and must not pay for the rare one.
+
+     public.my_photos takes the guest_id and hands back that guest's own paths.
+     It is strictly weaker than delete_own_photo, which already lets a holder of
+     a guest_id destroy those same rows.
+     ====================================================================== */
+
+  var photosReconciled = false;
+
+  function reconcileMyPhotos() {
+    if (photosReconciled) return;
+    if (!sbConfigured() || !IDENTITY_OK) return;
+
+    var ident = identity.get();
+    if (!ident.guest_id || !ident.enrolled) return;
+
+    /* Nothing to recover. The device knows about at least as many photographs
+       as it has been told it holds, so asking would cost a request and change
+       nothing. */
+    if (identity.photoPaths().length >= identity.photoCount()) return;
+
+    photosReconciled = true;
+
+    sbRequest('POST', '/rest/v1/rpc/my_photos', { p_guest_id: ident.guest_id })
+      .then(function (res) {
+        if (!res || !res.ok || !Array.isArray(res.body)) return;
+
+        var paths = [];
+        for (var i = 0; i < res.body.length; i++) {
+          var row = res.body[i];
+          if (row && typeof row.storage_path === 'string') paths.push(row.storage_path);
+        }
+
+        /* THE SERVER IS THE AUTHORITY ON BOTH VALUES, and they are written
+           together or not at all. Writing paths without the count would leave a
+           device showing four frames and claiming three submissions remain out
+           of five, which is a worse state than the one being repaired.
+
+           setPhotoPaths re-validates every string, because these arrived from
+           the network and are about to become image URLs. The count is taken
+           from what SURVIVED that validation rather than from the row count, so
+           the number and the strip cannot disagree. */
+        identity.setPhotoPaths(paths);
+        identity.setPhotoCount(identity.photoPaths().length);
+
+        /* Only if it changed anything. A re-render costs the guest a flicker
+           and this runs on every load. */
+        if (identity.photoPaths().length) renderPhotos();
+      });
+  }
+
   function renderPhotos() {
     var host = $('#photos-body');
     if (!host) return;
@@ -7933,6 +8025,11 @@
     scheduleAwakening();
     applyLanguage();
     startClock();
+
+    /* After applyLanguage, which is what first renders the photos section, so
+       a recovery that finds something re-renders a control that already
+       exists rather than racing the one that builds it. */
+    reconcileMyPhotos();
 
     $$('[data-set-lang]').forEach(function (btn) {
       btn.addEventListener('click', function () {

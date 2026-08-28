@@ -317,13 +317,22 @@ window.PARTY_CONFIG = {
   /* ---------------------------------------------------------------------
      THE JOKE
      ---------------------------------------------------------------------
-     The course number is the spine of the whole parody. 03102 encodes the
-     date, 03/10. If the date moves and you care about that detail, change
-     it here. If you do not care, nobody will ever notice.
+     The course number is the spine of the whole parody. 31026 encodes the
+     whole date, 3/10/26, where the original 03102 encoded only the day and
+     month. If the date moves and you care about that detail, change it here.
+     If you do not care, nobody will ever notice.
+
+     CHANGING THIS DOES NOT CHANGE THE STORAGE PREFIX, and it must not. Every
+     guest's identity lives under the c03102. key in their browser: their
+     guest_id, their name, their photo paths. Rename that prefix and every
+     registration and every uploaded photograph becomes unreachable to the
+     person who made it, with no way back. The prefix is an internal key that
+     happens to contain a number, not the number itself. Same for the
+     c03102: event names motion.js listens for.
      --------------------------------------------------------------------- */
 
   course: {
-    number: '03102',
+    number: '31026',
     ects: 5,
     host: 'Sirio',
 

@@ -14,8 +14,8 @@ window.PARTY_COPY = {
      ENGLISH
      ====================================================================== */
   en: {
-    'meta.title': '03102 Introduction to Applied Celebration: Sirio’s Master’s Party',
-    'meta.description': 'Course 03102, 5 ECTS. One evening minimum. Attendance is not mandatory but is strongly expected.',
+    'meta.title': '31026 Introduction to Applied Celebration: Sirio’s Master’s Party',
+    'meta.description': 'Course 31026, 5 ECTS. One evening minimum. Attendance is not mandatory but is strongly expected.',
 
     'nav.skip': 'Skip to main content',
     'nav.info': 'Course information',
@@ -44,7 +44,7 @@ window.PARTY_COPY = {
 
     /* The standalone album page. Its own block, because it is its own page. */
     'album.back': 'The invitation',
-    'album.eyebrow': 'Course 03102 · Documentation',
+    'album.eyebrow': 'Course 31026 · Documentation',
     'album.heading': 'The album',
     'album.lede': 'Everything handed in so far, newest first. Tap any photograph to open it.',
     'album.shuffle': 'Show me a random one',
@@ -57,7 +57,7 @@ window.PARTY_COPY = {
     'album.empty.b': 'The album fills up on the night. Come back once the evening has happened, or be the first to hand something in.',
     'album.failed.t': 'The album did not load',
     'album.failed.b': 'Check your connection and try again. Nothing you submitted is affected.',
-    'album.foot': 'Course 03102. Photographs belong to whoever took them.',
+    'album.foot': 'Course 31026. Photographs belong to whoever took them.',
 
     'photos.mine.one': 'Your submission',
     'photos.mine.many': 'Your {n} submissions',
@@ -75,7 +75,7 @@ window.PARTY_COPY = {
     'photos.mine.absent': 'Removals are not switched on yet. Nothing has changed, and the photograph is still in the album.',
     'photos.seealbum': 'See the whole album',
 
-    'hero.eyebrow': 'Course 03102 · 5 ECTS · Autumn 2026',
+    'hero.eyebrow': 'Course 31026 · 5 ECTS · Autumn 2026',
     'hero.title': 'Introduction to Applied Celebration',
     'hero.cta.enrol': 'Register for the course',
     'hero.cta.location': 'Find the location',
@@ -93,7 +93,7 @@ window.PARTY_COPY = {
     'savedate.eyebrow': 'Save the date',
     'savedate.cta': 'Add to your calendar',
     'savedate.google': 'or open it in Google Calendar',
-    'savedate.event.title': 'Course 03102: Thesis Defended, Liver Pending',
+    'savedate.event.title': 'Course 31026: Thesis Defended, Liver Pending',
     'savedate.event.body': 'Attendance is not mandatory but is strongly expected. Course description, registration and directions to the door:',
     'savedate.toast.ok': 'Calendar file saved. Open it to add the course.',
     'savedate.toast.fail': 'That did not work. Use the Google Calendar link instead.',
@@ -325,8 +325,8 @@ window.PARTY_COPY = {
      ITALIANO
      ====================================================================== */
   it: {
-    'meta.title': '03102 Introduzione alla Celebrazione Applicata: la laurea magistrale di Sirio',
-    'meta.description': 'Corso 03102, 5 CFU. Durata una serata minimo. La presenza non è obbligatoria ma è data per scontata.',
+    'meta.title': '31026 Introduzione alla Celebrazione Applicata: la laurea magistrale di Sirio',
+    'meta.description': 'Corso 31026, 5 CFU. Durata una serata minimo. La presenza non è obbligatoria ma è data per scontata.',
 
     'nav.skip': 'Vai al contenuto principale',
     'nav.info': 'Informazioni sul corso',
@@ -354,7 +354,7 @@ window.PARTY_COPY = {
     'gallery.portal.b': 'Le foto di tutti, su una pagina tutta loro.',
 
     'album.back': 'L’invito',
-    'album.eyebrow': 'Corso 03102 · Documentazione',
+    'album.eyebrow': 'Corso 31026 · Documentazione',
     'album.heading': 'L’album',
     'album.lede': 'Tutto quello che è stato consegnato, dalla più recente. Tocca una foto per aprirla.',
     'album.shuffle': 'Mostramene una a caso',
@@ -367,7 +367,7 @@ window.PARTY_COPY = {
     'album.empty.b': 'L’album si riempie durante la serata. Torna quando sarà successa, oppure sii il primo a consegnare qualcosa.',
     'album.failed.t': 'L’album non si è caricato',
     'album.failed.b': 'Controlla la connessione e riprova. Quello che hai consegnato non è stato toccato.',
-    'album.foot': 'Corso 03102. Le foto appartengono a chi le ha scattate.',
+    'album.foot': 'Corso 31026. Le foto appartengono a chi le ha scattate.',
 
     'photos.mine.one': 'La tua foto',
     'photos.mine.many': 'Le tue {n} foto',
@@ -385,7 +385,7 @@ window.PARTY_COPY = {
     'photos.mine.absent': 'I ritiri non sono ancora attivi. Non è cambiato nulla e la foto è ancora nell’album.',
     'photos.seealbum': 'Guarda tutte le foto',
 
-    'hero.eyebrow': 'Corso 03102 · 5 CFU · Autunno 2026',
+    'hero.eyebrow': 'Corso 31026 · 5 CFU · Autunno 2026',
     'hero.title': 'Introduzione alla Celebrazione Applicata',
     'hero.cta.enrol': 'Iscriviti al corso',
     'hero.cta.location': 'Trova la sede',
@@ -397,7 +397,7 @@ window.PARTY_COPY = {
     'savedate.eyebrow': 'Segna la data',
     'savedate.cta': 'Aggiungi al calendario',
     'savedate.google': 'oppure aprilo in Google Calendar',
-    'savedate.event.title': 'Corso 03102: Thesis Defended, Liver Pending',
+    'savedate.event.title': 'Corso 31026: Thesis Defended, Liver Pending',
     'savedate.event.body': 'La presenza non è obbligatoria ma è caldamente prevista. Descrizione del corso, iscrizione e indicazioni per la porta giusta:',
     'savedate.toast.ok': 'File del calendario salvato. Aprilo per aggiungere il corso.',
     'savedate.toast.fail': 'Non ha funzionato. Usa il link a Google Calendar.',
@@ -624,8 +624,8 @@ window.PARTY_COPY = {
      kursusansvarlig) is the part they will actually recognise.
      ====================================================================== */
   da: {
-    'meta.title': '03102 Introduktion til Anvendt Fejring: Sirios kandidatfest',
-    'meta.description': 'Kursus 03102, 5 ECTS. Varighed én aften minimum. Fremmøde er ikke obligatorisk, men forventes.',
+    'meta.title': '31026 Introduktion til Anvendt Fejring: Sirios kandidatfest',
+    'meta.description': 'Kursus 31026, 5 ECTS. Varighed én aften minimum. Fremmøde er ikke obligatorisk, men forventes.',
 
     'nav.skip': 'Gå til hovedindhold',
     'nav.info': 'Kursusinformation',
@@ -653,7 +653,7 @@ window.PARTY_COPY = {
     'gallery.portal.b': 'Alles billeder, på deres egen side.',
 
     'album.back': 'Invitationen',
-    'album.eyebrow': 'Kursus 03102 · Dokumentation',
+    'album.eyebrow': 'Kursus 31026 · Dokumentation',
     'album.heading': 'Albummet',
     'album.lede': 'Alt der er afleveret indtil nu, nyeste først. Tryk på et billede for at åbne det.',
     'album.shuffle': 'Vis mig et tilfældigt',
@@ -666,7 +666,7 @@ window.PARTY_COPY = {
     'album.empty.b': 'Albummet fyldes op om aftenen. Kom tilbage når den har fundet sted, eller vær den første til at aflevere noget.',
     'album.failed.t': 'Albummet blev ikke hentet',
     'album.failed.b': 'Tjek din forbindelse, og prøv igen. Det du har afleveret, er ikke berørt.',
-    'album.foot': 'Kursus 03102. Billederne tilhører dem, der har taget dem.',
+    'album.foot': 'Kursus 31026. Billederne tilhører dem, der har taget dem.',
 
     'photos.mine.one': 'Dit billede',
     'photos.mine.many': 'Dine {n} billeder',
@@ -684,7 +684,7 @@ window.PARTY_COPY = {
     'photos.mine.absent': 'Fjernelse er ikke slået til endnu. Intet er ændret, og billedet ligger stadig i albummet.',
     'photos.seealbum': 'Se hele albummet',
 
-    'hero.eyebrow': 'Kursus 03102 · 5 ECTS · Efterår 2026',
+    'hero.eyebrow': 'Kursus 31026 · 5 ECTS · Efterår 2026',
     'hero.title': 'Introduktion til Anvendt Fejring',
     'hero.cta.enrol': 'Tilmeld dig kurset',
     'hero.cta.location': 'Find stedet',
@@ -696,7 +696,7 @@ window.PARTY_COPY = {
     'savedate.eyebrow': 'Sæt kryds i kalenderen',
     'savedate.cta': 'Tilføj til din kalender',
     'savedate.google': 'eller åbn den i Google Kalender',
-    'savedate.event.title': 'Kursus 03102: Thesis Defended, Liver Pending',
+    'savedate.event.title': 'Kursus 31026: Thesis Defended, Liver Pending',
     'savedate.event.body': 'Fremmøde er ikke obligatorisk, men forventes kraftigt. Kursusbeskrivelse, tilmelding og vejvisning til den rigtige dør:',
     'savedate.toast.ok': 'Kalenderfilen er gemt. Åbn den for at tilføje kurset.',
     'savedate.toast.fail': 'Det virkede ikke. Brug linket til Google Kalender i stedet.',
