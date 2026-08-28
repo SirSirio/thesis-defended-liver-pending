@@ -5283,11 +5283,38 @@
     var url = photoPublicUrl(item.path);
 
     var img = $('.lb__img', lbEl);
+    var vid = $('.lb__vid', lbEl);
     var link = $('.lb__open', lbEl);
     var cap = $('.lb__by', lbEl);
     var count = $('.lb__count', lbEl);
+    var isVid = pathIsVideo(item.path);
 
-    if (img) {
+    /* One kind on stage at a time, and the OTHER ONE IS ALWAYS TORN DOWN.
+
+       Stepping off a video without clearing its src leaves it decoding, and
+       leaves its audio playing, underneath a photograph. The guest then hears
+       a clip they cannot see and has no control to stop it, because the
+       controls went away with the element that was hidden. */
+    if (vid) {
+      vid.hidden = !isVid;
+      if (!isVid) {
+        try { vid.pause(); } catch (e) { /* nothing playing */ }
+        vid.removeAttribute('src');
+        try { vid.load(); } catch (e) { /* older browser */ }
+      }
+    }
+    if (img) img.hidden = isVid;
+
+    if (isVid && vid) {
+      try { vid.pause(); } catch (e) { /* nothing playing */ }
+      vid.src = url;
+      /* Deliberately not played. The guest opened a frame, they did not ask
+         for sound, and a video that starts talking the instant it appears is
+         the behaviour every site is disliked for. The controls are right
+         there. */
+    }
+
+    if (img && !isVid) {
       /* The step, animated. It used to be a bare src swap, which on a phone
          reads as the picture being yanked away rather than as moving through
          an album.
@@ -5363,6 +5390,18 @@
     // Stops a large photograph decoding into a closed overlay.
     if (img) img.removeAttribute('src');
 
+    /* And stops a video PLAYING into one, which is the louder version of the
+       same bug: the overlay is hidden, the guest believes they closed it, and
+       the sound carries on with no visible control to stop it. Pause first,
+       then drop the source, then load() so the buffer is actually released
+       rather than merely detached. */
+    var vid = $('.lb__vid', lbEl);
+    if (vid) {
+      try { vid.pause(); } catch (e) { /* nothing playing */ }
+      vid.removeAttribute('src');
+      try { vid.load(); } catch (e) { /* older browser */ }
+    }
+
     if (lbReturnFocus && lbReturnFocus.focus) {
       try { lbReturnFocus.focus(); } catch (e) { /* detached */ }
     }
@@ -5426,6 +5465,23 @@
     img.alt = '';
     img.decoding = 'async';
     stage.appendChild(img);
+
+    /* The video stage, built once beside the image rather than swapped in and
+       out of the DOM. One element per kind, and lbShow() hides the one it is
+       not using, so stepping from a photograph to a video and back does not
+       create and destroy a media element on every press.
+
+       controls, because this is the one place the guest is meant to drive it.
+       No autoplay and no loop: a clip that restarts forever in an overlay is
+       something a guest has to close to escape. */
+    var vid = document.createElement('video');
+    vid.className = 'lb__vid';
+    vid.setAttribute('controls', '');
+    vid.setAttribute('playsinline', '');
+    vid.playsInline = true;
+    vid.preload = 'metadata';
+    vid.hidden = true;
+    stage.appendChild(vid);
 
     var bar = document.createElement('div');
     bar.className = 'lb__bar';
@@ -5589,6 +5645,92 @@
      No control of either kind appears in #gallery. That is the shared album
      and those photographs are not this guest's to remove: the strip is the
      only place on the site that knows which ones are. */
+  /* A duration, as a badge reads it. Seconds only, because nothing here is
+     over a minute by rule and "1:04" for a clip the guest was told could be
+     sixty seconds invites the question this badge exists to answer. */
+  function durationLabel(secs) {
+    var n = Math.round(secs);
+    if (!isFinite(n) || n < 0) return '';
+    return n + 's';
+  }
+
+  /* THE THUMBNAIL FOR A STORED OBJECT, WHICHEVER KIND IT IS.
+
+     A photograph is an <img> and always was. A video is a <video> carrying a
+     #t=0.1 media fragment, which asks the browser to seek to the first tenth
+     of a second and paint that frame. So the poster IS the video's own first
+     frame and no second object is uploaded for it. There is no build step here
+     and Storage does not thumbnail on the free tier, so the alternative was
+     capturing a frame client side and uploading it, which doubles the write
+     path and the failure surface for one still image.
+
+     THE FALLBACK IS BUILT, NOT ASSUMED. iOS Safari does not reliably paint the
+     fragment frame before the element is interacted with, and preload metadata
+     is a hint a browser is free to ignore. When no frame arrives, the tile
+     shows a designed panel carrying the play glyph rather than a black
+     rectangle, which is the difference between a deliberate state and a bug.
+
+     onBroken fires only for a genuinely missing object, never for a video that
+     merely declined to paint, because those two want opposite treatments: the
+     first should take the frame off the page and the second should keep it. */
+  function mediaThumb(path, onBroken) {
+    var url = photoPublicUrl(path);
+
+    if (!pathIsVideo(path)) {
+      var img = document.createElement('img');
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.alt = '';
+      img.onerror = onBroken;
+      img.src = url;
+      return img;
+    }
+
+    var wrap = document.createElement('span');
+    wrap.className = 'media media--video';
+    /* Assumed until a frame proves otherwise, so a browser that never fires
+       loadeddata still shows the designed panel rather than a void. */
+    wrap.setAttribute('data-poster', 'none');
+
+    var vid = document.createElement('video');
+    vid.className = 'media__v';
+    vid.preload = 'metadata';
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.setAttribute('playsinline', '');      // the attribute too, for older WebKit
+    vid.setAttribute('tabindex', '-1');       // the tile is the control, not this
+    vid.setAttribute('aria-hidden', 'true');
+
+    var badge = document.createElement('span');
+    badge.className = 'media__dur';
+
+    vid.addEventListener('loadedmetadata', function () {
+      var label = durationLabel(vid.duration);
+      if (label) badge.textContent = label;
+    });
+
+    // A frame actually painted, so the panel can stand down.
+    vid.addEventListener('loadeddata', function () {
+      wrap.setAttribute('data-poster', 'ok');
+    });
+
+    /* The object is not there at all. Distinct from "did not paint": this is
+       the owner having cleared it from the dashboard, which no device can know
+       about, and the frame should leave the page. */
+    vid.addEventListener('error', function () { if (onBroken) onBroken(); });
+
+    vid.src = url + '#t=0.1';
+
+    var play = document.createElement('span');
+    play.className = 'media__play';
+    play.setAttribute('aria-hidden', 'true');
+
+    wrap.appendChild(vid);
+    wrap.appendChild(play);
+    wrap.appendChild(badge);
+    return wrap;
+  }
+
   function mineTile(path, items, i) {
     var item = document.createElement('div');
     item.className = 'mine__item';
@@ -5597,22 +5739,18 @@
     btn.type = 'button';
     btn.className = 'mine__tile';
     btn.setAttribute('aria-label',
-      t('photos.mine.open').replace('{i}', String(i + 1)));
+      t(pathIsVideo(path) ? 'photos.mine.open.video' : 'photos.mine.open')
+        .replace('{i}', String(i + 1)));
 
-    var img = document.createElement('img');
-    img.loading = 'lazy';
-    img.decoding = 'async';
-    img.alt = '';
     /* A frame with no photograph in it is worse than one fewer frame. Same
        rule the album tiles follow, and here it also covers the owner clearing
        an object from the dashboard, which this device cannot know about.
 
        The whole item is hidden rather than the frame alone, because a removal
        control hanging under nothing is worse than either of them. */
-    img.onerror = function () { item.setAttribute('data-broken', '1'); };
-    img.src = photoPublicUrl(path);
-
-    btn.appendChild(img);
+    btn.appendChild(mediaThumb(path, function () {
+      item.setAttribute('data-broken', '1');
+    }));
     btn.addEventListener('click', function () { lbOpen(items, i, btn); });
 
     /* The label is the plain verb and the accessible name is the whole
@@ -6170,15 +6308,19 @@
     }
   }
 
-  /* What kind of thing occupies slot i. Photographs only, today.
+  /* What kind of thing occupies slot i.
 
-     public.photos has no column saying what a row is, so there is nothing to
-     read and this answers 'photo' for everything. It exists so that
-     writeAllowance() above is written once, correctly, against the shape the
-     video work needs, rather than being rewritten the moment that shape
-     arrives. Returning a constant is the honest version of not knowing yet. */
-  function photoKindAt(_i) {
-    return 'photo';
+     Read from the stored paths rather than from a column, because the
+     extension IS the kind and this device already holds every path it has
+     submitted. That also means the pip is correct without a request, and stays
+     correct on a phone that has not spoken to the database since.
+
+     The order is the order photographs were added, which is the order the
+     strip below shows them in, so the coloured pip and the video frame line up
+     rather than being two unrelated truths about the same allowance. */
+  function photoKindAt(i) {
+    var paths = identity.photoPaths();
+    return pathIsVideo(paths[i]) ? 'video' : 'photo';
   }
 
   function photoVideoCfg() {
@@ -7406,7 +7548,37 @@
 
     setUploaderState(uploader, state);
 
-    if (state === 'success') setUploaderStatus(ok === 1 ? 'photos.status.done.one' : 'photos.status.done.many', { n: ok });
+    /* THE SUCCESS SENTENCE HAS TO KNOW WHAT LANDED.
+
+       It said "One photograph is on record" for a video, which is the copy
+       lying about the thing the guest just watched upload. Caught by sending a
+       real video through the whole path with the wire stubbed.
+
+       Three cases rather than two, because "1 photograph and 1 video" is a
+       real batch and calling it "2 photographs" is the same lie counted
+       differently:
+
+         only videos      the video sentence
+         any video at all the neutral submissions sentence
+         no video         the photograph sentence, unchanged
+
+       The neutral one is deliberately not used everywhere. "Submissions" is
+       correct and colourless, and the photograph sentence is the one this
+       section has always said for the case that is still overwhelmingly the
+       common one. */
+    if (state === 'success') {
+      var vids = 0;
+      for (i = 0; i < photoBatch.length; i++) {
+        if (photoBatch[i].state === 'done' && photoBatch[i].kind === 'video') vids++;
+      }
+
+      var doneKey;
+      if (vids && vids === ok) doneKey = ok === 1 ? 'photos.status.done.video.one' : 'photos.status.done.video.many';
+      else if (vids)           doneKey = 'photos.status.done.mixed';
+      else                     doneKey = ok === 1 ? 'photos.status.done.one' : 'photos.status.done.many';
+
+      setUploaderStatus(doneKey, { n: ok });
+    }
     else if (state === 'partial') setUploaderStatus('photos.status.partial', { ok: ok, bad: bad });
     else setUploaderStatus(null);
 

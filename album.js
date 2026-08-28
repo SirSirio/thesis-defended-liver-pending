@@ -273,6 +273,84 @@
     tiles.forEach(function (el) { revealObserver.observe(el); });
   }
 
+  /* A duration, as a badge reads it. Seconds only: nothing here is over a
+     minute by rule, and "1:04" for a clip the guest was told could be sixty
+     seconds invites the question the badge exists to answer. */
+  function durationLabel(secs) {
+    var n = Math.round(secs);
+    if (!isFinite(n) || n < 0) return '';
+    return n + 's';
+  }
+
+  /* THE MOSAIC'S THUMBNAIL, FOR EITHER KIND.
+
+     app.js's mediaThumb() with one difference that matters on this page: the
+     eager and lazy split. The first screenful loads eagerly because a lazy
+     first row is a page that opens on an empty grid, and everything after it
+     is lazy because eager everywhere is forty requests fired at once on a
+     phone.
+
+     NOTHING AUTOPLAYS. This is a grid, on the phone this page exists for, and
+     six videos playing at once is a frame rate problem and a data bill in the
+     same breath. preload="metadata" fetches a header, not a stream. Playback
+     happens in the lightbox, on a tap, with controls.
+
+     The #t=0.1 fragment asks for the first frame as a stand-in poster, so no
+     second object is uploaded. The fallback panel is built rather than assumed
+     because iOS Safari does not reliably paint it. */
+  function albumThumb(path, index, onBroken) {
+    var url = photoPublicUrl(path);
+    var eager = index < 6;
+
+    if (!pathIsVideo(path)) {
+      var img = document.createElement('img');
+      img.loading = eager ? 'eager' : 'lazy';
+      img.decoding = 'async';
+      img.alt = '';
+      img.onerror = onBroken;
+      img.src = url;
+      return img;
+    }
+
+    var wrap = document.createElement('span');
+    wrap.className = 'media media--video';
+    wrap.setAttribute('data-poster', 'none');
+
+    var vid = document.createElement('video');
+    vid.className = 'media__v';
+    vid.preload = 'metadata';
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.setAttribute('playsinline', '');
+    vid.setAttribute('tabindex', '-1');
+    vid.setAttribute('aria-hidden', 'true');
+
+    var badge = document.createElement('span');
+    badge.className = 'media__dur';
+
+    vid.addEventListener('loadedmetadata', function () {
+      var label = durationLabel(vid.duration);
+      if (label) badge.textContent = label;
+    });
+    vid.addEventListener('loadeddata', function () {
+      wrap.setAttribute('data-poster', 'ok');
+    });
+    /* Missing object, which is a different thing from a frame that did not
+       paint: this one leaves the grid, that one keeps its designed panel. */
+    vid.addEventListener('error', function () { if (onBroken) onBroken(); });
+
+    vid.src = url + '#t=0.1';
+
+    var play = document.createElement('span');
+    play.className = 'media__play';
+    play.setAttribute('aria-hidden', 'true');
+
+    wrap.appendChild(vid);
+    wrap.appendChild(play);
+    wrap.appendChild(badge);
+    return wrap;
+  }
+
   function tileFor(row, index, animate) {
     var btn = document.createElement('button');
     btn.type = 'button';
@@ -281,21 +359,14 @@
     btn.setAttribute('aria-label',
       phrase('album.open', { name: row.first_name || t('gallery.by.you') }));
 
-    var img = document.createElement('img');
-    /* The first screenful is eager and the rest is lazy. A lazy first row is a
-       page that opens on an empty grid, and eager everywhere is forty requests
-       fired at once on a phone. */
-    img.loading = index < 6 ? 'eager' : 'lazy';
-    img.decoding = 'async';
-    img.alt = '';
-    img.onerror = function () {
+    function broken() {
       btn.setAttribute('data-broken', '1');
       shown--;
       paintCount();
       if (shown <= 0) renderEmpty();
-    };
-    img.src = photoPublicUrl(row.storage_path);
-    btn.appendChild(img);
+    }
+
+    btn.appendChild(albumThumb(row.storage_path, index, broken));
 
     if (row.first_name) {
       var by = document.createElement('p');
@@ -393,6 +464,20 @@
     img.alt = '';
     img.decoding = 'async';
     stage.appendChild(img);
+
+    /* Built once beside the image rather than swapped in and out, so stepping
+       between kinds does not create and destroy a media element each press.
+       controls because this is where the guest drives it; no autoplay and no
+       loop, because a clip that restarts forever in an overlay is something a
+       guest has to close to escape. */
+    var vid = document.createElement('video');
+    vid.className = 'alb__vid';
+    vid.setAttribute('controls', '');
+    vid.setAttribute('playsinline', '');
+    vid.playsInline = true;
+    vid.preload = 'metadata';
+    vid.hidden = true;
+    stage.appendChild(vid);
 
     var close = document.createElement('button');
     close.type = 'button';
@@ -499,6 +584,36 @@
 
     $$('.alb__step', lbEl).forEach(function (b) { b.hidden = items.length < 2; });
 
+    var vid = $('.alb__vid', lbEl);
+    var isVid = pathIsVideo(item.path);
+
+    /* One kind on stage at a time, and THE OTHER IS ALWAYS TORN DOWN.
+
+       Stepping off a video without clearing its source leaves it playing
+       underneath the next photograph. The guest then hears a clip they cannot
+       see and has no control to stop it, because the controls went away with
+       the element that was hidden. */
+    if (vid) {
+      vid.hidden = !isVid;
+      if (!isVid) {
+        try { vid.pause(); } catch (e) { /* nothing playing */ }
+        vid.removeAttribute('src');
+        try { vid.load(); } catch (e) { /* older browser */ }
+      }
+    }
+    if (img) img.hidden = isVid;
+
+    if (isVid) {
+      if (vid) {
+        try { vid.pause(); } catch (e) { /* nothing playing */ }
+        vid.src = photoPublicUrl(item.path);
+        /* Deliberately not played. The guest opened a frame, they did not ask
+           for sound, and a video that starts talking the instant it appears is
+           the behaviour every site is disliked for. The controls are there. */
+      }
+      return;
+    }
+
     if (img) {
       // Cleared before the new source, so the settle plays per photograph
       // rather than only on the first one.
@@ -549,6 +664,16 @@
     // Stops a large photograph decoding into a closed overlay.
     var img = $('.alb__img', lbEl);
     if (img) { img.onload = null; img.removeAttribute('src'); }
+
+    /* And stops a video PLAYING into one, which is the louder version of the
+       same bug: the overlay is hidden, the guest believes they closed it, and
+       the sound carries on with no visible control to stop it. */
+    var vid = $('.alb__vid', lbEl);
+    if (vid) {
+      try { vid.pause(); } catch (e) { /* nothing playing */ }
+      vid.removeAttribute('src');
+      try { vid.load(); } catch (e) { /* older browser */ }
+    }
 
     if (lbReturn && lbReturn.focus) {
       try { lbReturn.focus(); } catch (e) { /* detached */ }
