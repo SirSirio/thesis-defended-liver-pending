@@ -4,11 +4,11 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.1
 current_phase_name: the-upload-rebuilt
-status: executing
-stopped_at: Phase 04.1 built; blocked on the owner running supabase/20-video.sql
+status: complete
+stopped_at: Phase 04.1 complete and live
 last_updated: "2026-08-27T20:51:16.704Z"
 last_activity: 2026-08-28
-last_activity_desc: Phase 04.1 both plans built; video is switched off until the migration runs
+last_activity_desc: Phase 04.1 complete: the uploader rebuilt, and one minute of video live end to end
 progress:
   total_phases: 4
   completed_phases: 3
@@ -27,21 +27,22 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 
 ## Current Position
 
-Phase: 04.1 (the upload rebuilt) — EXECUTING, one step from done
-Plan: 2 of 2 built, 1 of 2 fully shipped
-Status: The uploader is rebuilt and live. The video is written, tested and committed but
-DELIBERATELY SWITCHED OFF: config.photos.video.enabled is false because
-supabase/20-video.sql has not been run. Applying it was refused by this session's auto mode
-classifier, so it is left on disk, staged and uncommitted, for the owner to run.
+Phase: 04.1 (the upload rebuilt) — COMPLETE
+Plan: 2 of 2 shipped
+Status: The uploader is a card that joins the page's data-awake softening, its transcript
+reads as chips, and one video per guest of up to 60 seconds and 50 MB is LIVE end to end.
+Migration applied 2026-08-28 and proved on the wire from the untrusted position.
 
-THE ORDER MATTERS AND IS NOT A PREFERENCE:
-  1. run supabase/20-video.sql
-  2. prove the two refusals from the untrusted position, not from the dashboard
-  3. set config.photos.video.enabled to true
-  4. bump ?v= on both pages
-Flipping the flag first means a guest uploads 50 MB over party wifi and is then refused by a
-check constraint.
-Last activity: 2026-08-27 - Phase 04.1 inserted after phase 4. The uploader was measured rather than eyeballed: it declares no radius on its container and reaches for --r-sm on its primary button, so it is the one block that never joins the data-awake softening the rest of the page rides. Owner decisions taken: video capped at 50 MB and 60 seconds, one video per guest spending one of the existing five slots, soft cards as the direction.
+Live video facts a new session must know:
+  - photos.kind exists, defaulted 'photo'. The fifteen original rows are photos.
+  - The storage path contract lives in FOUR places, not three: storagePath() and
+    STORAGE_PATH_RE in app.js, STORAGE_PATH_RE in album.js, and photos_storage_path_check
+    in the database. Change one, change all four, in one commit.
+  - The bucket is 50 MiB and accepts image/jpeg, video/mp4, video/quicktime.
+  - enforce_photo_limit raises TWO names: photo_limit_reached and video_limit_reached.
+    Both are P0001, so the client separates them on the message, which is our own token.
+  - Nothing is re-encoded. There is no build step, so the bucket ceiling is the only real
+    size control.
 
 Progress: [██████████] 100%
 

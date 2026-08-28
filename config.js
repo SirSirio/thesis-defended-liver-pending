@@ -280,7 +280,7 @@ window.PARTY_CONFIG = {
        5 GB of egress a month, so 50 MB per guest is roughly twenty videos
        before the tier is spent. Raising this number raises that bill. */
     video: {
-      enabled: false,
+      enabled: true,
       maxSeconds: 60,
       maxFileSizeMb: 50,
     },

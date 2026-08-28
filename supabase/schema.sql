@@ -96,6 +96,62 @@
 -- view returned an empty array, and a public read of each of the nine objects
 -- answered 400.
 --
+-- SECTION 11 IS APPLIED. The paragraph below said it was not, and that was
+-- true when it was written on 2026-08-17. Both bounds were confirmed live on
+-- 2026-08-28: photos_name_check and photos_storage_path_check are on the table.
+-- The stale warning is left standing underneath rather than deleted, because
+-- the shape of it is what the next NOT YET APPLIED note should look like.
+--
+-- 2026-08-28, PHASE 04.1. Video. Applied to project aplaxdplwnnlezffatal and
+-- verified on the wire from the untrusted position with the publishable key,
+-- never from the dashboard, which runs as owner and would prove nothing.
+--
+--   photos.kind added, defaulted 'photo', NOT NULL, checked against two values.
+--   The fifteen existing rows were correct with no backfill.
+--
+--   photos_storage_path_check widened from jpg to (jpg|mp4|mov). THIS WAS THE
+--   FOURTH COPY of a contract the phase plan believed lived in three places,
+--   and it is the one that bites hardest: it refuses the ROW after the OBJECT
+--   has already uploaded, so a client widened without it strands an orphan that
+--   nothing points at and nothing explains.
+--
+--   enforce_photo_limit now counts twice and raises two distinct names, because
+--   a refusal that cannot say which ceiling was hit is one a guest cannot act
+--   on. It also takes a row lock first: two rows posted in the same instant
+--   would both see a count of zero and both pass, which was survivable at five
+--   and is not at one.
+--
+--   public.album gained kind, appended so create or replace stayed legal and
+--   the grant survived. It still does not carry guest_id and never will.
+--
+--   The bucket went from 3 MiB to 50 MiB, adding video/mp4 and video/quicktime.
+--
+-- Proved on the wire, with a synthetic guest destroyed in the same session so
+-- none of the owner's fifteen photographs were touched at any point:
+--
+--   anon SELECT on public.photos          42501, still refused
+--   first video row                       201
+--   second video row                      400, P0001, video_limit_reached
+--   four photos after the video           201 each, five total
+--   a sixth row of any kind               400, P0001, photo_limit_reached
+--   a .exe storage_path                   400, 23514, the path CHECK
+--   public.album read as anon             kind present, guest_id absent
+--   an mp4 object upload                  200, where it was refused before
+--   an application/zip upload             400, 415 InvalidMimeType
+--   55 MB against the 50 MiB ceiling      400, 413 EntityTooLarge
+--   delete_own_photo, right guest         1
+--   delete_own_photo, replayed            0
+--   delete_own_photo, wrong guest         0, and the real row survived
+--
+-- A full end to end run was then done through the actual site against the real
+-- database: a 70 second clip refused in the browser without touching the wire,
+-- a 5 second clip uploaded and recorded with kind video, and a second clip
+-- refused BY THE DATABASE with the control left open, which is the branch that
+-- matters because closing it would refuse four photographs the register would
+-- happily take. Every row and object created by that run was removed, and the
+-- table is back at fifteen.
+--
+-- (Superseded note follows.)
 -- NOT YET APPLIED: section 11 was added to this file on 2026-08-17 and has not
 -- been run against project aplaxdplwnnlezffatal. Everything above this
 -- paragraph is applied and verified; section 11 is not, and until the owner
@@ -172,7 +228,31 @@ create table if not exists public.photos (
   guest_id     uuid not null,
   name         text not null,
   storage_path text not null unique,
-  created_at   timestamptz not null default now()
+  created_at   timestamptz not null default now(),
+  -- What kind of thing this row is. Added 2026-08-28 by 20-video.sql, which is
+  -- also the file to read for why the limit trigger below now counts twice.
+  -- Defaulted, so the fifteen rows that predate it are correct with no
+  -- backfill to remember.
+  kind         text not null default 'photo'
+);
+
+-- Stated as its own statement rather than inline, so 20-video.sql can add
+-- exactly this constraint, by name, to a database where the column already
+-- exists. A check written inline here would be unreachable from there.
+alter table public.photos drop constraint if exists photos_kind_check;
+alter table public.photos add constraint photos_kind_check
+  check (kind in ('photo', 'video'));
+
+-- THE PATH CONTRACT'S FOURTH COPY.
+--
+-- The shape is written in four places and they change together: storagePath()
+-- in app.js writes it, STORAGE_PATH_RE in app.js reads it back, album.js holds
+-- a second copy of that regex by hand, and this is the database's own opinion.
+-- It anchored '\.jpg$' until 2026-08-28, so a video insert was refused here no
+-- matter what the client believed it was allowed to send.
+alter table public.photos drop constraint if exists photos_storage_path_check;
+alter table public.photos add constraint photos_storage_path_check check (
+  storage_path ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|mp4|mov)$'
 );
 
 create index if not exists photos_guest_idx on public.photos (guest_id);
@@ -286,13 +366,37 @@ set search_path = ''
 as $$
 declare
   current_count integer;
+  video_count   integer;
 begin
+  -- THE LOCK IS NOT DECORATION. Two rows posted in the same instant would both
+  -- see a count of zero and both pass. Photographs have always had that race
+  -- and it was survivable at five, because the worst case was a sixth
+  -- photograph. It is not survivable at one, where the worst case is the whole
+  -- video rule, so the guest's rows are locked before either count is taken.
+  perform 1 from public.photos where guest_id = new.guest_id for update;
+
   select count(*) into current_count
     from public.photos
    where guest_id = new.guest_id;
 
   if current_count >= 5 then
     raise exception 'photo_limit_reached';
+  end if;
+
+  -- The second ceiling, and a SECOND NAME for it. A refusal that cannot say
+  -- which limit was hit is a refusal a guest cannot act on: "five is the
+  -- limit" is the wrong sentence for somebody who has posted two photographs
+  -- and is trying to add a second video. The client maps each name to its own
+  -- copy key, in three languages.
+  if new.kind = 'video' then
+    select count(*) into video_count
+      from public.photos
+     where guest_id = new.guest_id
+       and kind = 'video';
+
+    if video_count >= 1 then
+      raise exception 'video_limit_reached';
+    end if;
   end if;
 
   return new;
@@ -302,7 +406,26 @@ end $$;
 -- default away before handing anything back. Nothing can call this one by name
 -- in any case, because it errors outside a trigger, but the file should have
 -- one rule about definer functions and no exceptions to it.
-revoke all on function public.enforce_photo_limit() from public;
+--
+-- REVOKING FROM public ALONE DID NOT DO IT, and that was found by the linter on
+-- 2026-08-28 rather than by reading, because the claim above reads as true.
+-- Supabase grants EXECUTE on functions in the public schema to anon and
+-- authenticated DIRECTLY, through default privileges, and a revoke aimed at the
+-- PUBLIC pseudo-role does not touch an explicit grant. So anon held EXECUTE on
+-- a SECURITY DEFINER function for as long as this file has existed.
+--
+-- The exposure was nil in practice: PostgREST does not put trigger functions in
+-- its schema cache, so /rest/v1/rpc/enforce_photo_limit answers PGRST202. The
+-- three lines below are worth it anyway, because the next person will read the
+-- paragraph above and believe it.
+--
+-- None of this can break the trigger. Postgres does not check EXECUTE on a
+-- trigger function when the trigger fires; the executor calls it as the table
+-- owner. Verified after the revoke by inserting a second video and watching
+-- video_limit_reached still come back.
+revoke execute on function public.enforce_photo_limit() from public;
+revoke execute on function public.enforce_photo_limit() from anon;
+revoke execute on function public.enforce_photo_limit() from authenticated;
 
 drop trigger if exists photos_limit on public.photos;
 create trigger photos_limit
@@ -364,8 +487,19 @@ grant select on public.attendees to anon;
 -- creates is not a jpeg. Deleting is unaffected.
 -- ============================================================================
 
+-- 50 MiB and three types since 2026-08-28, for one minute of video per guest.
+--
+-- This is the ONLY control in the whole feature that survives a crafted
+-- request, because it counts the bytes that ARRIVE rather than anything a
+-- browser claims. The duration and size checks in app.js are a courtesy to a
+-- guest who picked the wrong clip; this is the rule.
+--
+-- It is also a bill. The free tier is 1 GB of storage and 5 GB of egress a
+-- month, so this is roughly twenty videos, and every view of the album page
+-- spends egress against it. Raising this number raises that bill.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('party-photos', 'party-photos', true, 3145728, array['image/jpeg'])
+values ('party-photos', 'party-photos', true, 52428800,
+        array['image/jpeg', 'video/mp4', 'video/quicktime'])
 on conflict (id) do update
   set public             = excluded.public,
       file_size_limit    = excluded.file_size_limit,
@@ -518,7 +652,12 @@ create or replace view public.album as
   select
     split_part(trim(name), ' ', 1) as first_name,
     storage_path,
-    created_at
+    created_at,
+    -- Appended and never inserted mid list, which is what keeps create or
+    -- replace legal and the grant below intact. guest_id is still not here and
+    -- must never be: this whole view exists because reading the album off the
+    -- raw table handed out the credential that amends and deletes.
+    kind
   from public.photos;
 
 -- This grant sits on the line after the view rather than somewhere tidier,

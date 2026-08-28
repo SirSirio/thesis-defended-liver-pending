@@ -199,12 +199,12 @@ Plans:
 - [x] 04.1-01-PLAN.md — The card, the allowance meter, the stated limits, the drop zone and
       the chips. Ships alone, no Supabase, so the direction can be judged before the pipeline
       is built on it. **Done 2026-08-28**, six commits, see 04.1-01-SUMMARY.md.
-- [~] 04.1-02-PLAN.md — One minute of video through every layer. **Client side complete and
-      committed 2026-08-28; the database change is written but NOT APPLIED.** The path
-      contract turned out to live in four places rather than three: the fourth is a CHECK
-      constraint on photos.storage_path. config.photos.video.enabled ships false, so the site
-      is silent about video until the owner runs supabase/20-video.sql and flips one line.
-      See 04.1-02-SUMMARY.md.
+- [x] 04.1-02-PLAN.md — One minute of video through every layer. **Applied and live
+      2026-08-28.** The path contract turned out to live in four places rather than three:
+      the fourth is a CHECK constraint on photos.storage_path, and it is the one that refuses
+      the row after the object has already uploaded. Migration applied, both ceilings proved
+      on the wire from the untrusted position, a real video taken end to end through the site
+      and then removed, and the table left at exactly fifteen. See 04.1-02-SUMMARY.md.
 
 **Done when:** the uploader computes 18px awake and reads as a card, the transcript reads as
 chips with nothing reflowing when a batch starts, a 60 second video uploads from a real phone
