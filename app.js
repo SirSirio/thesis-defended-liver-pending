@@ -5920,6 +5920,16 @@
     return photoVideoCfg().enabled === true;
   }
 
+  /* The zone stops being a target while bytes are moving.
+
+     It mirrors setUploaderState()'s own busy test rather than keeping a second
+     flag, because two booleans describing one condition drift the first time
+     somebody adds a state. Read from photoState, which setUploaderState is the
+     only writer of. */
+  function photoZoneBusy() {
+    return photoState === 'preparing' || photoState === 'uploading';
+  }
+
   /* THE LIMITS, STATED ABOVE THE PICKER.
 
      The owner asked for the video rule to be written "explicitely and big".
@@ -6015,6 +6025,24 @@
     uploader.setAttribute('data-state', state);
 
     var busy = (state === 'preparing' || state === 'uploading');
+
+    /* The zone follows the button. A dashed target that still looks like a
+       target while it refuses every drop is worse than no target at all, so
+       the dash goes and the attribute CSS reads goes with it.
+
+       It also leaves the tab order. role="button" with tabindex 0 is a stop
+       for a keyboard guest, and a stop that does nothing when you press Enter
+       is a dead end. -1 keeps it focusable programmatically without offering
+       it as a destination. */
+    var zone = $('.uploader__zone', uploader);
+    if (zone) {
+      if (busy) zone.setAttribute('data-busy', '1');
+      else zone.removeAttribute('data-busy');
+      zone.setAttribute('tabindex', busy ? '-1' : '0');
+      zone.setAttribute('aria-disabled', busy ? 'true' : 'false');
+      if (busy) zone.removeAttribute('data-over');
+    }
+
     var btn = $('#photos-pick', uploader);
     if (!btn) return;
 
@@ -6022,6 +6050,12 @@
     btn.textContent = t('photos.cta');
     // A disabled button on its own tells a screen reader nothing about why.
     btn.setAttribute('aria-busy', busy ? 'true' : 'false');
+
+    /* One string for one intent. The zone is an outer target for exactly the
+       action the button names, so it borrows the button's label rather than
+       inventing a second sentence that has to be kept in step in three
+       languages. */
+    if (zone) zone.setAttribute('aria-label', btn.textContent);
   }
 
   /* The polite line. Progress and success, and nothing else: a counted
@@ -6492,6 +6526,29 @@
     note.className = 'uploader__note';
     box.appendChild(note);
 
+    /* THE ZONE.
+
+       The picker used to be a full width red button and nothing else. It is
+       now a target with the button inside it, which is both softer and
+       strictly more capable: a desktop guest can drag files onto it.
+
+       The zone is an ADDITION and never a replacement. A dashed rectangle is
+       not an obvious button to everyone, the button has to survive on its own,
+       and the file input underneath is untouched. On a phone the zone is
+       simply a larger tap target for the same picker.
+
+       It is a div with role="button" rather than a real <button>, because a
+       button wrapping another button is invalid HTML and browsers reparent it.
+       That trade buys the outer target and owes three things back by hand:
+       tabindex, the Enter and Space keys, and an accessible name. All three
+       are paid below, and the name is written by writeZoneLabel() from the
+       same copy key the inner button uses, so there is one string for one
+       intent. */
+    var zone = document.createElement('div');
+    zone.className = 'uploader__zone';
+    zone.setAttribute('role', 'button');
+    zone.setAttribute('tabindex', '0');
+
     var acts = document.createElement('div');
     acts.className = 'uploader__acts';
 
@@ -6519,7 +6576,8 @@
     retry.id = 'photos-retry';
     acts.appendChild(retry);
 
-    box.appendChild(acts);
+    zone.appendChild(acts);
+    box.appendChild(zone);
 
     /* A separate sibling carrying the hidden attribute, never a label wrapping
        the input. A native file input renders its own button label in the
@@ -6567,6 +6625,79 @@
     // user gesture and is the supported pattern on both platforms.
     btn.addEventListener('click', function () { input.click(); });
     retry.addEventListener('click', function () { retryFailedFiles(); });
+
+    /* THE ZONE'S BEHAVIOUR.
+
+       Everything below funnels into runBatch(), the same and only entry point
+       the picker uses. Two entry points for one intent is how a validation
+       rule ends up enforced on one route and not the other.
+
+       The click handler tests the target. Without that test a tap on the
+       button bubbles to the zone, the zone calls input.click() a second time,
+       and the picker opens twice on one tap. Two nested things that both open
+       the same picker is exactly the bug this shape invites, so it is guarded
+       rather than hoped about. */
+    zone.addEventListener('click', function (e) {
+      if (photoZoneBusy()) return;
+      if (e.target !== zone) return;      // the button and the retry own their own clicks
+      input.click();
+    });
+
+    /* role="button" bought the outer target and owes the keyboard back. A real
+       button answers Enter and Space; a div answers neither until it is told
+       to, and preventDefault on Space stops the page scrolling underneath. */
+    zone.addEventListener('keydown', function (e) {
+      if (photoZoneBusy()) return;
+      var k = e.key;
+      if (k !== 'Enter' && k !== ' ' && k !== 'Spacebar') return;
+      e.preventDefault();
+      input.click();
+    });
+
+    /* Drag and drop, desktop sugar, never the only route.
+
+       preventDefault on dragover is not optional and is the single most common
+       way this feature ships broken: without it the browser takes the default
+       action for a dropped file, which is to NAVIGATE AWAY from the page and
+       display the file. A guest dragging a photograph onto the uploader would
+       lose the page and everything on it.
+
+       It is registered on the document as well as the zone, for the same
+       reason and a worse one: a file dropped slightly outside the zone hits
+       the document, and the default action there is the same navigation. So
+       the document refuses the default and does nothing, and only the zone
+       acts. */
+    function overNoop(e) { e.preventDefault(); }
+    document.addEventListener('dragover', overNoop);
+    document.addEventListener('drop', overNoop);
+
+    zone.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      if (photoZoneBusy()) return;
+      zone.setAttribute('data-over', '1');
+    });
+
+    /* dragleave fires when the pointer crosses onto a CHILD of the zone as
+       well as when it truly leaves, so a naive handler flickers the highlight
+       every time the cursor passes over the button. relatedTarget is where the
+       pointer went; if that is still inside the zone, nothing has left. */
+    zone.addEventListener('dragleave', function (e) {
+      if (e.relatedTarget && zone.contains(e.relatedTarget)) return;
+      zone.removeAttribute('data-over');
+    });
+
+    zone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      zone.removeAttribute('data-over');
+      if (photoZoneBusy()) return;
+
+      var dt = e.dataTransfer;
+      if (!dt) return;
+      var files = Array.prototype.slice.call(dt.files || []);
+      /* A drag that carried no file, a URL or selected text, changes nothing.
+         Same silence the picker gives when it is dismissed with no selection. */
+      if (files.length) runBatch(files);
+    });
     input.addEventListener('change', function () {
       var files = Array.prototype.slice.call(input.files || []);
       // The value is cleared so picking the same file twice still fires change.

@@ -3240,10 +3240,62 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   margin: 0 0 var(--s-5);
 }
 
+/* --------------------------------------------------------------------------
+   THE ZONE
+
+   A target with the button inside it. The dash says "things can be put here"
+   in a way a filled button does not, and on a desktop that is literally true
+   because the zone accepts a drop.
+
+   It is an addition, never a replacement. The button inside is unchanged and
+   still carries the whole job on a phone, where there is nothing to drag.
+   -------------------------------------------------------------------------- */
+.uploader__zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 132px;
+  padding: var(--s-6) var(--s-4);
+  border: 2px dashed var(--rule-lit);
+  border-radius: var(--r-md);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color var(--t-fast) var(--ease-out),
+              background-color var(--t-fast) var(--ease-out);
+}
+
+/* The drag highlight. Colour and background only: a transform here would move
+   the button under a pointer that is mid drag. */
+.uploader__zone[data-over] {
+  border-color: var(--accent-lit);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .uploader__zone:not([data-busy]):hover { border-color: var(--accent-lit); }
+}
+
+/* In flight the dash goes. A dashed target that still reads as a target while
+   it refuses every drop is worse than no target at all. */
+.uploader__zone[data-busy] {
+  border-style: solid;
+  border-color: var(--rule);
+  cursor: default;
+}
+
+/* The zone is a div with role="button", so it gets no focus ring for free.
+   :focus-visible rather than :focus, so a mouse click does not leave a ring
+   sitting on a 132px box. */
+.uploader__zone:focus-visible {
+  outline: 2px solid var(--accent-lit);
+  outline-offset: 2px;
+}
+
 .uploader__acts {
   display: flex;
   flex-wrap: wrap;
   gap: var(--s-4);
+  width: 100%;
 }
 
 /* The single most important control in the phase, so it clears the 44px floor
