@@ -258,6 +258,13 @@ window.PARTY_CONFIG = {
        refusal if it fails. */
     maxFileSizeMb: 40,
 
+    /* When the phone cannot decode a JPEG at all, or runs out of memory
+       re-encoding it, the original bytes are sent as they are instead of the
+       picture being refused. This is the ceiling for that: above it the
+       refusal stands, because the album has to carry whatever lands here at
+       full size. Fifteen covers every camera JPEG a phone writes by default. */
+    originalMaxMb: 15,
+
     /* VIDEO.
 
        Owner decision, 2026-08-27: one video per guest, up to one minute, and

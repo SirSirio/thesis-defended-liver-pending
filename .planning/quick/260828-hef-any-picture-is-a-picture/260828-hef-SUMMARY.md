@@ -110,3 +110,51 @@ Three pages, two viewports, zero errors, zero overflow, after the change.
 
 Video is never re-encoded and there is no free way to add that, so the HEVC row is the one
 honest asymmetry left, and it is a desktop problem at a party attended on phones.
+
+## Addendum, the same evening: what the logs showed
+
+The owner tried again on the Android, reported both kinds refused again, and that the same
+video was accepted some times and not others. Before a fourth guess, two facts were pulled
+from the untrusted position.
+
+**The bucket** held seven objects from that afternoon with no row behind them: five
+re-encoded JPEGs of 100 to 330 KB, which only the uploader's own encoder produces, and one
+39.5 MB MP4 twice. So the phone decodes, re-encodes and uploads perfectly well.
+
+**The edge logs**, filtered on that phone's user agent (Chromium 151, Ecosia), then gave
+the whole sequence. Every one of the seven `POST /rest/v1/photos` answered **201**. After
+each one the phone fetched the new object, which is the tile rendering. And after each one
+the phone called **`delete_own_photo`**, ten times in all, which is the owner pressing
+Remove. The four deletes in seven seconds at 21:29:36 are the strip being cleared before
+the video was sent a second time, and it landed a second time.
+
+So the Android has never failed to upload. What it has done is refuse the second copy of a
+video already on record, with "One video each. You have already sent yours.", which is the
+rule the owner asked for, reading as a failure to the person testing it.
+
+The refusals that did happen, "could not open this image", were client side and never
+reached the network, so the logs cannot name them. `check.html` on that phone can, and the
+owner is running it.
+
+### What shipped on top, all proved before commit
+
+- **JPEG passthrough.** When a JPEG by signature cannot be decoded or re-encoded, the
+  original bytes go up as they are, under `photos.originalMaxMb` (15). A camera JPEG can
+  no longer be refused as "could not open" unless the phone will not hand over the bytes.
+  Undecodable 200 KB JPEG: lands at its own size. 20 MB: refused. Real JPEG: still
+  re-encoded smaller. Text named `.jpg`: refused, because it is not a JPEG by signature.
+- **The container reader can no longer hang.** It runs on the branch where the `<video>`
+  element has already failed, which is exactly where a provider may be slow or gone, and
+  it had no timer of its own. Fifteen seconds, then null, then the refusal.
+- **`check.html` now reads the bytes first** and prints the signature, what it looks like,
+  and whether the phone handed them over at all, with the error's own name when it refused.
+  That is the one distinction the uploader cannot make: an `<img>` fires the same error
+  for a picture that will not decode and for a file the phone would not read. It also
+  reports the container length on a clip the element could not open, and its verdict now
+  matches what the uploader would actually do on every branch.
+
+### The lesson, for the next session
+
+When the owner reports an upload failure, **read the edge logs by user agent first**.
+Successes and removals are visible there; client refusals are not; and the difference is
+the difference between a format problem and a person testing the Remove button.

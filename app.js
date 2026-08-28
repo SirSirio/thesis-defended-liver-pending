@@ -4890,6 +4890,21 @@
      and the bucket are the authorities on what is stored; this decides which
      sentence a guest reads. */
   function mp4DurationFromContainer(file, done) {
+    /* A read that never returns is a hang, and this runs on the branch where
+       the <video> element has ALREADY failed to answer, which is exactly the
+       branch where the file's provider may be slow, gone, or still fetching
+       the bytes from a cloud. Nothing here is covered by any other timer.
+       Fifteen seconds for a handful of sixteen byte reads is generous; past
+       it the answer is null and the refusal stands, and the control is free. */
+    var settled = false;
+    var timer = setTimeout(function () { finish(null); }, 15000);
+    function finish(secs) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      done(secs);
+    }
+
     /* Reads are by slice, so a fifty megabyte clip costs a few kilobytes of
        memory here. A phone that has already refused to decode this file is not
        the place to pull the whole thing into an ArrayBuffer.
@@ -4945,23 +4960,23 @@
       var version = dv.getUint8(at);
       var scale, units;
       if (version === 1) {
-        if (at + 32 > dv.byteLength) return done(null);
+        if (at + 32 > dv.byteLength) return finish(null);
         scale = dv.getUint32(at + 20);
         units = (dv.getUint32(at + 24) * 4294967296) + dv.getUint32(at + 28);
       } else {
-        if (at + 20 > dv.byteLength) return done(null);
+        if (at + 20 > dv.byteLength) return finish(null);
         scale = dv.getUint32(at + 12);
         units = dv.getUint32(at + 16);
         // The all-ones duration is this format's way of saying it does not know.
-        if (units === 4294967295) return done(null);
+        if (units === 4294967295) return finish(null);
       }
-      if (!scale || !units) return done(null);
+      if (!scale || !units) return finish(null);
       var secs = units / scale;
       /* Four hours is not a party video and is far likelier to be a field
          read at the wrong offset. Refusing to answer is the safe direction:
          the caller's answer for null is the refusal that happens today. */
-      if (!isFinite(secs) || secs <= 0 || secs > 14400) return done(null);
-      done(secs);
+      if (!isFinite(secs) || secs <= 0 || secs > 14400) return finish(null);
+      finish(secs);
     }
 
     /* mvhd is normally the first child of moov, so a quarter of a megabyte is
@@ -4970,15 +4985,15 @@
        memory mistake this whole function exists to avoid. */
     function findMvhd(start, len) {
       slice(start, Math.min(len, 262144), function (dv) {
-        if (!dv) return done(null);
+        if (!dv) return finish(null);
         var at = 0, guard = 64;
         while (at + 8 <= dv.byteLength && guard-- > 0) {
           var box = header(dv, at, len - at);
-          if (!box) return done(null);
+          if (!box) return finish(null);
           if (box.kind === 'mvhd') return readMvhd(dv, at + box.head);
           at += box.size;
         }
-        done(null);
+        finish(null);
       });
     }
 
@@ -4987,18 +5002,18 @@
        is unusual, so both are simply walked to. The guard bounds a file whose
        sizes send this in a circle. */
     function walk(at, guard) {
-      if (guard <= 0 || at + 8 > file.size) return done(null);
+      if (guard <= 0 || at + 8 > file.size) return finish(null);
       slice(at, 16, function (dv) {
-        if (!dv) return done(null);
+        if (!dv) return finish(null);
         var box = header(dv, 0, file.size - at);
-        if (!box) return done(null);
+        if (!box) return finish(null);
         if (box.kind === 'moov') return findMvhd(at + box.head, box.size - box.head);
         walk(at + box.size, guard - 1);
       });
     }
 
     if (!file || !file.size || typeof FileReader === 'undefined' ||
-        typeof DataView === 'undefined' || !file.slice) return done(null);
+        typeof DataView === 'undefined' || !file.slice) return finish(null);
     walk(0, 96);
   }
 
@@ -5096,18 +5111,40 @@
      HEIC that came through Files arrives with an empty type or with
      application/octet-stream as often as with image/heic. Thirty two bytes
      settle it: 'ftyp' at offset four, then a HEIF brand in the rest. */
-  function sniffHeif(file, cb) {
-    if (!file || !file.slice || typeof FileReader === 'undefined') return cb(false);
+  function sniffImage(file, cb) {
+    if (!file || !file.slice || typeof FileReader === 'undefined') return cb(null);
     var fr = new FileReader();
-    fr.onerror = function () { cb(false); };
-    fr.onabort = function () { cb(false); };
+    fr.onerror = function () { cb(null); };
+    fr.onabort = function () { cb(null); };
     fr.onload = function () {
       var b = new Uint8Array(fr.result), s = '';
       for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
-      cb(s.length >= 12 && s.slice(4, 8) === 'ftyp' &&
-         /heic|heix|hevc|hevx|heim|heis|hevm|hevs|mif1|msf1/.test(s.slice(8, 32)));
+      if (b.length >= 3 && b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return cb('jpeg');
+      if (s.length >= 12 && s.slice(4, 8) === 'ftyp' &&
+          /heic|heix|hevc|hevx|heim|heis|hevm|hevs|mif1|msf1/.test(s.slice(8, 32))) return cb('heif');
+      cb(null);
     };
-    try { fr.readAsArrayBuffer(file.slice(0, 32)); } catch (e) { cb(false); }
+    try { fr.readAsArrayBuffer(file.slice(0, 32)); } catch (e) { cb(null); }
+  }
+
+  /* A JPEG THE PHONE CANNOT RE-ENCODE IS STILL A JPEG.
+
+     Every photograph is decoded and re-encoded to 1600px before upload, and
+     that decode is the one step a phone can fail on a file that is entirely
+     fine: not enough memory for a fifty megapixel frame, a decoder that
+     stalls under pressure, a browser build with a bug. The old answer was
+     "Your browser could not open this image", about a picture the guest had
+     just taken with the camera, which is the sentence that finally made the
+     owner ask what the hell was going on.
+
+     So when the bytes are a JPEG by signature and the decode fails for any
+     reason, the original bytes go up as they are, under a ceiling. The album
+     shows them exactly as any browser shows any JPEG, scaled at display time.
+     The cost is a larger object for that one picture, which is a cost the
+     album can carry and a refusal the guest cannot. */
+  function originalMaxBytes() {
+    var mb = parseFloat((CFG.photos || {}).originalMaxMb);
+    return ((isNaN(mb) || mb <= 0) ? 15 : mb) * 1024 * 1024;
   }
 
   /* The version token the page loaded THIS file under, so the reader is
@@ -5262,7 +5299,7 @@
        so this fires only where the browser has genuinely stopped answering.
        The file is refused rather than failed, matching every other decode
        outcome: nothing was sent, so nothing can be retried. */
-    var timer = setTimeout(function () { finish(null, 'photos.err.decode'); }, 20000);
+    var timer = setTimeout(function () { refuseOrPassThrough('photos.err.decode'); }, 20000);
 
     function finish(blob, errKey) {
       if (settled) return;
@@ -5278,11 +5315,23 @@
 
     /* The browser said no. Before that is taken as the answer, the bytes are
        asked whether this is a HEIF, and if so the site's own reader has a go.
-       See sniffHeif() above for why this exists and why it costs nothing
+       See sniffImage() above for why this exists and why it costs nothing
        until it is needed. */
+    /* Every refusal past this point goes through here rather than straight to
+       finish(), so a JPEG the phone could not handle is sent as itself. See
+       originalMaxBytes() for why. A HEIF never takes this route: without the
+       reader there is nothing any album could show. */
+    function refuseOrPassThrough(errKey) {
+      sniffImage(file, function (sig) {
+        if (sig === 'jpeg' && file.size <= originalMaxBytes()) return finish(file, null);
+        finish(null, errKey);
+      });
+    }
+
     img.onerror = function () {
-      sniffHeif(file, function (isHeif) {
-        if (!isHeif) return finish(null, 'photos.err.decode');
+      sniffImage(file, function (sig) {
+        if (sig === 'jpeg' && file.size <= originalMaxBytes()) return finish(file, null);
+        if (sig !== 'heif') return finish(null, 'photos.err.decode');
 
         /* The reader is a megabyte on the wire and a real second of decode,
            so the twenty second budget is REPLACED rather than shared: on party
@@ -5336,7 +5385,7 @@
       }
 
       var ctx = canvas.getContext('2d');
-      if (!ctx) { release(); return finish(null, 'photos.err.decode'); }
+      if (!ctx) { release(); return refuseOrPassThrough('photos.err.decode'); }
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';   // Chromium and WebKit honour it, Firefox ignores it
 
@@ -5344,7 +5393,7 @@
         ctx.drawImage(source, 0, 0, cw, ch);
       } catch (e) {
         release();
-        return finish(null, 'photos.err.decode');
+        return refuseOrPassThrough('photos.err.decode');
       }
 
       canvas.toBlob(function (blob) {
@@ -5353,7 +5402,7 @@
            resolution source, and the third attempt is where a phone gives up. */
         if (!blob || blob.size < 256) {
           release();
-          return finish(null, 'photos.err.encode');
+          return refuseOrPassThrough('photos.err.encode');
         }
         release();
         finish(blob, null);
