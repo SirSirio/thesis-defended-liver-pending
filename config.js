@@ -237,12 +237,26 @@ window.PARTY_CONFIG = {
     maxPerGuest: 5,
 
     /* The biggest file a phone is allowed to hand over, before the site
-       shrinks it. This number and the bucket's own three megabyte ceiling
-       in supabase/schema.sql section 6 are two different numbers doing two
+       shrinks it. This number and the bucket's own ceiling in
+       supabase/schema.sql section 6 are two different numbers doing two
        different jobs: this one protects the phone's memory before the
        shrink, that one protects the bucket after it. Do not reconcile them
-       into one. */
-    maxFileSizeMb: 12,
+       into one.
+
+       RAISED FROM 12 TO 40 ON 2026-08-28, because 12 was refusing real
+       photographs. A modern phone writes 8 to 15 MB for an ordinary shot, a
+       panorama or a night-mode composite goes well past that, and Apple
+       ProRAW starts around 25. Guests were being told "Larger than 12 MB"
+       about pictures they had just taken, which is a refusal they cannot act
+       on and the site's fault rather than theirs.
+
+       IT COSTS THE BUCKET NOTHING. Whatever arrives is decoded, drawn at
+       maxEdgePx and re-encoded as JPEG before a byte is uploaded, so the
+       stored object is a few hundred kilobytes whether the source was 2 MB or
+       40. This number only decides how large a file the phone is asked to
+       decode, and the decode already has a 20 second timeout and a clean
+       refusal if it fails. */
+    maxFileSizeMb: 40,
 
     /* VIDEO.
 
@@ -283,6 +297,33 @@ window.PARTY_CONFIG = {
       enabled: true,
       maxSeconds: 60,
       maxFileSizeMb: 50,
+
+      /* THE CONTAINERS ACCEPTED, and the extension each is stored under.
+         Added 2026-08-28 because the first version accepted only mp4 and
+         quicktime, and refused everything else with "This video format is not
+         accepted". That was wrong about real phone output: Android writes
+         video/3gpp for lower resolution capture, and plenty of apps hand back
+         webm.
+
+         NOTHING IS TRANSCODED. There is no build step in this project and
+         ffmpeg.wasm is a thirty megabyte dependency that would take minutes on
+         a phone for a fifty megabyte clip, so a container is either stored as
+         it arrived or refused. Widening this list is therefore the only way to
+         accept more video, and it is a real trade: webm does not play in
+         Safari and 3gp does not play in Chrome, so a guest may upload
+         something another guest cannot watch. mp4 and mov, which is what
+         almost every phone camera actually writes, play everywhere.
+
+         Changing this list is a THREE PLACE job. The same extensions must
+         appear in STORAGE_PATH_RE in app.js AND album.js, and the matching
+         mime types in the bucket's allowed_mime_types in supabase/schema.sql,
+         or the upload is accepted here and refused on the wire. */
+      containers: {
+        'video/mp4':        'mp4',
+        'video/quicktime':  'mov',
+        'video/3gpp':       '3gp',
+        'video/webm':       'webm',
+      },
     },
 
     /* When the album starts accepting photographs. Written the same way as

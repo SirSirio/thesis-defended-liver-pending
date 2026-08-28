@@ -165,6 +165,32 @@
 -- a guest_id destroy those same rows. Read the header of 30-my-photos.sql for
 -- why that is the right comparison to make.
 --
+-- 2026-08-28, LATER STILL. The owner reported real photographs and real
+-- videos being refused. Four causes, three of them ours:
+--
+--   Android content providers and cloud pickers hand back
+--   application/octet-stream for ordinary photographs, and fileKind() refused
+--   anything whose type was neither image/ nor video/. Same class of bug as
+--   the empty-type one fixed earlier the same day, arriving through the check
+--   written to fix that one. It now falls through to the name for ANY type
+--   that did not settle it.
+--
+--   photos.maxFileSizeMb was 12, which refuses ordinary modern phone
+--   photographs. Raised to 40. It costs the bucket nothing: everything is
+--   downscaled and re-encoded before upload, so the stored object is
+--   unchanged either way.
+--
+--   Only mp4 and quicktime were accepted. Android writes video/3gpp for
+--   lower resolution capture. video/3gpp and video/webm are now accepted,
+--   here and in the path constraint below and in config.js. It is a real
+--   trade: webm does not play in Safari and 3gp does not play in Chrome.
+--
+--   The fourth is NOT ours and cannot be fixed here: image/heic cannot be
+--   decoded by Chromium at all. iOS converts HEIC to JPEG when the guest
+--   picks from the photo album, so this only bites files that arrive through
+--   Files, a share sheet or a cloud provider. Every refusal now names the
+--   type it refused, so this one identifies itself.
+--
 -- (Superseded note follows.)
 -- NOT YET APPLIED: section 11 was added to this file on 2026-08-17 and has not
 -- been run against project aplaxdplwnnlezffatal. Everything above this
@@ -266,7 +292,7 @@ alter table public.photos add constraint photos_kind_check
 -- matter what the client believed it was allowed to send.
 alter table public.photos drop constraint if exists photos_storage_path_check;
 alter table public.photos add constraint photos_storage_path_check check (
-  storage_path ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|mp4|mov)$'
+  storage_path ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|mp4|mov|3gp|webm)$'
 );
 
 create index if not exists photos_guest_idx on public.photos (guest_id);
@@ -513,7 +539,7 @@ grant select on public.attendees to anon;
 -- spends egress against it. Raising this number raises that bill.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('party-photos', 'party-photos', true, 52428800,
-        array['image/jpeg', 'video/mp4', 'video/quicktime'])
+        array['image/jpeg', 'video/mp4', 'video/quicktime', 'video/3gpp', 'video/webm'])
 on conflict (id) do update
   set public             = excluded.public,
       file_size_limit    = excluded.file_size_limit,

@@ -4670,16 +4670,31 @@
     if (type.indexOf('image/') === 0) return 'photo';
     if (type.indexOf('video/') === 0) return 'video';
 
-    /* No usable type. Fall back to the name's extension rather than refusing,
-       because refusing here is exactly the reported bug. The list is closed
-       and deliberately generous on the image side: these are only ever used to
-       decide which pipeline to run, and the decode or the metadata probe is
-       the real judge of whether the bytes are what the name claims. */
-    if (type) return null;              // a type that exists and is neither
+    /* THE TYPE WAS NO HELP. Fall through to the name.
 
+       This used to return null for any type that was not empty, on the
+       reasoning that a type which exists and says neither image nor video is
+       a real answer. It is not. Android content providers, cloud storage
+       pickers and some share sheets hand back application/octet-stream for
+       ordinary photographs, and that branch refused them with "This kind of
+       file is not accepted", about a picture the guest had just taken. That is
+       the same class of bug as the empty-type one fixed beside it, arriving
+       through the check written to fix that one.
+
+       So the name is consulted whenever the type did not settle it, empty or
+       not. Nothing is trusted here: this only decides which pipeline to run,
+       and the decode or the metadata probe is the real judge of whether the
+       bytes are what the name claims. A file that lies about being a jpeg
+       fails the decode and is refused with the decode's own message. */
     var name = String(file.name || '').toLowerCase();
-    if (/\.(jpe?g|png|heic|heif|webp|gif|tiff?|bmp|avif)$/.test(name)) return 'photo';
-    if (/\.(mp4|mov|m4v|3gp|webm|avi|mkv|qt)$/.test(name)) return 'video';
+    if (/\.(jpe?g|png|heic|heif|webp|gif|tiff?|bmp|avif|jfif)$/.test(name)) return 'photo';
+    if (/\.(mp4|mov|m4v|3gp|3gpp|webm|avi|mkv|qt|mpe?g)$/.test(name)) return 'video';
+
+    /* Still nothing. One last chance rather than a refusal: if the file has no
+       usable name either but the type at least begins with something visual,
+       treat it as a photograph and let the decode decide. */
+    if (type.indexOf('application/octet-stream') === 0 && file.size) return 'photo';
+
     return null;
   }
 
@@ -4690,17 +4705,40 @@
 
      Anything unrecognised returns null and storagePath() refuses it, rather
      than a default that would write a video to a .jpg key. */
+  function videoContainers() {
+    var c = photoVideoCfg().containers;
+    return (c && typeof c === 'object') ? c : { 'video/mp4': 'mp4', 'video/quicktime': 'mov' };
+  }
+
   function storedExtFor(file, kind) {
     if (kind === 'photo') return 'jpg';
     if (kind !== 'video') return null;
 
+    /* The declared type first, read from the config table rather than from a
+       chain of ifs, so adding a container is a config change and not a code
+       change. */
+    var map = videoContainers();
     var type = String((file && file.type) || '').toLowerCase();
-    if (type === 'video/mp4') return 'mp4';
-    if (type === 'video/quicktime') return 'mov';
+    if (map[type]) return map[type];
 
+    /* Then the name, for the empty and octet-stream cases. Mapped to the same
+       small set of extensions the table above produces, never to whatever the
+       name happened to say, so the stored key cannot carry an extension the
+       bucket and the path contract have never heard of. */
     var name = String((file && file.name) || '').toLowerCase();
-    if (/\.(mp4|m4v)$/.test(name)) return 'mp4';
-    if (/\.(mov|qt)$/.test(name)) return 'mov';
+    var byName = null;
+    if (/\.(mp4|m4v|mpe?g)$/.test(name))  byName = 'mp4';
+    else if (/\.(mov|qt)$/.test(name))    byName = 'mov';
+    else if (/\.3gpp?$/.test(name))       byName = '3gp';
+    else if (/\.webm$/.test(name))        byName = 'webm';
+    if (!byName) return null;
+
+    /* And only if that extension is one the config actually accepts. Otherwise
+       a guest whose phone reports no type could smuggle in a container the
+       owner has deliberately not enabled. */
+    for (var k in map) {
+      if (Object.prototype.hasOwnProperty.call(map, k) && map[k] === byName) return byName;
+    }
     return null;
   }
 
@@ -4709,8 +4747,14 @@
      extension rather than from file.type, so the declaration and the key can
      never disagree, and an empty file.type still uploads correctly. */
   function contentTypeFor(ext) {
-    if (ext === 'mp4') return 'video/mp4';
-    if (ext === 'mov') return 'video/quicktime';
+    if (ext === 'jpg') return 'image/jpeg';
+    /* Reversed out of the same table storedExtFor reads, so the declaration
+       the bucket checks and the key the object is stored under can never
+       disagree, however the list is edited. */
+    var map = videoContainers();
+    for (var k in map) {
+      if (Object.prototype.hasOwnProperty.call(map, k) && map[k] === ext) return k;
+    }
     return 'image/jpeg';
   }
 
@@ -4730,10 +4774,32 @@
      four of them now, and four ternaries at one call site is where the fifth
      gets forgotten and a guest reads "Larger than {mb} MB" with the braces
      still in it. */
-  function photoRefusalVals(key) {
-    if (key === 'photos.err.size')        return { mb: maxFileMb() };
-    if (key === 'photos.err.video.size')  return { mb: photoVideoCfg().maxFileSizeMb || 50 };
-    if (key === 'photos.err.video.long')  return { n: videoMaxSeconds() };
+  /* A short, honest description of what the browser said the file was.
+
+     Every refusal that is ABOUT the kind of file now carries this, because
+     "not accepted" with no subject is the complaint the owner actually made:
+     a guest cannot tell whether the problem is the picture, the phone, or the
+     site, and neither can the person being asked to fix it.
+
+     file.type when there is one, the extension when there is not, and a plain
+     word when there is neither. Never the whole file name, which can be long,
+     is already shown on the row above, and is the guest's business. */
+  function fileTypeLabel(file) {
+    var type = String((file && file.type) || '').trim();
+    if (type) return type;
+    var m = String((file && file.name) || '').toLowerCase().match(/\.([a-z0-9]{1,5})$/);
+    if (m) return '.' + m[1];
+    return t('photos.err.unknownkind');
+  }
+
+  function photoRefusalVals(key, file) {
+    if (key === 'photos.err.size')          return { mb: maxFileMb() };
+    if (key === 'photos.err.video.size')    return { mb: photoVideoCfg().maxFileSizeMb || 50 };
+    if (key === 'photos.err.video.long')    return { n: videoMaxSeconds() };
+    if (key === 'photos.err.type')          return { kind: fileTypeLabel(file) };
+    if (key === 'photos.err.video.format')  return { kind: fileTypeLabel(file) };
+    if (key === 'photos.err.decode')        return { kind: fileTypeLabel(file) };
+    if (key === 'photos.err.video.read')    return { kind: fileTypeLabel(file) };
     return null;
   }
 
@@ -4973,7 +5039,7 @@
      URL, and "trust the extension the picker handed us" is how a path shape
      stops being a shape. The caller decides photo or video from the validated
      type and this maps that decision onto exactly one of three literals. */
-  var STORAGE_EXT = { jpg: 1, mp4: 1, mov: 1 };
+  var STORAGE_EXT = { jpg: 1, mp4: 1, mov: 1, '3gp': 1, webm: 1 };
 
   function storagePath(ext) {
     var id = newGuestId();
@@ -5017,14 +5083,14 @@
      that has been widened and a database that has not produces an upload that
      succeeds into Storage and then fails at the row, leaving an orphaned
      object nothing points at. */
-  var STORAGE_PATH_RE = /^\d{4}-\d{2}-\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|mp4|mov)$/;
+  var STORAGE_PATH_RE = /^\d{4}-\d{2}-\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|mp4|mov|3gp|webm)$/;
 
   /* Which of the two things a stored path is, decided by the path and not by a
      database column, so a row whose kind disagrees with its own extension
      cannot render as the wrong element. The column exists and is authoritative
      for counting; this is authoritative for building a tag. */
   function pathIsVideo(p) {
-    return /\.(?:mp4|mov)$/i.test(String(p || ''));
+    return /\.(?:mp4|mov|3gp|webm)$/i.test(String(p || ''));
   }
 
   function photoPublicUrl(storagePath) {
@@ -7293,7 +7359,7 @@
 
       var bad = validateFile(rec.file, maxBytes);
       if (bad) {
-        setRowState(rec, 'refused', bad, photoRefusalVals(bad));
+        setRowState(rec, 'refused', bad, photoRefusalVals(bad, rec.file));
         continue;
       }
 
@@ -7383,7 +7449,7 @@
           /* Refused rather than failed, because nothing was sent. Same
              classification a photograph that will not decode receives, for the
              same reason: there is nothing on the wire to retry. */
-          setRowState(rec, 'refused', errKey, photoRefusalVals(errKey));
+          setRowState(rec, 'refused', errKey, photoRefusalVals(errKey, rec.file));
           return runNextFile();
         }
         /* The File itself, unmodified. A File IS a Blob, so it travels through
@@ -7399,7 +7465,8 @@
          full resolution source and the third attempt is where a phone gives
          up. It is a refusal rather than a failure, because nothing was sent. */
       if (errKey || !blob) {
-        setRowState(rec, 'refused', errKey || 'photos.err.decode', null);
+        var dk = errKey || 'photos.err.decode';
+        setRowState(rec, 'refused', dk, photoRefusalVals(dk, rec.file));
         return runNextFile();
       }
       prepared(blob);
