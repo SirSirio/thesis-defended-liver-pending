@@ -4626,11 +4626,195 @@
      large to decode is refused before it can exhaust the phone's memory, and
      ordering the size check after a decode would be the whole protection
      thrown away. */
+  /* WHAT KIND OF THING THE GUEST PICKED.
+
+     Type first, extension second, and the order matters. A file.type the
+     browser filled in is better evidence than a name the guest controls, but
+     an EMPTY type is not evidence of anything and must not be read as one.
+
+     That empty case is the open bug photo-rejections-unexplained: iOS and
+     Android share sheets, the Files app and cloud providers all hand back a
+     File with type === '', and the old rule tested indexOf('image/') !== 0 and
+     reported "Not an image file". That sentence was a lie, and it was the
+     refusal the owner could not explain on a real phone.
+
+     Returns 'photo', 'video', or null for something that is neither. */
+  function fileKind(file) {
+    if (!file) return null;
+
+    var type = String(file.type || '').toLowerCase();
+    if (type.indexOf('image/') === 0) return 'photo';
+    if (type.indexOf('video/') === 0) return 'video';
+
+    /* No usable type. Fall back to the name's extension rather than refusing,
+       because refusing here is exactly the reported bug. The list is closed
+       and deliberately generous on the image side: these are only ever used to
+       decide which pipeline to run, and the decode or the metadata probe is
+       the real judge of whether the bytes are what the name claims. */
+    if (type) return null;              // a type that exists and is neither
+
+    var name = String(file.name || '').toLowerCase();
+    if (/\.(jpe?g|png|heic|heif|webp|gif|tiff?|bmp|avif)$/.test(name)) return 'photo';
+    if (/\.(mp4|mov|m4v|3gp|webm|avi|mkv|qt)$/.test(name)) return 'video';
+    return null;
+  }
+
+  /* The extension the object is STORED under, which is not the extension it
+     arrived with. A photograph is always re-encoded to jpeg, so it is always
+     .jpg whatever the phone called it. A video is never re-encoded, so it
+     keeps a container, and quicktime is normalised to mov.
+
+     Anything unrecognised returns null and storagePath() refuses it, rather
+     than a default that would write a video to a .jpg key. */
+  function storedExtFor(file, kind) {
+    if (kind === 'photo') return 'jpg';
+    if (kind !== 'video') return null;
+
+    var type = String((file && file.type) || '').toLowerCase();
+    if (type === 'video/mp4') return 'mp4';
+    if (type === 'video/quicktime') return 'mov';
+
+    var name = String((file && file.name) || '').toLowerCase();
+    if (/\.(mp4|m4v)$/.test(name)) return 'mp4';
+    if (/\.(mov|qt)$/.test(name)) return 'mov';
+    return null;
+  }
+
+  /* The content type DECLARED on the upload, which is what the bucket's
+     allowed_mime_types list is checked against. Derived from the stored
+     extension rather than from file.type, so the declaration and the key can
+     never disagree, and an empty file.type still uploads correctly. */
+  function contentTypeFor(ext) {
+    if (ext === 'mp4') return 'video/mp4';
+    if (ext === 'mov') return 'video/quicktime';
+    return 'image/jpeg';
+  }
+
+  function videoMaxBytes() {
+    var mb = parseFloat(photoVideoCfg().maxFileSizeMb);
+    return ((isNaN(mb) || mb <= 0) ? 50 : mb) * 1024 * 1024;
+  }
+
+  function videoMaxSeconds() {
+    var n = parseFloat(photoVideoCfg().maxSeconds);
+    return (isNaN(n) || n <= 0) ? 60 : n;
+  }
+
+  /* The substitution values a refusal key needs, in one place.
+
+     This was an inline ternary on the one key that carried a number. There are
+     four of them now, and four ternaries at one call site is where the fifth
+     gets forgotten and a guest reads "Larger than {mb} MB" with the braces
+     still in it. */
+  function photoRefusalVals(key) {
+    if (key === 'photos.err.size')        return { mb: maxFileMb() };
+    if (key === 'photos.err.video.size')  return { mb: photoVideoCfg().maxFileSizeMb || 50 };
+    if (key === 'photos.err.video.long')  return { n: videoMaxSeconds() };
+    return null;
+  }
+
+  /* The synchronous half of validation. Everything here is cheap and runs
+     before a single byte is decoded or probed.
+
+     Returns a copy KEY or null, the same contract validateName() and
+     validateNote() use, so a refusal survives a language switch without being
+     re-computed.
+
+     None of this is a security control and it matters that nobody later reads
+     it as one. The key is public by design, so anyone can talk to the API
+     directly and skip every line below. The controls that actually hold
+     against a crafted request are the bucket's file_size_limit, counted on the
+     bytes that arrive, and the row level rules in supabase/schema.sql. These
+     checks protect a guest from picking the wrong file, which is a different
+     and equally real job.
+
+     All of it runs BEFORE the decode, deliberately (D-21, PH-07). A file too
+     large to decode is refused before it can exhaust the phone's memory, and
+     ordering the size check after a decode would be the whole protection
+     thrown away. The video duration probe obeys the same rule: see
+     probeVideoDuration(), which runs only once size has passed. */
   function validateFile(file, maxBytes) {
     if (!file || !file.size) return 'photos.err.empty';
-    if (String(file.type || '').indexOf('image/') !== 0) return 'photos.err.type';
+
+    var kind = fileKind(file);
+    if (!kind) return 'photos.err.type';
+
+    if (kind === 'video') {
+      if (!photoVideoOn()) return 'photos.err.video.off';
+      if (!storedExtFor(file, 'video')) return 'photos.err.video.format';
+      /* Its own ceiling and its own sentence. photos.maxFileSizeMb protects
+         the phone's memory before a canvas decode and a video is never
+         decoded, so reusing that number here would refuse at 12 MB with a
+         message naming a limit that does not apply. */
+      if (file.size > videoMaxBytes()) return 'photos.err.video.size';
+      return null;
+    }
+
     if (file.size > maxBytes) return 'photos.err.size';
     return null;
+  }
+
+  /* The asynchronous half, for video only.
+
+     Duration cannot be known without handing the file to a <video> element and
+     waiting for loadedmetadata, which is the expensive check, so it runs only
+     after size has already passed.
+
+     THE SETTLE GUARD AND THE TIMER ARE downscaleToJpeg()'s, for the identical
+     reason, and that reasoning is written out in full above that function. In
+     short: the flag prevents a second settle but it does not produce a first
+     one. If neither loadedmetadata nor error ever fires, and an abandoned
+     decode under memory pressure or a File handle the operating system
+     invalidated between pick and read are both real, then done() is never
+     called, runNextFile() never re-enters, the object URL is never revoked,
+     and the control sits in preparing with the pick button disabled for the
+     rest of the page's life. There is no recovery short of a reload.
+
+     Twelve seconds. Reading a container header is not decoding: the browser
+     needs the moov atom and nothing more, and on a 50 MB file picked from
+     local storage that is fast. This fires only where the browser has stopped
+     answering. */
+  function probeVideoDuration(file, done) {
+    var url = URL.createObjectURL(file);
+    var el = document.createElement('video');
+    var settled = false;
+
+    function finish(errKey) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      URL.revokeObjectURL(url);
+      /* Cleared before the callback so the next file starts on a clean heap.
+         removeAttribute after the empty string is the pair that actually
+         releases the buffer on WebKit; src = '' alone leaves it holding. */
+      el.removeAttribute('src');
+      try { el.load(); } catch (e) { /* older browser, nothing held */ }
+      done(errKey);
+    }
+
+    var timer = setTimeout(function () { finish('photos.err.video.read'); }, 12000);
+
+    el.onerror = function () { finish('photos.err.video.read'); };
+
+    el.onloadedmetadata = function () {
+      var secs = el.duration;
+      /* Infinity and NaN are both real answers here. A stream with no declared
+         duration reports Infinity, and a container the browser half understood
+         reports NaN. Neither can be compared against the limit, and treating
+         an unknown length as acceptable would let a ten minute clip through on
+         exactly the files whose headers are strangest. */
+      if (!isFinite(secs) || isNaN(secs) || secs <= 0) return finish('photos.err.video.read');
+      /* A whole second of tolerance. Phones routinely report 60.04 for a clip
+         the camera UI counted as sixty, and refusing that is refusing the
+         thing the guest was told they could send. */
+      if (secs > videoMaxSeconds() + 1) return finish('photos.err.video.long');
+      finish(null);
+    };
+
+    el.preload = 'metadata';
+    el.muted = true;
+    el.playsInline = true;
+    el.src = url;
   }
 
   /* One decode, one draw, one encode, and then everything is released by hand.
@@ -4758,18 +4942,34 @@
      change together, in one commit: a shape change that lands without the
      regex change makes every new photograph invisible, and there is no
      migration available from a static page. */
-  function storagePath() {
+  /* The extension allowlist, closed, and the only source of the three strings
+     the path may end in.
+
+     NEVER derived from file.name. That is guest supplied, it travels into a
+     URL, and "trust the extension the picker handed us" is how a path shape
+     stops being a shape. The caller decides photo or video from the validated
+     type and this maps that decision onto exactly one of three literals. */
+  var STORAGE_EXT = { jpg: 1, mp4: 1, mov: 1 };
+
+  function storagePath(ext) {
     var id = newGuestId();
     /* No source of randomness at all. The file cannot be given a safe name, so
        the path is refused rather than built from a weaker generator, which is
        the same branch enrollment takes at the identical moment. */
     if (!id) return null;
 
+    /* An unknown extension is refused rather than defaulted to jpg. A video
+       silently written to a .jpg key would upload, insert, and then never
+       render, and the failure would surface days later as a missing tile with
+       nothing to trace it back to. */
+    var e = String(ext || 'jpg').toLowerCase();
+    if (!STORAGE_EXT[e]) return null;
+
     var d = new Date();
     var day = d.getUTCFullYear() + '-' +
               ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' +
               ('0' + d.getUTCDate()).slice(-2);
-    return day + '/' + id + '.jpg';
+    return day + '/' + id + '.' + e;
   }
 
   /* The render time allowlist, anchored at both ends, and the other half of the
@@ -4781,7 +4981,27 @@
      clean on day one, because the research session's zz-research rows do not
      match the shape and therefore never render, before the owner's cleanup
      rather than after it. */
-  var STORAGE_PATH_RE = /^\d{4}-\d{2}-\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/;
+  /* FOUR COPIES OF THIS SHAPE EXIST AND THEY CHANGE IN ONE COMMIT:
+
+       storagePath() above          writes it
+       STORAGE_PATH_RE here         reads it back at render time
+       STORAGE_PATH_RE in album.js  a second copy, maintained by hand
+       photos_storage_path_check    the database's own CHECK constraint
+
+     The fourth was found by reading the live schema during phase 04.1 and is
+     the one that bites hardest: it refuses the insert outright, so a client
+     that has been widened and a database that has not produces an upload that
+     succeeds into Storage and then fails at the row, leaving an orphaned
+     object nothing points at. */
+  var STORAGE_PATH_RE = /^\d{4}-\d{2}-\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|mp4|mov)$/;
+
+  /* Which of the two things a stored path is, decided by the path and not by a
+     database column, so a row whose kind disagrees with its own extension
+     cannot render as the wrong element. The column exists and is authoritative
+     for counting; this is authoritative for building a tag. */
+  function pathIsVideo(p) {
+    return /\.(?:mp4|mov)$/i.test(String(p || ''));
+  }
 
   function photoPublicUrl(storagePath) {
     return sbUrl() + '/storage/v1/object/public/' + (CFG.photos || {}).bucket + '/' + storagePath;
@@ -4809,17 +5029,39 @@
      Content-Type is set explicitly rather than read off the blob, because the
      bucket's allowed_mime_types list is checked against what the uploader
      declares and this is the one place that declaration is made. */
-  function uploadObject(path, blob, onProgress, done) {
+  function uploadObject(path, blob, contentType, onProgress, done) {
     var xhr = new XMLHttpRequest();
     var settled = false;
+    var type = contentType || 'image/jpeg';
+    var isVideo = type.indexOf('video/') === 0;
 
     function settle(out) { if (!settled) { settled = true; done(out); } }
 
     xhr.open('POST', sbUrl() + '/storage/v1/object/' + (CFG.photos || {}).bucket + '/' + path, true);
     xhr.setRequestHeader('apikey', sbKey());
-    xhr.setRequestHeader('Content-Type', 'image/jpeg');
+    xhr.setRequestHeader('Content-Type', type);
     xhr.setRequestHeader('cache-control', 'max-age=31536000');
-    xhr.timeout = 60000;   // a photograph on party wifi is not a 12 second request
+
+    /* THE TIMEOUT IS PER KIND AND THE ARITHMETIC IS HERE TO BE CHECKED.
+
+       Sixty seconds was right for a photograph: 1600px of jpeg is a few
+       hundred kilobytes and party wifi is bad, not absent.
+
+       It is wrong for a video by a wide margin. Fifty megabytes at a realistic
+       2 Mbps uplink is 50 * 8 / 2 = 200 seconds, and the uplink at a party
+       with thirty phones on one access point is the thing least likely to hold
+       up. At sixty seconds every large video would abort mid transfer and be
+       reported as a dropped connection, which would be false and would send
+       the guest back to retry the same doomed upload.
+
+       Six minutes, which covers 50 MB down to roughly 1.1 Mbps. Slower than
+       that and the guest genuinely is not going to succeed, and saying so is
+       better than holding the control open all evening.
+
+       NOT raised for photographs, deliberately. A photograph still stuck after
+       sixty seconds is not moving, and a six minute wait to be told so is
+       worse than a wrong answer. */
+    xhr.timeout = isVideo ? 360000 : 60000;
 
     xhr.upload.onprogress = function (e) {
       if (typeof onProgress !== 'function') return;
@@ -4936,7 +5178,25 @@
        not the same function as the Storage one above. */
     if (!res) return 'photos.err.server';
     if (res.ok) return 'ok';
-    if (res.code === 'P0001') return 'limit';
+    /* BOTH trigger ceilings raise P0001, because that is the SQLSTATE plpgsql
+       gives every raise_exception, so the code alone cannot tell them apart
+       and the message is the only thing that can.
+
+       This file's rule is to classify on code and never on message, "which is
+       English, unstable, and embeds constraint names". That rule is about
+       POSTGREST's sentences and it still holds for them. This is different in
+       the way that matters: video_limit_reached is OUR OWN token, raised by
+       our own trigger in supabase/schema.sql, and it is a stable identifier
+       rather than prose. It is matched as a substring so a future PostgREST
+       that wraps it in its own sentence does not break the branch.
+
+       Checked before the bare P0001 below, because that one is the general
+       case and would otherwise swallow this. */
+    if (res.code === 'P0001') {
+      var msg = String((res.body && res.body.message) || '');
+      if (msg.indexOf('video_limit_reached') !== -1) return 'videolimit';
+      return 'limit';
+    }
     /* Alongside the limit branch and never inside it, and the order is the
        contract. The trigger in section 4 is BEFORE INSERT, so a guest already
        at the maximum receives P0001 for a path collision too and the limit has
@@ -4966,8 +5226,17 @@
     return 'photos.err.server';
   }
 
-  function insertPhotoRow(ident, path, done) {
-    var row = { guest_id: ident.guest_id, name: ident.name, storage_path: path };
+  function insertPhotoRow(ident, path, kind, done) {
+    var row = {
+      guest_id: ident.guest_id,
+      name: ident.name,
+      storage_path: path,
+      /* Sent explicitly rather than left to the column default, so a row is
+         never a photograph merely because nobody said otherwise. The column
+         defaults to 'photo' for the rows that predate the column, which is a
+         different situation from this one. */
+      kind: kind === 'video' ? 'video' : 'photo'
+    };
 
     sbRequest('POST', '/rest/v1/' + (CFG.photos || {}).table, row, 'return=minimal')
       .then(function (res) { done(classifyPhotoInsert(res)); });
@@ -6604,12 +6873,22 @@
     input.type = 'file';
     input.id = 'photos-input';
     input.multiple = true;
-    /* Exactly the image wildcard, and it is never extended. Adding image/heic,
+    /* THE IMAGE HALF IS image/* AND IS NEVER EXTENDED. Adding image/heic,
        .heic or .heif makes Safari 17 and later hand back an actual HEIC file,
        where image/* alone receives an operating system converted JPEG, and
        Android Chrome then cannot decode it. This looks like an omission and it
-       is the opposite. */
-    input.setAttribute('accept', 'image/*');
+       is the opposite.
+
+       video/* is added beside it, not into it. The same wildcard reasoning
+       applies for the same reason: naming containers here invites the picker
+       to hand back exactly the exotic one that was named. What comes back is
+       then judged by storedExtFor(), which accepts mp4 and quicktime and
+       refuses the rest with a sentence rather than by being unpickable.
+
+       Written from config so the attribute cannot claim to accept video while
+       the rest of the feature is switched off. A picker that opens the video
+       library and then refuses everything in it is the worst of both. */
+    input.setAttribute('accept', photoVideoOn() ? 'image/*,video/*' : 'image/*');
     input.hidden = true;
     box.appendChild(input);
 
@@ -6827,13 +7106,42 @@
     var accepted = 0;
     var extra = [];
 
+    /* How many videos this guest already holds, counted from the paths on the
+       device rather than from a column, because the client has never been told
+       what kind each recorded row is and does not need to be: the extension IS
+       the kind, and that is the same fact the renderer reads.
+
+       The database enforces this rule and is the authority. This count exists
+       so a second video is refused HERE, with a sentence that says the
+       allowance is one, instead of being uploaded in full over party wifi and
+       then declined by the row insert. Fifty megabytes is a long time to spend
+       finding out. */
+    var videosHeld = 0;
+    var held = identity.photoPaths();
+    for (i = 0; i < held.length; i++) {
+      if (pathIsVideo(held[i])) videosHeld++;
+    }
+
     for (i = 0; i < photoBatch.length; i++) {
       rec = photoBatch[i];
 
       var bad = validateFile(rec.file, maxBytes);
       if (bad) {
-        setRowState(rec, 'refused', bad, bad === 'photos.err.size' ? { mb: maxFileMb() } : null);
+        setRowState(rec, 'refused', bad, photoRefusalVals(bad));
         continue;
+      }
+
+      rec.kind = fileKind(rec.file);
+
+      /* The second video, refused by name. Counted across what the guest holds
+         AND what is in this batch, so picking two videos at once is caught on
+         the second one rather than on neither. */
+      if (rec.kind === 'video') {
+        if (videosHeld >= 1) {
+          setRowState(rec, 'refused', 'photos.err.video.only', null);
+          continue;
+        }
+        videosHeld++;
       }
 
       /* Overflow (D-15): the first N are accepted and the rest are refused by
@@ -6891,6 +7199,35 @@
     setUploaderStatus('photos.status.preparing', { i: rec.slot, n: photoBatchTotal });
     setRowState(rec, 'preparing');
 
+    /* TWO PREPARE PATHS, ONE CONTINUATION.
+
+       A photograph is decoded, drawn and re-encoded to jpeg. A video is not
+       touched at all: there is no canvas path for video, and re-encoding one
+       in the browser was costed and refused (D-5, no build step, ffmpeg.wasm
+       is a thirty megabyte dependency). So the video path does exactly one
+       thing the photograph path does not need, reads its duration, and then
+       hands the ORIGINAL File through as the body.
+
+       Both converge on prepared(), so everything after this point, the key,
+       the upload, the row, the retry and every failure branch, is written once
+       and behaves identically for both kinds. */
+    if (rec.kind === 'video') {
+      probeVideoDuration(rec.file, function (errKey) {
+        if (errKey) {
+          /* Refused rather than failed, because nothing was sent. Same
+             classification a photograph that will not decode receives, for the
+             same reason: there is nothing on the wire to retry. */
+          setRowState(rec, 'refused', errKey, photoRefusalVals(errKey));
+          return runNextFile();
+        }
+        /* The File itself, unmodified. A File IS a Blob, so it travels through
+           uploadObject unchanged and the bytes that reach the bucket are the
+           bytes the camera wrote. */
+        prepared(rec.file);
+      });
+      return;
+    }
+
     downscaleToJpeg(rec.file, maxEdgePx(), jpegQuality(), function (blob, errKey) {
       /* Terminal for this file and never retried: each retry re-decodes the
          full resolution source and the third attempt is where a phone gives
@@ -6899,6 +7236,10 @@
         setRowState(rec, 'refused', errKey || 'photos.err.decode', null);
         return runNextFile();
       }
+      prepared(blob);
+    });
+
+    function prepared(blob) {
 
       /* Minted once per RECORD and never once per attempt, and that is the
          whole of the insert's idempotency. sbRequest answers NETWORK after
@@ -6912,7 +7253,14 @@
 
          No source of randomness at all, so the file cannot be given a safe
          name. The same branch enrollment takes at the identical moment. */
-      var path = rec.path || storagePath();
+      /* The stored extension is decided from the ORIGINAL file and the kind,
+         never from what the blob turned out to be: a photograph is always jpg
+         because it has just been re-encoded, and a video keeps its container.
+         An unrecognised one returns null and the path is refused rather than
+         defaulted, because a video written to a .jpg key uploads, inserts, and
+         then never renders. */
+      var ext = storedExtFor(rec.file, rec.kind);
+      var path = rec.path || storagePath(ext);
       if (!path) {
         setRowState(rec, 'failed', 'photos.err.server', null);
         return runNextFile();
@@ -6925,7 +7273,7 @@
       setRowProgress(rec, 0);
 
       // The per-file fraction reaches exactly one row's fill, as a scale.
-      uploadObject(path, blob, function (fraction) { setRowProgress(rec, fraction); }, function (out) {
+      uploadObject(path, blob, contentTypeFor(ext), function (fraction) { setRowProgress(rec, fraction); }, function (out) {
         /* The row names what happened to it and the batch carries on to the
            next file rather than aborting: a dropped connection on file two is
            not a verdict on files three, four and five. */
@@ -6935,7 +7283,7 @@
         }
 
         // Storage first, then the row (D-19).
-        insertPhotoRow(photoIdent, path, function (result) {
+        insertPhotoRow(photoIdent, path, rec.kind, function (result) {
           if (result === 'ok') {
             // The archive has answered, so and only so does the bar reach the end.
             setRowState(rec, 'done', null, null);
@@ -6955,6 +7303,18 @@
                was wrong and the register was right, so it self-heals to the
                maximum (D-19) instead of the path being retried. */
             hitQuota(rec, 'photos.refuse.server');
+          } else if (result === 'videolimit') {
+            /* The OTHER ceiling, and deliberately not routed through
+               hitQuota(). That function self-heals the photograph count to the
+               maximum and closes the control, which is right when the register
+               says five and wrong here: this guest may have four slots free and
+               only their one video spent. Closing the uploader would refuse
+               four photographs the register would happily take.
+
+               So the row alone is refused, by name, and the control stays open.
+               The bytes went up, so this is a declined submission rather than a
+               failure, exactly as the branch above. */
+            setRowState(rec, 'refused', 'photos.refuse.video', null);
           } else {
             /* The object is up and the row is not, so this branch is where the
                accepted orphan of D-19 is created. It is left exactly where it
@@ -6967,7 +7327,7 @@
           runNextFile();
         });
       });
-    });
+    }
   }
 
   /* The single self-healing response to the register being full, and the only

@@ -133,10 +133,22 @@
   }
 
   /* The upload contract read backwards, character for character the same
-     expression app.js validates against. These strings become image URLs and
+     expression app.js validates against. These strings become media URLs and
      they arrive from a network response, so the shape is checked rather than
-     trusted. */
-  var STORAGE_PATH_RE = /^\d{4}-\d{2}-\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/;
+     trusted.
+
+     Widened for video on 2026-08-28 in the same commit as app.js, which is the
+     only way this duplication is survivable. A shape change landing in one
+     file and not the other makes every new upload invisible on the page that
+     was not changed, and there is no migration available from a static site. */
+  var STORAGE_PATH_RE = /^\d{4}-\d{2}-\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|mp4|mov)$/;
+
+  /* Decided by the path rather than by the album view's kind column, so a row
+     whose kind disagrees with its own extension still builds the element that
+     can actually play what is at the other end of the URL. */
+  function pathIsVideo(p) {
+    return /\.(?:mp4|mov)$/i.test(String(p || ''));
+  }
 
   function photoPublicUrl(p) {
     return sbUrl() + '/storage/v1/object/public/' + (CFG.photos || {}).bucket + '/' + p;
