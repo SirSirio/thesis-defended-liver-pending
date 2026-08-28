@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0B0B0C">
 <meta name="color-scheme" content="dark">
 <title>31026 File acceptance self test</title>
-<link rel="icon" href="assets/favicon.svg?v=16" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=17" type="image/svg+xml">
 
 <!-- THIS PAGE IS AN INSTRUMENT, NOT PART OF THE INVITATION.
 
@@ -16,10 +16,12 @@
 
      Three properties are deliberate and none of them should be traded away.
 
-     1. IT TOUCHES NO NETWORK. No Supabase, no bucket, no row, no fetch of any
-        kind past the one script in this head. A file picked here cannot leave
-        the device, which is the property that makes it safe to hand to a
-        phone and safe to leave on a public URL.
+     1. IT TOUCHES NO NETWORK ON ITS OWN. No Supabase, no bucket, no row, no
+        fetch of any kind past the one script in this head, until the guest
+        presses "Send this report", which posts the TEXT of the report to a
+        write-only table and nothing else. A file picked here cannot leave the
+        device, which is the property that makes it safe to hand to a phone
+        and safe to leave on a public URL.
 
      2. IT REPORTS FACTS, NOT OPINIONS. It never re-implements validateFile().
         It runs the same operations the uploader runs, the decode, the canvas
@@ -31,7 +33,7 @@
         The tokens below are copied from styles.css on purpose, and they are
         allowed to fall behind it. -->
 
-<script src="config.js?v=16"></script>
+<script src="config.js?v=17"></script>
 <style>
 :root {
   --bg: #0B0B0C; --surface: #141416;
@@ -126,6 +128,7 @@ dd.no  { color: var(--accent-lit); }
 
   <button class="btn" id="pick" type="button">Choose the files that were refused</button>
   <input type="file" id="input" multiple accept="image/*,video/*" hidden>
+  <button class="btn btn--ghost hide" id="send" type="button">Send this report to the organiser</button>
   <button class="btn btn--ghost hide" id="copy" type="button">Copy the whole report</button>
 
   <div id="out"></div>
@@ -150,7 +153,16 @@ dd.no  { color: var(--accent-lit); }
   var out     = document.getElementById('out');
   var input   = document.getElementById('input');
   var copyBtn = document.getElementById('copy');
+  var sendBtn = document.getElementById('send');
   var report  = [];
+
+  /* The version this page was served under, read off its own config tag, so
+     the report says which build of the site the phone actually had. */
+  function siteVersion() {
+    var s = document.querySelector('script[src*="config.js"]');
+    var m = s && String(s.getAttribute('src') || '').match(/[?&]v=([^&#]+)/);
+    return m ? m[1] : 'unknown';
+  }
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -218,6 +230,7 @@ dd.no  { color: var(--accent-lit); }
     }
 
     var dl3 = group(card, 'the limits this site is running');
+    row(dl3, 'site version', siteVersion());
     row(dl3, 'picture size', IMG_MB + ' MB');
     row(dl3, 'video size', VID_MB + ' MB');
     row(dl3, 'video length', VID_SEC + ' seconds');
@@ -270,11 +283,11 @@ dd.no  { color: var(--accent-lit); }
     }
     if (typeof WebAssembly === 'undefined') return settle(null);
     var s = document.createElement('script');
-    s.src = 'assets/vendor/libheif.js?v=16';
+    s.src = 'assets/vendor/libheif.js?v=17';
     s.onerror = function () { settle(null); };
     s.onload = function () {
       var x = new XMLHttpRequest();
-      x.open('GET', 'assets/vendor/libheif.wasm?v=16');
+      x.open('GET', 'assets/vendor/libheif.wasm?v=17');
       x.responseType = 'arraybuffer';
       x.onerror = function () { settle(null); };
       x.onload = function () {
@@ -327,12 +340,21 @@ dd.no  { color: var(--accent-lit); }
      that lapsed. The first and the last sixty four kilobytes, timed, with the
      error's own name when it refuses. */
   function probeBytes(file, cb) {
-    var res = { ok: false }, t0 = Date.now(), settled = false;
+    var res = { ok: false, retried: 0 }, t0 = Date.now(), settled = false;
     function finish() { if (settled) return; settled = true; clearTimeout(timer); res.ms = Date.now() - t0; cb(res); }
-    var timer = setTimeout(function () { res.err = 'no answer in 15 seconds'; finish(); }, 15000);
+    var timer = setTimeout(function () { res.err = 'no answer in 30 seconds'; finish(); }, 30000);
+    /* The same retry the uploader does: a refused read is often temporary on
+       Android, so five more tries over ten seconds, and the card says how
+       many it took. */
     function read(start, len, next) {
       var fr = new FileReader();
-      fr.onerror = function () { res.err = (fr.error && (fr.error.name + (fr.error.message ? ': ' + fr.error.message : ''))) || 'unknown read error'; finish(); };
+      fr.onerror = function () {
+        res.err = (fr.error && (fr.error.name + (fr.error.message ? ': ' + fr.error.message : ''))) || 'unknown read error';
+        res.lastErr = res.err;
+        if (res.retried >= 5) return finish();
+        res.retried++;
+        setTimeout(function () { read(start, len, next); }, [500, 1000, 2000, 3000, 4000][res.retried - 1]);
+      };
       fr.onload = function () { next(new Uint8Array(fr.result)); };
       try { fr.readAsArrayBuffer(file.slice(start, Math.min(file.size, start + len))); }
       catch (e) { res.err = 'slice threw: ' + ((e && e.message) || e); finish(); }
@@ -352,8 +374,8 @@ dd.no  { color: var(--accent-lit); }
       else if (head[0] === 0x1A && head[1] === 0x45 && head[2] === 0xDF) res.looksLike = 'Matroska or WebM';
       else if (head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46) res.looksLike = 'RIFF, AVI or WebP';
       else res.looksLike = 'nothing recognised';
-      if (file.size <= 65536) { res.ok = true; return finish(); }
-      read(Math.max(0, file.size - 65536), 65536, function () { res.ok = true; finish(); });
+      if (file.size <= 65536) { res.ok = true; res.err = null; return finish(); }
+      read(Math.max(0, file.size - 65536), 65536, function () { res.ok = true; res.err = null; finish(); });
     });
   }
 
@@ -705,7 +727,9 @@ dd.no  { color: var(--accent-lit); }
       probed = pb;
       row(dl, 'signature', pb.signature || 'unreadable');
       row(dl, 'looks like', pb.looksLike || 'unknown');
-      row(dl, 'bytes readable', pb.ok ? 'yes, in ' + pb.ms + ' ms' : 'NO: ' + pb.err, pb.ok);
+      row(dl, 'bytes readable', pb.ok
+        ? 'yes, in ' + pb.ms + ' ms' + (pb.retried ? ', after ' + pb.retried + ' refused ' + (pb.retried === 1 ? 'try' : 'tries') + ' (' + pb.lastErr + ')' : '')
+        : 'NO, after ' + (pb.retried + 1) + ' tries over ' + Math.round(pb.ms / 100) / 10 + ' s: ' + pb.err, pb.ok);
       if (!pb.ok) return finished({ objectUrl: false, unreadable: pb.err });
       if (kind === 'video') testVideo(file, finished);
       else testImage(file, finished);
@@ -721,17 +745,57 @@ dd.no  { color: var(--accent-lit); }
     report = [];
     copyBtn.className = 'btn btn--ghost hide';
 
+    sendBtn.className = 'btn btn--ghost hide';
+
     var i = 0;
     (function next() {
       if (i >= files.length) {
         describeDevice();
         copyBtn.textContent = 'Copy the whole report';
         copyBtn.className = 'btn btn--ghost';
+        sendBtn.textContent = 'Send this report to the organiser';
+        sendBtn.disabled = false;
+        sendBtn.className = 'btn btn--ghost';
         return;
       }
       describe(files[i++], next);
     })();
   }
+
+  /* THE ONE REQUEST THIS PAGE EVER MAKES, and only when the guest presses the
+     button. The report goes into public.diagnostics, which the public key can
+     write and cannot read, so pressing this shows the organiser exactly what
+     is on this screen and nothing else, and nobody else can see it. No file
+     leaves the phone: the report is the text above, not the pictures. */
+  sendBtn.addEventListener('click', function () {
+    var url = String(P.supabaseUrl || '').replace(/\/+$/, '');
+    var key = String(P.supabaseKey || '');
+    if (!url || !key) { sendBtn.textContent = 'Sending is not set up. Copy it instead.'; return; }
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending...';
+    var x = new XMLHttpRequest();
+    x.open('POST', url + '/rest/v1/diagnostics');
+    x.setRequestHeader('apikey', key);
+    x.setRequestHeader('Authorization', 'Bearer ' + key);
+    x.setRequestHeader('Content-Type', 'application/json');
+    x.setRequestHeader('Prefer', 'return=minimal');
+    x.timeout = 20000;
+    function failed() { sendBtn.disabled = false; sendBtn.textContent = 'Could not send. Copy it instead.'; }
+    x.onerror = failed;
+    x.ontimeout = failed;
+    x.onload = function () {
+      if (x.status >= 200 && x.status < 300) sendBtn.textContent = 'Sent. The organiser can read it now.';
+      else failed();
+    };
+    x.send(JSON.stringify({
+      page: 'check',
+      version: siteVersion().slice(0, 16),
+      ua: String(navigator.userAgent || '').slice(0, 400),
+      reason: 'manual',
+      detail: null,
+      report: report.join('\n').slice(0, 20000)
+    }));
+  });
 
   document.getElementById('pick').addEventListener('click', function () { input.click(); });
 

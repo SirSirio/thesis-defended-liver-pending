@@ -4897,12 +4897,13 @@
        Fifteen seconds for a handful of sixteen byte reads is generous; past
        it the answer is null and the refusal stands, and the control is free. */
     var settled = false;
+    var unreadable = false;   // set by slice() when the phone refuses to hand over bytes
     var timer = setTimeout(function () { finish(null); }, 15000);
     function finish(secs) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      done(secs);
+      done(secs, unreadable);
     }
 
     /* Reads are by slice, so a fifty megabyte clip costs a few kilobytes of
@@ -4915,8 +4916,8 @@
     function slice(start, len, cb) {
       if (start < 0 || len <= 0 || start >= file.size) return cb(null);
       var fr = new FileReader();
-      fr.onerror = function () { cb(null); };
-      fr.onabort = function () { cb(null); };
+      fr.onerror = function () { unreadable = true; cb(null); };
+      fr.onabort = function () { unreadable = true; cb(null); };
       fr.onload = function () {
         try { cb(new DataView(fr.result)); } catch (e) { cb(null); }
       };
@@ -5027,13 +5028,27 @@
      already settled, is untouched.
 
      Ordered this way the worst case is today's behaviour. */
-  function probeVideoDuration(file, done) {
+  function probeVideoDuration(file, done, tries) {
+    tries = tries || 0;
     probeVideoDurationByElement(file, function (errKey) {
       if (errKey !== 'photos.err.video.read') return done(errKey);
 
-      mp4DurationFromContainer(file, function (secs) {
-        // Nothing legible in the container either. The original refusal stands.
-        if (secs == null) return done('photos.err.video.read');
+      mp4DurationFromContainer(file, function (secs, unreadable) {
+        if (secs == null) {
+          /* The phone would not hand over the bytes. Often temporary, for the
+             reasons written above downscaleToJpeg()'s retryLater(): the same
+             schedule here, five more tries over ten and a half seconds, then
+             the sentence that says what to do about it. */
+          if (unreadable && tries < 5) {
+            return setTimeout(function () {
+              probeVideoDuration(file, done, tries + 1);
+            }, [500, 1000, 2000, 3000, 4000][tries]);
+          }
+          /* Nothing legible in the container either. The original refusal
+             stands, unless the phone never handed over the bytes at all, which
+             is a different problem with a different sentence. */
+          return done(unreadable ? 'photos.err.unreadable' : 'photos.err.video.read');
+        }
         // The same whole second of tolerance the element path allows.
         if (secs > videoMaxSeconds() + 1) return done('photos.err.video.long');
         done(null);
@@ -5111,20 +5126,24 @@
      HEIC that came through Files arrives with an empty type or with
      application/octet-stream as often as with image/heic. Thirty two bytes
      settle it: 'ftyp' at offset four, then a HEIF brand in the rest. */
+  /* cb(signature, unreadable). The second argument is the one fact an <img>
+     error cannot carry: whether the phone handed over the bytes at all. A
+     content provider that will not read is a different problem from a picture
+     that will not decode, and it gets a different sentence. */
   function sniffImage(file, cb) {
-    if (!file || !file.slice || typeof FileReader === 'undefined') return cb(null);
+    if (!file || !file.slice || typeof FileReader === 'undefined') return cb(null, false);
     var fr = new FileReader();
-    fr.onerror = function () { cb(null); };
-    fr.onabort = function () { cb(null); };
+    fr.onerror = function () { cb(null, true); };
+    fr.onabort = function () { cb(null, true); };
     fr.onload = function () {
       var b = new Uint8Array(fr.result), s = '';
       for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
       if (b.length >= 3 && b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return cb('jpeg');
       if (s.length >= 12 && s.slice(4, 8) === 'ftyp' &&
           /heic|heix|hevc|hevx|heim|heis|hevm|hevs|mif1|msf1/.test(s.slice(8, 32))) return cb('heif');
-      cb(null);
+      cb(null, false);
     };
-    try { fr.readAsArrayBuffer(file.slice(0, 32)); } catch (e) { cb(null); }
+    try { fr.readAsArrayBuffer(file.slice(0, 32)); } catch (e) { cb(null, true); }
   }
 
   /* A JPEG THE PHONE CANNOT RE-ENCODE IS STILL A JPEG.
@@ -5278,9 +5297,10 @@
      of it, and sbRequest's own long comment explains which half. Errors
      surface as copy keys, matching the validator convention. */
   function downscaleToJpeg(file, maxEdge, quality, done) {
-    var url = URL.createObjectURL(file);
-    var img = new Image();
+    var url = null;
+    var img = null;
     var settled = false;
+    var readTries = 0;
 
     /* The flag prevents a second settle; it does not produce a first one, and
        the two are not the same promise. sbRequest earns the invariant by
@@ -5308,8 +5328,8 @@
       /* Released before the callback, so the next file in the sequence starts
          on a clean heap. canvas.width = 0 is the one people leave out and it
          is the one that actually frees the backing store on WebKit. */
-      URL.revokeObjectURL(url);
-      img.src = '';
+      if (url) URL.revokeObjectURL(url);
+      if (img) img.src = '';
       done(blob, errKey);
     }
 
@@ -5322,15 +5342,17 @@
        originalMaxBytes() for why. A HEIF never takes this route: without the
        reader there is nothing any album could show. */
     function refuseOrPassThrough(errKey) {
-      sniffImage(file, function (sig) {
+      sniffImage(file, function (sig, unreadable) {
         if (sig === 'jpeg' && file.size <= originalMaxBytes()) return finish(file, null);
+        if (unreadable) return retryLater();
         finish(null, errKey);
       });
     }
 
-    img.onerror = function () {
-      sniffImage(file, function (sig) {
+    function onError() {
+      sniffImage(file, function (sig, unreadable) {
         if (sig === 'jpeg' && file.size <= originalMaxBytes()) return finish(file, null);
+        if (unreadable) return retryLater();
         if (sig !== 'heif') return finish(null, 'photos.err.decode');
 
         /* The reader is a megabyte on the wire and a real second of decode,
@@ -5350,9 +5372,9 @@
           });
         });
       });
-    };
+    }
 
-    img.onload = function () { encodeFrom(img, img.naturalWidth, img.naturalHeight, null); };
+    function onLoad() { encodeFrom(img, img.naturalWidth, img.naturalHeight, null); }
 
     /* The scale and the encode, shared by the browser's own decode and the
        HEIC reader so the two paths cannot drift apart. releaseSource frees
@@ -5409,8 +5431,46 @@
       }, 'image/jpeg', quality);
     }
 
-    img.decoding = 'async';
-    img.src = url;
+    /* One attempt: a fresh object URL and a fresh element each time, because
+       a blob URL that has failed once does not go back to the file. */
+    function attempt() {
+      url = URL.createObjectURL(file);
+      img = new Image();
+      img.onerror = onError;
+      img.onload = onLoad;
+      img.decoding = 'async';
+      img.src = url;
+    }
+
+    /* THE PHONE WOULD NOT HAND OVER THE BYTES, and that is often temporary.
+
+       Android content providers answer NotReadableError, "permission problems
+       that have occurred after a reference to a file was acquired", for a
+       photograph the gallery app is still finishing, for one that lives in a
+       cloud and is being fetched now that it has been asked for, and for a
+       grant that lapsed. The owner's own phone did exactly this on
+       2026-08-28 with a 2.5 MB JPEG taken seconds earlier, and the same
+       provider hands over the same file a moment later.
+
+       So the read is tried again, five times over ten and a half seconds,
+       before the guest is told to pick it another way. Each try replaces the
+       decode budget rather than sharing it, so a slow provider is not refused
+       by the clock the fast path set. */
+    function retryLater() {
+      if (settled) return;
+      readTries++;
+      if (readTries > 5) return finish(null, 'photos.err.unreadable');
+      var wait = [500, 1000, 2000, 3000, 4000][readTries - 1];
+      clearTimeout(timer);
+      timer = setTimeout(function () { refuseOrPassThrough('photos.err.decode'); }, wait + 20000);
+      if (url) URL.revokeObjectURL(url);
+      if (img) { img.onerror = null; img.onload = null; img.src = ''; }
+      url = null;
+      img = null;
+      setTimeout(function () { if (!settled) attempt(); }, wait);
+    }
+
+    attempt();
   }
 
   /* {yyyy-mm-dd}/{fresh-uuid}.jpg. The uuid is minted here per upload and has
@@ -7004,6 +7064,75 @@
      rendered string, which is what lets a language switch re-render a refusal
      without re-running validation, and what keeps a Storage or PostgREST
      message string from ever reaching the page. */
+  /* A REFUSAL THE OWNER CAN SEE.
+
+     Every refusal above is decided on the phone and never touches the wire,
+     which is right for the guest and blind for the owner: three sessions were
+     spent guessing at Android refusals that no log could show, while the edge
+     logs proved that every upload which DID reach the wire had landed. So a
+     refused or failed row files one small record in public.diagnostics: what
+     kind of thing it was, how big, its first twelve bytes, which sentence it
+     was shown, and what this device believed its allowance to be. No file
+     name, no guest id, no bytes of the picture. anon can insert there and can
+     read nothing back.
+
+     Fire and forget. Nothing waits on it, nothing in the control changes if
+     it never arrives, and it stops after twenty per page so a runaway batch
+     cannot become a runaway stream. */
+  var diagnosticsSent = 0;
+  function reportRefusal(rec) {
+    if (!rec || rec.reported || diagnosticsSent >= 20 || !sbConfigured()) return;
+    rec.reported = true;
+    diagnosticsSent++;
+
+    var file = rec.file || {};
+    var paths = identity.photoPaths(), videos = 0, i;
+    for (i = 0; i < paths.length; i++) if (pathIsVideo(paths[i])) videos++;
+    var m = String(file.name || '').toLowerCase().match(/\.([a-z0-9]{1,5})$/);
+
+    var detail = {
+      state: rec.state,
+      key: rec.reasonKey || null,
+      vals: rec.reasonVals || null,
+      kind: rec.kind || null,
+      type: String(file.type || ''),
+      size: file.size || 0,
+      ext: m ? m[1] : '',
+      count: identity.photoCount(),
+      paths: paths.length,
+      videos: videos
+    };
+
+    var sent = false;
+    function send() {
+      if (sent) return;
+      sent = true;
+      sbRequest('POST', '/rest/v1/diagnostics', {
+        page: 'uploader',
+        version: assetVersion().replace('?v=', '') || null,
+        ua: String(navigator.userAgent || '').slice(0, 400),
+        reason: String(rec.reasonKey || rec.state).slice(0, 80),
+        detail: detail
+      }, 'return=minimal');
+    }
+
+    /* The first twelve bytes name the real format whatever the type claimed.
+       Bounded by a timer so a provider that never answers cannot hold the
+       record back forever; "unreadable" is itself the finding then. */
+    if (!file.slice || typeof FileReader === 'undefined') return send();
+    var fr = new FileReader();
+    fr.onerror = function () { detail.sig = 'unreadable'; send(); };
+    fr.onabort = function () { detail.sig = 'unreadable'; send(); };
+    fr.onload = function () {
+      var b = new Uint8Array(fr.result), h = '';
+      for (var k = 0; k < b.length; k++) h += (b[k] < 16 ? '0' : '') + b[k].toString(16);
+      detail.sig = h;
+      send();
+    };
+    setTimeout(function () { if (!sent) { detail.sig = 'no answer'; send(); } }, 3000);
+    try { fr.readAsArrayBuffer(file.slice(0, 12)); } catch (e) { detail.sig = 'unreadable'; send(); }
+  }
+
   function setRowState(rec, state, reasonKey, reasonVals) {
     if (!rec) return;
     if (!ROW_STATE_KEY[state]) state = 'waiting';
@@ -7013,6 +7142,8 @@
       rec.reasonKey = reasonKey || null;
       rec.reasonVals = reasonVals || null;
     }
+
+    if (state === 'refused' || state === 'failed') reportRefusal(rec);
 
     var row = rec.node;
     if (!row) return;

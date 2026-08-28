@@ -158,3 +158,53 @@ owner is running it.
 When the owner reports an upload failure, **read the edge logs by user agent first**.
 Successes and removals are visible there; client refusals are not; and the difference is
 the difference between a format problem and a person testing the Remove button.
+
+## Addendum 2: the report arrived, and it named the thing
+
+At 21:55 UTC the owner ran `check.html` on the Android against a 2.55 MB JPEG taken seconds
+earlier, `1000112036.jpg`, and pasted it. One line was the whole answer:
+
+```
+bytes readable: NO: NotReadableError: The requested file could not be read, typically
+due to permission problems that have occurred after a reference to a file was acquired.
+```
+
+The phone gave the browser a handle to the file and then refused to let it read the bytes.
+The numeric file name is Google Photos' content provider naming, and that provider is
+known for exactly this with Chromium: it happens for a capture the app is still finishing,
+for an item that lives in the cloud and is being fetched now that it has been asked for,
+and for a grant that lapsed. It is intermittent by nature, which is the "sometimes works"
+the owner kept reporting, for video as much as for pictures. Not the format. Not the site.
+
+Every earlier theory, HEVC, HEIC, octet-stream, the decoder, was a guess at the wrong
+layer. The instrument built two hours earlier is what ended it.
+
+### What shipped, all proved before commit
+
+- **The read is retried before the guest is told anything**: five more tries over ten and
+  a half seconds, in the uploader's image path (a fresh object URL and a fresh element per
+  try, because a blob URL that has failed once does not go back to the file), in its
+  video path, and in `check.html`. Proved by simulating the exact `NotReadableError`:
+  reads refused twice then allowed lands ON RECORD in 3.3 s for a JPEG and 4.1 s for a
+  clip; refused forever gives the new sentence after 12 s with the control open.
+- **A sentence that says what to do**: `photos.err.unreadable`, three languages, 265 keys
+  at parity. "The phone did not hand over this file. Pick it again through a different
+  app, such as Files or the gallery, and make sure it has been downloaded to the phone."
+- **`public.diagnostics`, a write-only table**, so this never again depends on a paste
+  from a phone. anon may insert and may not read, update or delete, proved from the
+  untrusted position: insert 201, select 42501, delete 401, bad `page` 23514. Every
+  column is bounded. Every refused or failed row in the uploader now files one record
+  there (kind, size, first twelve bytes, the sentence shown, and what the device believed
+  its allowance to be; no file name, no guest id, no picture bytes), capped at twenty per
+  page. `check.html` gained a **Send this report to the organiser** button that posts the
+  text of the report and nothing else, and a `site version` row so the report says which
+  build the phone actually had.
+
+Beacon proved: an unreadable JPEG files `photos.err.unreadable` with `sig: unreadable`; an
+unreadable clip the same; a PDF files `photos.err.type` with its real first bytes; a JPEG
+that lands files nothing. Six regression cases and three pages at two viewports unchanged.
+
+### For the owner, in one line
+
+Pick from **Files** or the phone's own **Gallery** rather than Google Photos when it
+refuses, or wait a few seconds and pick again. The site now waits those seconds itself.

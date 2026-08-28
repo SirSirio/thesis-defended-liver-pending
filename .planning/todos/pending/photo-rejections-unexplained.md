@@ -81,3 +81,14 @@ real reason, and cause 1 should stop being a refusal at all.
 Note that `accept="image/*"` on the input is load bearing and is documented at `app.js` around
 line 4925: adding `image/heic` makes Safari hand back a real HEIC that Android Chrome cannot
 decode, where `image/*` alone gets an OS converted JPEG. Do not "fix" HEIC by widening `accept`.
+
+> **2026-08-28 21:55 UTC, NAMED.** The owner's `check.html` report on the Android:
+> `bytes readable: NO: NotReadableError: The requested file could not be read, typically
+> due to permission problems that have occurred after a reference to a file was acquired.`
+> A 2.55 MB JPEG taken seconds earlier, named `1000112036.jpg` by Google Photos' content
+> provider. The phone hands over a handle and refuses the bytes, intermittently, for
+> pictures and video alike. Not a format, not the site. Shipped: the read is retried five
+> times over ten seconds in both upload paths, `photos.err.unreadable` tells the guest to
+> pick through Files or the gallery, and every refusal now files itself in
+> `public.diagnostics`. **This todo closes when the owner confirms on that phone, and the
+> diagnostics table is where to look if they do not.**
