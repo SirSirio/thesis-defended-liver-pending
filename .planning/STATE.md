@@ -4,11 +4,11 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.1
 current_phase_name: the-upload-rebuilt
-status: planned
-stopped_at: Phase 04.1 planned, plan 1 ready to execute
+status: executing
+stopped_at: Phase 04.1 plan 1 shipped, plan 2 awaiting a go on the live migration
 last_updated: "2026-08-27T20:51:16.704Z"
-last_activity: 2026-08-27
-last_activity_desc: Phase 04.1 inserted, context, UI spec and two plans written
+last_activity: 2026-08-28
+last_activity_desc: Phase 04.1 plan 1 shipped, the uploader rebuilt and joined to the awakening
 progress:
   total_phases: 4
   completed_phases: 3
@@ -27,9 +27,10 @@ See: .planning/PROJECT.md (updated 2026-08-13)
 
 ## Current Position
 
-Phase: 04.1 (the upload rebuilt) — PLANNED, not started
-Plan: 0 of 2
-Status: Context, UI spec and two plans written. Plan 1 is next.
+Phase: 04.1 (the upload rebuilt) — EXECUTING
+Plan: 1 of 2 complete
+Status: Plan 1 shipped in six commits. Plan 2 is the video, and its first task is a
+migration against the LIVE database, so it is deliberately not started without a yes.
 Last activity: 2026-08-27 - Phase 04.1 inserted after phase 4. The uploader was measured rather than eyeballed: it declares no radius on its container and reaches for --r-sm on its primary button, so it is the one block that never joins the data-awake softening the rest of the page rides. Owner decisions taken: video capped at 50 MB and 60 seconds, one video per guest spending one of the existing five slots, soft cards as the direction.
 
 Progress: [██████████] 100%

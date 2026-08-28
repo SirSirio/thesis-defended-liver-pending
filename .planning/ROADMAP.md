@@ -196,9 +196,9 @@ number. It is 50 MiB, one video per guest, spending one of the existing five slo
 
 Plans:
 
-- [ ] 04.1-01-PLAN.md — The card, the allowance meter, the stated limits, the drop zone and
+- [x] 04.1-01-PLAN.md — The card, the allowance meter, the stated limits, the drop zone and
       the chips. Ships alone, no Supabase, so the direction can be judged before the pipeline
-      is built on it.
+      is built on it. **Done 2026-08-28**, six commits, see 04.1-01-SUMMARY.md.
 - [ ] 04.1-02-PLAN.md — One minute of video through every layer: migration first and verified
       from the untrusted position, then the path contract in all three places, then the
       validator, the upload, the rendering and the copy.
