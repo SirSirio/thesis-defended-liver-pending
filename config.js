@@ -244,6 +244,47 @@ window.PARTY_CONFIG = {
        into one. */
     maxFileSizeMb: 12,
 
+    /* VIDEO.
+
+       Owner decision, 2026-08-27: one video per guest, up to one minute, and
+       it spends one of the five slots above rather than being a sixth thing.
+       Recorded in full as D-1 to D-5 in
+       .planning/phases/04.1-.../04.1-CONTEXT.md.
+
+       enabled is the switch the rules strip reads. While it is false the
+       strip says nothing about video, which is the only honest thing it can
+       say until the validator, the upload path and the database all accept
+       one. Flipping this to true before those exist would put a promise on
+       the page that the next picked file breaks.
+
+       maxSeconds is checked in the browser and NOWHERE ELSE. There is no
+       server side duration check and there cannot be a cheap one, so this is
+       a courtesy to a guest who picked the wrong clip, not a control. Anyone
+       talking to the API directly can ignore it.
+
+       maxFileSizeMb here is a different number from the one above and they
+       must not be reconciled. That one protects the phone's memory before a
+       canvas decode; a video is never decoded to a canvas, so this one exists
+       only to refuse a file before it is sent. The number that actually holds
+       is the bucket's file_size_limit in supabase/schema.sql, counted on the
+       bytes that arrive.
+
+       Fifty is not a round number picked for looks. One minute of 1080p phone
+       video is roughly 60 to 90 MB and 4K is roughly 350 MB, so 50 accepts
+       most 1080p and refuses 4K, and the refusal has to say "film at a lower
+       quality" rather than "too large" or it is not something a guest can act
+       on at a party. Nothing is re-encoded in the browser: there is no build
+       step in this project and ffmpeg.wasm is a thirty megabyte dependency.
+
+       The ceiling is also a bill. Supabase's free tier is 1 GB of storage and
+       5 GB of egress a month, so 50 MB per guest is roughly twenty videos
+       before the tier is spent. Raising this number raises that bill. */
+    video: {
+      enabled: false,
+      maxSeconds: 60,
+      maxFileSizeMb: 50,
+    },
+
     /* When the album starts accepting photographs. Written the same way as
        the party time above, with the country's offset on the end, so it is
        compared as a moment rather than as a wall clock: a guest whose phone

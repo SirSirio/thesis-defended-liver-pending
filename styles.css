@@ -3172,6 +3172,67 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   .allow__pip { transition: none; }
 }
 
+/* --------------------------------------------------------------------------
+   THE LIMITS, STATED
+
+   Two lines, because there are two ceilings doing two different jobs and a
+   single strip naming one megabyte figure would be read as covering both.
+   The second line is absent entirely until video is switched on in config.
+
+   The middots are drawn here rather than written into copy.js, so no
+   translator carries punctuation and no language ends with a trailing
+   separator.
+   -------------------------------------------------------------------------- */
+.uploader__rules {
+  margin: 0 0 var(--s-5);
+  padding: var(--s-3) 0 0;
+  border-top: 1px solid var(--rule);
+}
+
+.rules__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--s-2);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.rules__line + .rules__line { margin-top: var(--s-1); }
+
+/* The separator belongs to the term BEFORE it, not the term after it, and
+   that is a wrapping decision rather than a stylistic one.
+
+   Attached to the following term it renders as ::before, and the moment the
+   line wraps the middot leads the new line: "ONE MAY BE A VIDEO / . UP TO 50
+   MB", which reads as a bullet list nobody asked for. Attached to the
+   preceding term it trails the line instead, which reads as a continuation,
+   and :not(:last-child) keeps it off the end of the strip.
+
+   Verified by wrapping it on purpose at 390px, where the video line does in
+   fact break after the second term. --ink-faint so it reads as punctuation
+   rather than as another word. */
+.rules__t:not(:last-child)::after {
+  content: '\00B7';
+  color: var(--ink-faint);
+  margin-left: var(--s-2);
+}
+
+/* The emphasised term. Weight and colour rather than size: the owner asked
+   for the video length to be explicit and big, and setting one term of a
+   three term line physically larger would tip the card's balance for a rule
+   that is one of several. --ink is 17.9:1 on --bg and carries against the
+   line's --ink-dim without needing a second colour. */
+.rules__t--key {
+  color: var(--ink);
+  font-weight: 500;
+}
+
 .uploader__note {
   font-size: 13px;
   line-height: 1.5;

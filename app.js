@@ -5912,6 +5912,88 @@
     return 'photo';
   }
 
+  function photoVideoCfg() {
+    return (CFG.photos || {}).video || {};
+  }
+
+  function photoVideoOn() {
+    return photoVideoCfg().enabled === true;
+  }
+
+  /* THE LIMITS, STATED ABOVE THE PICKER.
+
+     The owner asked for the video rule to be written "explicitely and big".
+     This is that, and it sits above the button rather than only inside a
+     refusal, because a rule a guest reads after being refused is a rule that
+     arrived too late.
+
+     TWO lines and not one, and that is the whole design decision here. There
+     are two ceilings in this section and they are different numbers doing
+     different jobs: photos.maxFileSizeMb protects the phone's memory before a
+     canvas decode, and photos.video.maxFileSizeMb refuses a video that is
+     never decoded at all. A single strip naming one megabyte figure would be
+     read as applying to both, so each line owns its own kind and its own
+     number.
+
+     The second line does not exist while video.enabled is false. It states a
+     rule nothing enforces yet, and a page that promises to accept a video and
+     then refuses the next picked file is worse than a page that never
+     mentioned it.
+
+     Every number comes from config. config.js:216 already warns that spelling
+     the limit into copy is a three file trap where two of the three will not
+     complain if you forget them; substituting here rather than writing "5" and
+     "60" into copy.js is what keeps it from becoming a fourth.
+
+     The separators are drawn by CSS rather than written into the strings, so
+     no translator has to carry punctuation and no language ends up with a
+     trailing middot. */
+  function writeRules(uploader) {
+    var host = uploader || photoUploader;
+    if (!host) return;
+
+    var strip = $('.uploader__rules', host);
+    if (!strip) return;
+
+    var vid = photoVideoCfg();
+
+    strip.textContent = '';
+
+    function line(video) {
+      var p = document.createElement('p');
+      p.className = 'rules__line' + (video ? ' rules__line--video' : '');
+      return p;
+    }
+
+    function term(text, key) {
+      var span = document.createElement('span');
+      span.className = 'rules__t' + (key ? ' rules__t--key' : '');
+      span.textContent = text;
+      return span;
+    }
+
+    var one = line(false);
+    one.appendChild(term(t('photos.rules.files').replace('{n}', String(photosMaxPerGuest()))));
+    one.appendChild(term(t('photos.rules.photo').replace('{mb}', String(maxFileMb()))));
+    strip.appendChild(one);
+
+    if (!photoVideoOn()) return;
+
+    /* The seconds term is the emphasised one, in --ink at 600 against the
+       strip's --ink-dim at 400. That is the "big" the owner asked for, done
+       with weight and colour rather than by setting one line of a four term
+       block at a larger size, which would tip the card's balance for a rule
+       that is one of several. */
+    var two = line(true);
+    two.appendChild(term(t('photos.rules.video')));
+    two.appendChild(term(
+      t('photos.rules.seconds').replace('{n}', String(vid.maxSeconds != null ? vid.maxSeconds : 60)),
+      true
+    ));
+    two.appendChild(term(t('photos.rules.videosize').replace('{mb}', String(vid.maxFileSizeMb != null ? vid.maxFileSizeMb : 50))));
+    strip.appendChild(two);
+  }
+
   /* setFormState()'s shape, one for one. One attribute drives everything: CSS
      reads it, JS sets it, there is no class juggling and no second flag. Every
      branch of the upload path ends in a call to this, so no code path can
@@ -6395,6 +6477,13 @@
 
     box.appendChild(allow);
 
+    /* The limits, immediately under the meter and above everything that acts.
+       Built empty and filled by writeRules(), which is also what
+       syncUploaderLanguage() calls, so there is one builder for one strip. */
+    var rules = document.createElement('div');
+    rules.className = 'uploader__rules';
+    box.appendChild(rules);
+
     /* Above the button rather than below it. It is information a guest needs
        in order to decide, so it has to be read before the picker opens, and it
        is the pre-commitment substitute for a destructive confirmation this
@@ -6504,6 +6593,7 @@
     if (label) label.textContent = t('photos.remaining.label');
 
     writeAllowance(uploader);
+    writeRules(uploader);
 
     var note = $('.uploader__note', uploader);
     if (note) note.textContent = t('photos.permanent');
