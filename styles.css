@@ -3347,6 +3347,34 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   min-height: var(--s-5);
 }
 
+/* The polite line becomes a chip, and the reserved box above is exactly why
+   this needs care rather than a background and a radius.
+
+   :not(:empty) is the mechanism. An always-on chip would render an empty pill
+   sitting under the button in the idle state, which is a badge announcing
+   nothing, so the fill appears only once there is something to say.
+
+   THE LINE HEIGHT IS THE LOAD BEARING VALUE HERE, not the padding.
+
+   Measured before it was fixed: the empty line reserves 24px, and the chip's
+   3px of vertical padding on a 1.5 line height took the filled line to
+   25.5px, so everything below it stepped 2px the moment a batch started and
+   stepped back when it ended. That is precisely the reflow the min-height was
+   put there to prevent, reintroduced by the thing that was supposed to be
+   cosmetic.
+
+   18px of line box plus 3px above and 3px below is 24px exactly, which is the
+   empty reservation unchanged. So the chip costs nothing and the guarantee
+   phase 2 gave the map slot and phase 3 gave the field error box still holds.
+   Re-measure this if the font size here ever changes. */
+.uploader__status:not(:empty) {
+  display: inline-block;
+  line-height: 18px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
 /* .form-alert's rationale, one for one: no border and no fill. A bordered red
    box here would be the only card on the page and would read as a browser
    error rather than as this site. */
@@ -3361,33 +3389,68 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
 /* --------------------------------------------------------------------------
    The submission transcript.
 
-   One numbered entry per file, and the 2px table rule under each entry is that
-   file's progress bar. That is the one genuinely bespoke idea in this phase:
-   the institutional log line is the thing that fills up while the file moves,
-   so the control gains a progress indicator without gaining a component.
+   One entry per file. This was a stack of institutional log lines separated
+   by 2px hairlines, where the hairline under each entry doubled as that
+   file's progress bar. It was a nice idea and it was also the least designed
+   thing in the section: the owner named it as the part that reads badly.
+
+   It is now a stack of soft rows with a pill chip carrying the state, which
+   is the same information at the same density, wearing the page's own shape
+   instead of a table's.
+
+   THE HAIRLINE'S SECOND JOB IS GONE, DELIBERATELY. The old comment argued the
+   bar could never change height because it was also the row's separating rule
+   and every row below would step sideways mid batch. That was true and it
+   stopped being true the moment the rows were separated by a gap instead of a
+   rule. So the bar is now 4px, rounded, and a real track. Recorded here
+   because it is a rule being retired on purpose rather than forgotten.
    -------------------------------------------------------------------------- */
 
 .queue {
   list-style: none;
-  margin: var(--s-3) 0 0;
+  margin: var(--s-4) 0 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
 }
 
-/* 12px above the text and 12px plus the bar's own 2px below it, so the optical
-   rhythm is even on both sides and the bar sits exactly where the row's
-   separating rule would have been. The reason wraps under the name rather than
-   beside it, because at 320px there is no beside. */
+/* The bar is a grid row rather than an absolutely positioned strip. Absolute
+   positioning would need its offsets kept in step with the row's padding by
+   hand, in three places, and the first person to change the padding would not
+   know that. As a grid area it simply sits at the bottom inside the padding
+   and stays there.
+
+   The reason still wraps under the name rather than beside it, because at
+   320px there is no beside. */
 .queue__row {
-  position: relative;
   display: grid;
   grid-template-columns: auto 1fr auto;
   grid-template-areas:
-    "n name state"
-    "n reason reason";
+    "n    name   state"
+    "n    reason reason"
+    "bar  bar    bar";
   column-gap: var(--s-2);
   row-gap: var(--s-1);
   align-items: baseline;
-  padding: var(--s-3) 0 calc(var(--s-3) + 2px);
+  padding: var(--s-3);
+  border-radius: var(--r-sm);
+
+  /* RECESSED, NOT RAISED, AND THE REASON IS CONTRAST RATHER THAN FASHION.
+
+     The obvious move for a soft row on a dark card is a few percent of white,
+     and it was measured and rejected. --accent-lit is documented as 4.9:1
+     against --bg, which is the surface it was chosen for. This block now sits
+     on --surface, and a white tint on top of that lightens the ground under
+     the one piece of red text in the row that has to be read and acted on: the
+     refusal reason. Measured at rgba(255,255,255,0.03) it came out 4.29:1,
+     under the 4.5 floor.
+
+     Black at 0.25 takes the row the other way, back under --bg, and the same
+     text measures 4.77:1. A recessed well is also the more honest thing for a
+     transcript to be: it is a log the control writes into, not a card sitting
+     on top of one. */
+  background: rgba(0, 0, 0, 0.25);
 }
 
 .queue__n {
@@ -3413,13 +3476,56 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   overflow-wrap: anywhere;
 }
 
+/* The chip. It keeps the class name .queue__state rather than becoming
+   .queue__chip: the name still describes exactly what it holds, and renaming
+   it would touch the builder and the language re-seat for no gain the guest
+   can see.
+
+   999px and not a token, because a pill is a pill at every radius and this
+   one must not soften with the awakening: it is a label, not a surface.
+
+   align-self is stated because the row is baseline aligned, and a chip with
+   its own padding does not share a baseline with 13px mono text beside it. */
 .queue__state {
   grid-area: state;
+  align-self: center;
+  justify-self: end;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.5;
-  color: var(--ink-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   white-space: nowrap;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink-dim);
+}
+
+/* In flight and refused are FILLED, not tinted, and that is a contrast result
+   rather than a preference.
+
+   Red text on a red tint was the first version and it measured 3.74:1. Every
+   alpha from 0.14 down to 0 was measured and none reached 4.5, because any
+   tint that makes the chip visible also lightens the ground under the red.
+   The tint and the legibility were asking for opposite things.
+
+   Filling with --accent and setting the text to --ink measures 8.11:1, and it
+   is not a new idea on this page: it is exactly what .btn--primary already
+   does, #990000 carrying near white. So the chip that means "this is
+   happening" or "this did not work" now looks like the one control on the
+   page that means "press this", which is the correct family for it.
+
+   There is no green on this site, so 'done' stays neutral and the word
+   carries it. A success colour that appears nowhere else would be the only
+   green pixel on the page. */
+.queue__row[data-state="preparing"] .queue__state,
+.queue__row[data-state="uploading"] .queue__state,
+.queue__row[data-state="recording"] .queue__state,
+.queue__row[data-state="refused"] .queue__state,
+.queue__row[data-state="failed"] .queue__state {
+  background: var(--accent);
+  color: var(--ink);
 }
 
 .queue__reason {
@@ -3435,11 +3541,10 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
    separating rule as much as its progress track, so if it could grow or shrink
    every row below it would step sideways mid-batch. */
 .queue__bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
+  grid-area: bar;
+  margin-top: var(--s-2);
+  height: 4px;
+  border-radius: 999px;
   background: var(--rule);
   overflow: hidden;
 }
@@ -3453,6 +3558,7 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
   display: block;
   width: 100%;
   height: 100%;
+  border-radius: 999px;
   background: var(--rule);
   transform: scaleX(0);
   transform-origin: left center;
