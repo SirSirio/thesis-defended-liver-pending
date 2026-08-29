@@ -92,3 +92,12 @@ decode, where `image/*` alone gets an OS converted JPEG. Do not "fix" HEIC by wi
 > pick through Files or the gallery, and every refusal now files itself in
 > `public.diagnostics`. **This todo closes when the owner confirms on that phone, and the
 > diagnostics table is where to look if they do not.**
+
+> **2026-08-29, THE REBUILD.** The retries of the evening before were built on the same
+> flaw they were patching: the uploader read a File four different ways and refused at the
+> first that failed, and the diagnostics table showed those four do not agree on Android.
+> `acquireBytes()` now reads the bytes once, whole, never sliced, through three readers,
+> and everything after works on the copy in memory; the File goes to the element directly
+> only when every reader refuses. See `.planning/quick/260829-mem-one-read-then-memory/`.
+> **Still open until one upload lands from that phone**, and `public.diagnostics` will now
+> say which reader produced the bytes, or exactly how all three refused.

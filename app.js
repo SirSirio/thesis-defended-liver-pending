@@ -4822,7 +4822,7 @@
      large to decode is refused before it can exhaust the phone's memory, and
      ordering the size check after a decode would be the whole protection
      thrown away. The video duration probe obeys the same rule: see
-     probeVideoDuration(), which runs only once size has passed. */
+     probeVideo(), which runs only once size has passed. */
   function validateFile(file, maxBytes) {
     if (!file || !file.size) return 'photos.err.empty';
 
@@ -4864,197 +4864,286 @@
      needs the moov atom and nothing more, and on a 50 MB file picked from
      local storage that is fast. This fires only where the browser has stopped
      answering. */
-  /* HOW LONG THE CLIP IS, ASKED OF THE FILE INSTEAD OF THE DECODER.
+  /* ======================================================================
+     ONE READ, THEN NEVER THE FILE AGAIN
 
-     probeVideoDurationByElement() below learns a clip's length by handing it
-     to a <video> element, which means the duration gate depends on this
-     browser owning this codec. Those are two different questions, and only one
-     of them is any of our business. A browser without HEVC refuses a clip that
-     every other guest's phone would play, and the bytes were never the
-     problem: they are uploaded whole and never re-encoded, so what this
-     browser can decode has no bearing on what lands in the bucket.
+     Everything below used to read the picked File in four different ways:
+     an <img> from a blob URL, a <video> from a blob URL, FileReader on
+     32 byte and 16 byte SLICES, and finally the XHR upload of the File
+     itself. Each of those is a separate trip into the phone's file provider,
+     and on Android those trips do not all succeed or fail together. The
+     owner's phone proved it on 2026-08-28: the same 39.5 MB video uploaded
+     twice through one route and was then refused as unreadable through
+     another, and a JPEG landed while three others were refused. The code
+     refused at the first read that failed, which turned "one of my readers
+     is flaky" into "nothing uploads".
 
-     The container already knows. MP4, MOV and 3GP are all ISO base media
-     files: a flat sequence of boxes, each an unsigned 32 bit size and a four
-     character type, and the movie header box mvhd inside moov carries a
-     timescale and a duration in those units. Reading it is a walk over box
-     headers with a DataView. No decoder, no dependency, no build step.
+     So the bytes are now fetched ONCE, sequentially, whole, through a ladder
+     of readers, and from then on every step works on the copy in memory:
+     the signature, the decode, the duration, the upload. The File is not
+     touched again. A read that works once is a read that has worked.
 
-     Returns SECONDS, or null for anything it is not certain about. Every
-     malformed, truncated, unexpected or simply-not-ISO-BMFF case returns null
-     rather than a guess, because the caller's fallback for null is the
-     refusal that happens today. WebM is Matroska and not this format at all,
-     so it lands on null correctly and without a special case.
+     Three readers, because they take different paths through the browser:
+     FileReader on the whole File, fetch() of a blob URL through the network
+     stack, and File.arrayBuffer(). Each is bounded by a timer, the ladder is
+     retried five times over ten seconds because Android providers refuse and
+     then relent, and the full record of what was tried is handed back for
+     the diagnostics beacon. No slices anywhere: a slice is a seek, and a
+     provider that streams through a pipe cannot seek.
 
-     It is not a security control and must never be read as one. The database
-     and the bucket are the authorities on what is stored; this decides which
-     sentence a guest reads. */
-  function mp4DurationFromContainer(file, done) {
-    /* A read that never returns is a hang, and this runs on the branch where
-       the <video> element has ALREADY failed to answer, which is exactly the
-       branch where the file's provider may be slow, gone, or still fetching
-       the bytes from a cloud. Nothing here is covered by any other timer.
-       Fifteen seconds for a handful of sixteen byte reads is generous; past
-       it the answer is null and the refusal stands, and the control is free. */
+     Memory: at most the configured ceiling, 40 MB for a photograph and
+     50 MB for a video, held for the life of one file's turn in the queue.
+     ====================================================================== */
+  function acquireBytes(file, cb) {
+    var report = { via: null, tries: 0, errors: [], ms: 0, failed: false };
+    var t0 = Date.now();
     var settled = false;
-    var unreadable = false;   // set by slice() when the phone refuses to hand over bytes
-    var timer = setTimeout(function () { finish(null); }, 15000);
-    function finish(secs) {
+
+    function finish(buf) {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
-      done(secs, unreadable);
+      report.ms = Date.now() - t0;
+      report.failed = !buf;
+      cb(buf, report);
     }
 
-    /* Reads are by slice, so a fifty megabyte clip costs a few kilobytes of
-       memory here. A phone that has already refused to decode this file is not
-       the place to pull the whole thing into an ArrayBuffer.
+    if (!file || typeof FileReader === 'undefined') return finish(null);
 
-       FileReader rather than Blob.arrayBuffer(), which is the newer and nicer
-       spelling and is exactly the kind of version floor this file avoids
-       everywhere else. */
-    function slice(start, len, cb) {
-      if (start < 0 || len <= 0 || start >= file.size) return cb(null);
+    function errName(e) { return (e && e.name) ? String(e.name) : 'error'; }
+
+    function viaReader(next) {
       var fr = new FileReader();
-      fr.onerror = function () { unreadable = true; cb(null); };
-      fr.onabort = function () { unreadable = true; cb(null); };
-      fr.onload = function () {
-        try { cb(new DataView(fr.result)); } catch (e) { cb(null); }
+      var done = false;
+      var t = setTimeout(function () {
+        if (done) return;
+        done = true;
+        try { fr.abort(); } catch (e) { /* nothing to abort */ }
+        report.errors.push('reader:timeout');
+        next(null);
+      }, 45000);
+      fr.onerror = function () {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        report.errors.push('reader:' + errName(fr.error));
+        next(null);
       };
-      try { fr.readAsArrayBuffer(file.slice(start, Math.min(file.size, start + len))); }
-      catch (e) { cb(null); }
-    }
-
-    function type4(dv, at) {
-      var s = '';
-      for (var i = 0; i < 4; i++) s += String.fromCharCode(dv.getUint8(at + i));
-      return s;
-    }
-
-    /* A box header is eight bytes, or sixteen when the 32 bit size is the
-       escape value 1 and a 64 bit size follows the type. Size 0 means the box
-       runs to the end of the file, which is legal and is only ever the last
-       one. Returns null for a header that cannot be believed, and a size
-       smaller than its own header is the shape that walks backwards forever. */
-    function header(dv, at, remaining) {
-      if (at + 8 > dv.byteLength) return null;
-      var size = dv.getUint32(at);
-      var kind = type4(dv, at + 4);
-      var head = 8;
-      if (size === 1) {
-        if (at + 16 > dv.byteLength) return null;
-        /* Assembled from two 32 bit halves because getBigUint64 returns a
-           BigInt, which is both a version floor and a type this file has no
-           other use for. Anything past 2^53 is not a video. */
-        size = (dv.getUint32(at + 8) * 4294967296) + dv.getUint32(at + 12);
-        head = 16;
-      } else if (size === 0) {
-        size = remaining;
+      fr.onabort = fr.onerror;
+      fr.onload = function () {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        next(fr.result && fr.result.byteLength ? fr.result : null);
+      };
+      try { fr.readAsArrayBuffer(file); }
+      catch (e) {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        report.errors.push('reader:threw');
+        next(null);
       }
-      if (size < head || size > remaining) return null;
-      return { size: size, head: head, kind: kind };
     }
 
-    function readMvhd(dv, at) {
-      /* Four bytes of version and flags, then two timestamps whose width the
-         version decides, then the two fields this function exists for. */
-      var version = dv.getUint8(at);
-      var scale, units;
-      if (version === 1) {
-        if (at + 32 > dv.byteLength) return finish(null);
-        scale = dv.getUint32(at + 20);
-        units = (dv.getUint32(at + 24) * 4294967296) + dv.getUint32(at + 28);
-      } else {
-        if (at + 20 > dv.byteLength) return finish(null);
-        scale = dv.getUint32(at + 12);
-        units = dv.getUint32(at + 16);
-        // The all-ones duration is this format's way of saying it does not know.
-        if (units === 4294967295) return finish(null);
+    function viaFetch(next) {
+      if (typeof fetch !== 'function' || typeof URL === 'undefined' || !URL.createObjectURL) {
+        report.errors.push('fetch:absent');
+        return next(null);
       }
-      if (!scale || !units) return finish(null);
-      var secs = units / scale;
-      /* Four hours is not a party video and is far likelier to be a field
-         read at the wrong offset. Refusing to answer is the safe direction:
-         the caller's answer for null is the refusal that happens today. */
-      if (!isFinite(secs) || secs <= 0 || secs > 14400) return finish(null);
-      finish(secs);
+      var url = URL.createObjectURL(file);
+      var done = false;
+      function settle(b, why) {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        URL.revokeObjectURL(url);
+        if (why) report.errors.push('fetch:' + why);
+        next(b && b.byteLength ? b : null);
+      }
+      var t = setTimeout(function () { settle(null, 'timeout'); }, 45000);
+      try {
+        fetch(url).then(function (r) {
+          if (!r.ok) throw new Error('http ' + r.status);
+          return r.arrayBuffer();
+        }).then(function (b) { settle(b, null); }, function (e) { settle(null, errName(e)); });
+      } catch (e) { settle(null, 'threw'); }
     }
 
-    /* mvhd is normally the first child of moov, so a quarter of a megabyte is
-       generous. moov itself can be tens of megabytes on a long recording, and
-       reading it whole to reach a field in its first hundred bytes is the
-       memory mistake this whole function exists to avoid. */
-    function findMvhd(start, len) {
-      slice(start, Math.min(len, 262144), function (dv) {
-        if (!dv) return finish(null);
-        var at = 0, guard = 64;
-        while (at + 8 <= dv.byteLength && guard-- > 0) {
-          var box = header(dv, at, len - at);
-          if (!box) return finish(null);
-          if (box.kind === 'mvhd') return readMvhd(dv, at + box.head);
-          at += box.size;
-        }
-        finish(null);
+    function viaArrayBuffer(next) {
+      if (typeof file.arrayBuffer !== 'function') {
+        report.errors.push('arrayBuffer:absent');
+        return next(null);
+      }
+      var done = false;
+      function settle(b, why) {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        if (why) report.errors.push('arrayBuffer:' + why);
+        next(b && b.byteLength ? b : null);
+      }
+      var t = setTimeout(function () { settle(null, 'timeout'); }, 45000);
+      try {
+        file.arrayBuffer().then(function (b) { settle(b, null); }, function (e) { settle(null, errName(e)); });
+      } catch (e) { settle(null, 'threw'); }
+    }
+
+    function ladder() {
+      report.tries++;
+      viaReader(function (b1) {
+        if (b1) { report.via = 'reader'; return finish(b1); }
+        viaFetch(function (b2) {
+          if (b2) { report.via = 'fetch'; return finish(b2); }
+          viaArrayBuffer(function (b3) {
+            if (b3) { report.via = 'arrayBuffer'; return finish(b3); }
+            if (report.tries > 5) return finish(null);
+            setTimeout(ladder, [500, 1000, 2000, 3000, 4000][report.tries - 1]);
+          });
+        });
       });
     }
 
-    /* The top level walk. moov sits at the front in a file written for
-       streaming and at the very end in one a phone camera wrote, and neither
-       is unusual, so both are simply walked to. The guard bounds a file whose
-       sizes send this in a circle. */
-    function walk(at, guard) {
-      if (guard <= 0 || at + 8 > file.size) return finish(null);
-      slice(at, 16, function (dv) {
-        if (!dv) return finish(null);
-        var box = header(dv, 0, file.size - at);
-        if (!box) return finish(null);
-        if (box.kind === 'moov') return findMvhd(at + box.head, box.size - box.head);
-        walk(at + box.size, guard - 1);
-      });
-    }
-
-    if (!file || !file.size || typeof FileReader === 'undefined' ||
-        typeof DataView === 'undefined' || !file.slice) return finish(null);
-    walk(0, 96);
+    ladder();
   }
 
-  /* The gate, in two questions rather than one.
+  /* What the bytes are, whatever the type or the name claimed. Synchronous,
+     because the bytes are already here. 'isobmff' is any MP4, MOV, 3GP or
+     HEIF family file whose brand is not a still image. */
+  function sigOf(buf) {
+    if (!buf || buf.byteLength < 12) return null;
+    var b = new Uint8Array(buf, 0, Math.min(32, buf.byteLength));
+    var s = '';
+    for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+    if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return 'jpeg';
+    if (s.slice(4, 8) === 'ftyp') {
+      return /heic|heix|hevc|hevx|heim|heis|hevm|hevs|mif1|msf1/.test(s.slice(8, 32)) ? 'heif' : 'isobmff';
+    }
+    if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return 'png';
+    if (b[0] === 0x1A && b[1] === 0x45 && b[2] === 0xDF && b[3] === 0xA3) return 'webm';
+    return null;
+  }
+
+  /* HOW LONG THE CLIP IS, ASKED OF THE BYTES INSTEAD OF THE DECODER.
+
+     The <video> element learns a clip's length by owning its codec, which is
+     a different question from how long the clip is, and a browser without
+     the codec was refusing clips every other guest's phone would play.
+
+     The container knows. MP4, MOV and 3GP are ISO base media files: a flat
+     sequence of boxes, each an unsigned 32 bit size and a four character
+     type, and the movie header box mvhd inside moov carries a timescale and
+     a duration in those units. This walks the boxes in memory. moov sits at
+     the front in a file written for streaming and at the very end in one a
+     phone camera wrote, and both are simply walked to.
+
+     Returns SECONDS, or null for anything it is not certain about. Every
+     malformed, truncated or unexpected case returns null rather than a
+     guess, because the caller's answer for null is a refusal. WebM is
+     Matroska and not this format at all, so it lands on null correctly.
+
+     Not a security control. The bucket and the database are the authorities
+     on what is stored; this decides which sentence a guest reads. */
+  function mp4DurationFromBuffer(buf) {
+    if (!buf || typeof DataView === 'undefined' || buf.byteLength < 16) return null;
+    try {
+      var dv = new DataView(buf);
+      var n = dv.byteLength;
+
+      function type4(at) {
+        var s = '';
+        for (var i = 0; i < 4; i++) s += String.fromCharCode(dv.getUint8(at + i));
+        return s;
+      }
+
+      /* Eight bytes, or sixteen when the 32 bit size is the escape value 1
+         and a 64 bit size follows the type. Size 0 means the box runs to the
+         end of the file. A size smaller than its own header is the shape
+         that walks backwards forever, so it is refused. */
+      function header(at, remaining) {
+        if (at + 8 > n) return null;
+        var size = dv.getUint32(at);
+        var kind = type4(at + 4);
+        var head = 8;
+        if (size === 1) {
+          if (at + 16 > n) return null;
+          size = (dv.getUint32(at + 8) * 4294967296) + dv.getUint32(at + 12);
+          head = 16;
+        } else if (size === 0) {
+          size = remaining;
+        }
+        if (size < head || size > remaining) return null;
+        return { size: size, head: head, kind: kind };
+      }
+
+      function readMvhd(at) {
+        var version = dv.getUint8(at);
+        var scale, units;
+        if (version === 1) {
+          if (at + 32 > n) return null;
+          scale = dv.getUint32(at + 20);
+          units = (dv.getUint32(at + 24) * 4294967296) + dv.getUint32(at + 28);
+        } else {
+          if (at + 20 > n) return null;
+          scale = dv.getUint32(at + 12);
+          units = dv.getUint32(at + 16);
+          // The all-ones duration is this format's way of saying it does not know.
+          if (units === 4294967295) return null;
+        }
+        if (!scale || !units) return null;
+        var secs = units / scale;
+        // Four hours is not a party video and is far likelier to be a wrong offset.
+        if (!isFinite(secs) || secs <= 0 || secs > 14400) return null;
+        return secs;
+      }
+
+      var at = 0, guard = 96;
+      while (at + 8 <= n && guard-- > 0) {
+        var box = header(at, n - at);
+        if (!box) return null;
+        if (box.kind === 'moov') {
+          var end = at + box.size, p = at + box.head, inner = 64;
+          while (p + 8 <= end && inner-- > 0) {
+            var child = header(p, end - p);
+            if (!child) return null;
+            if (child.kind === 'mvhd') return readMvhd(p + child.head);
+            p += child.size;
+          }
+          return null;
+        }
+        at += box.size;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /* The duration gate, from the bytes in memory when there are any and from
+     the File when there are not.
 
      The <video> element still runs first and still decides every case it
-     decides today, so nothing that works now can start failing. The container
-     is asked ONLY on the branch that would otherwise have refused the file for
-     being unreadable, which is the branch where the element's answer was about
-     the browser rather than about the clip. Every other refusal, too long,
-     already settled, is untouched.
-
-     Ordered this way the worst case is today's behaviour. */
-  function probeVideoDuration(file, done, tries) {
-    tries = tries || 0;
-    probeVideoDurationByElement(file, function (errKey) {
+     decides, so nothing that worked before can start failing. It is handed
+     an in-memory Blob rather than the File, so it reads from the heap and
+     never from the phone's provider. Only on the branch where the element
+     could not open the clip is the container walked. With no bytes in
+     memory, the element is handed the File itself, exactly as before this
+     rebuild, and if that fails too the sentence says the phone did not hand
+     the file over, because by then three readers and the element have all
+     been refused. */
+  function probeVideo(buf, file, done) {
+    var type = contentTypeFor(storedExtFor(file, 'video'));
+    var src = buf ? new Blob([buf], { type: type }) : file;
+    probeVideoDurationByElement(src, function (errKey) {
+      src = null;
       if (errKey !== 'photos.err.video.read') return done(errKey);
-
-      mp4DurationFromContainer(file, function (secs, unreadable) {
-        if (secs == null) {
-          /* The phone would not hand over the bytes. Often temporary, for the
-             reasons written above downscaleToJpeg()'s retryLater(): the same
-             schedule here, five more tries over ten and a half seconds, then
-             the sentence that says what to do about it. */
-          if (unreadable && tries < 5) {
-            return setTimeout(function () {
-              probeVideoDuration(file, done, tries + 1);
-            }, [500, 1000, 2000, 3000, 4000][tries]);
-          }
-          /* Nothing legible in the container either. The original refusal
-             stands, unless the phone never handed over the bytes at all, which
-             is a different problem with a different sentence. */
-          return done(unreadable ? 'photos.err.unreadable' : 'photos.err.video.read');
-        }
-        // The same whole second of tolerance the element path allows.
-        if (secs > videoMaxSeconds() + 1) return done('photos.err.video.long');
-        done(null);
-      });
+      if (!buf) return done('photos.err.unreadable');
+      var secs = mp4DurationFromBuffer(buf);
+      if (secs == null) return done('photos.err.video.read');
+      if (secs > videoMaxSeconds() + 1) return done('photos.err.video.long');
+      done(null);
     });
   }
+
 
   function probeVideoDurationByElement(file, done) {
     var url = URL.createObjectURL(file);
@@ -5126,26 +5215,6 @@
      HEIC that came through Files arrives with an empty type or with
      application/octet-stream as often as with image/heic. Thirty two bytes
      settle it: 'ftyp' at offset four, then a HEIF brand in the rest. */
-  /* cb(signature, unreadable). The second argument is the one fact an <img>
-     error cannot carry: whether the phone handed over the bytes at all. A
-     content provider that will not read is a different problem from a picture
-     that will not decode, and it gets a different sentence. */
-  function sniffImage(file, cb) {
-    if (!file || !file.slice || typeof FileReader === 'undefined') return cb(null, false);
-    var fr = new FileReader();
-    fr.onerror = function () { cb(null, true); };
-    fr.onabort = function () { cb(null, true); };
-    fr.onload = function () {
-      var b = new Uint8Array(fr.result), s = '';
-      for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
-      if (b.length >= 3 && b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return cb('jpeg');
-      if (s.length >= 12 && s.slice(4, 8) === 'ftyp' &&
-          /heic|heix|hevc|hevx|heim|heis|hevm|hevs|mif1|msf1/.test(s.slice(8, 32))) return cb('heif');
-      cb(null, false);
-    };
-    try { fr.readAsArrayBuffer(file.slice(0, 32)); } catch (e) { cb(null, true); }
-  }
-
   /* A JPEG THE PHONE CANNOT RE-ENCODE IS STILL A JPEG.
 
      Every photograph is decoded and re-encoded to 1600px before upload, and
@@ -5221,24 +5290,23 @@
     document.head.appendChild(s);
   }
 
-  /* The whole file into memory, decoded to RGBA, painted onto a canvas the
-     size of the photograph. That canvas is the SOURCE for the same scale and
-     encode every JPEG goes through, and the caller releases it the moment the
-     small canvas has been drawn, because at twelve megapixels it is
-     forty eight megabytes and the phone that needs this path is the phone
-     that can least afford to hold two of them.
+  /* Decoded to RGBA and painted onto a canvas the size of the photograph.
+     That canvas is the SOURCE for the same scale and encode every JPEG goes
+     through, and the caller releases it the moment the small canvas has been
+     drawn, because at twelve megapixels it is forty eight megabytes and the
+     phone that needs this path is the phone that can least afford two.
+
+     Takes the bytes already in memory. A File is accepted too, for the one
+     path that has no bytes, and is read whole here, never sliced.
 
      Orientation is libheif's to apply and it does, by default: the irot and
      imir boxes an iPhone writes are honoured inside decode(), so a portrait
      HEIC arrives here portrait. No rotation code, for the reason written
      above downscaleToJpeg(). */
-  function decodeHeifToCanvas(file, mod, cb) {
-    var fr = new FileReader();
-    fr.onerror = function () { cb(null); };
-    fr.onabort = function () { cb(null); };
-    fr.onload = function () {
+  function decodeHeifToCanvas(src, mod, cb) {
+    function fromBuffer(bytes) {
       var imgs, im, i, w, h, canvas, ctx, id;
-      try { imgs = new mod.HeifDecoder().decode(fr.result); }
+      try { imgs = new mod.HeifDecoder().decode(bytes); }
       catch (e) { return cb(null); }
       if (!imgs || !imgs.length) return cb(null);
 
@@ -5272,9 +5340,17 @@
         ctx.putImageData(id, 0, 0);
         cb(canvas);
       });
-    };
-    try { fr.readAsArrayBuffer(file); } catch (e) { cb(null); }
+    }
+
+    if (src instanceof ArrayBuffer) return fromBuffer(src);
+
+    var fr = new FileReader();
+    fr.onerror = function () { cb(null); };
+    fr.onabort = function () { cb(null); };
+    fr.onload = function () { fromBuffer(fr.result); };
+    try { fr.readAsArrayBuffer(src); } catch (e) { cb(null); }
   }
+
 
   /* One decode, one draw, one encode, and then everything is released by hand.
 
@@ -5285,40 +5361,36 @@
      on top of that turns every correct photo sideways, which is the bug it was
      supposed to prevent, arriving through the code written to prevent it.
 
-     createImageBitmap would decode off the main thread, which is nicer. It
-     would also add a version floor: the imageOrientation value from-image is
-     only accepted from Safari 16, and Safari before 17.2 spelled the same
-     behaviour none. An enum a dictionary does not recognise throws, so the
-     safeguard costs more than the risk it covers. See 04-RESEARCH.md, THE
-     ORIENTATION REFINEMENT.
+     THE SOURCE IS THE COPY IN MEMORY when acquireBytes() produced one, wrapped
+     in a Blob of its own so the <img> reads from the heap and never from the
+     phone's file provider. When it produced nothing, the File itself is
+     handed to the <img> exactly as it was before the rebuild, because an
+     image loader is a fifth reader and there is no reason to assume it fails
+     with the other four. Only when that fails too is the guest told the
+     phone did not hand the file over.
 
-     The settled flag and the timer below together mirror sbRequest's
-     invariant: the caller cannot be left waiting. The flag alone was only half
-     of it, and sbRequest's own long comment explains which half. Errors
-     surface as copy keys, matching the validator convention. */
-  function downscaleToJpeg(file, maxEdge, quality, done) {
+     The settled flag and the timer together mirror sbRequest's invariant: the
+     caller cannot be left waiting. If neither onload nor onerror ever fires,
+     the timer refuses, and every refusal past the point where the bytes are
+     known to be a JPEG becomes a passthrough instead: see originalMaxBytes().
+
+     Twenty seconds. A twelve megapixel decode and a 1600px encode is a real
+     second or two on the phone this is written for and nothing like twenty,
+     so this fires only where the browser has genuinely stopped answering.
+     The HEIC path replaces the budget with ninety, because the reader is a
+     megabyte on the wire and a real second of decode. */
+  function downscaleToJpeg(src, maxEdge, quality, done) {
+    var buf = src.buf || null;
+    var file = src.file;
+    var type = String((file && file.type) || '').toLowerCase();
+    var name = String((file && file.name) || '').toLowerCase();
+    var sig = buf ? sigOf(buf) : null;
+    var looksHeif = sig === 'heif' || (!buf && /heic|heif/.test(type + ' ' + name));
+
     var url = null;
     var img = null;
     var settled = false;
-    var readTries = 0;
 
-    /* The flag prevents a second settle; it does not produce a first one, and
-       the two are not the same promise. sbRequest earns the invariant by
-       racing the wire against a timer that RESOLVES, and this needs the same
-       thing for the same reason: if neither onload nor onerror ever fires, and
-       an abandoned decode under memory pressure or a File handle the operating
-       system invalidated between pick and read are both real, then done() is
-       never called, runNextFile() never re-enters, the object URL is never
-       revoked, and photoState stays preparing with the pick button disabled
-       for the rest of the page's life. renderPhotos() will not rebuild the
-       control either, because its skip guard reads that same stuck state, so
-       there is no recovery short of a reload.
-
-       Twenty seconds. A twelve megapixel decode and a 1600px encode is a real
-       second or two on the phone this is written for and nothing like twenty,
-       so this fires only where the browser has genuinely stopped answering.
-       The file is refused rather than failed, matching every other decode
-       outcome: nothing was sent, so nothing can be retried. */
     var timer = setTimeout(function () { refuseOrPassThrough('photos.err.decode'); }, 20000);
 
     function finish(blob, errKey) {
@@ -5326,50 +5398,35 @@
       settled = true;
       clearTimeout(timer);
       /* Released before the callback, so the next file in the sequence starts
-         on a clean heap. canvas.width = 0 is the one people leave out and it
-         is the one that actually frees the backing store on WebKit. */
+         on a clean heap. */
       if (url) URL.revokeObjectURL(url);
-      if (img) img.src = '';
+      if (img) { img.onerror = null; img.onload = null; img.src = ''; }
       done(blob, errKey);
     }
 
-    /* The browser said no. Before that is taken as the answer, the bytes are
-       asked whether this is a HEIF, and if so the site's own reader has a go.
-       See sniffImage() above for why this exists and why it costs nothing
-       until it is needed. */
     /* Every refusal past this point goes through here rather than straight to
-       finish(), so a JPEG the phone could not handle is sent as itself. See
-       originalMaxBytes() for why. A HEIF never takes this route: without the
-       reader there is nothing any album could show. */
+       finish(), so a JPEG the phone could not handle is sent as itself. A
+       HEIF never takes this route: without the reader there is nothing any
+       album could show. With no bytes in memory at all, the sentence is the
+       one about the phone, because that is what has happened. */
     function refuseOrPassThrough(errKey) {
-      sniffImage(file, function (sig, unreadable) {
-        if (sig === 'jpeg' && file.size <= originalMaxBytes()) return finish(file, null);
-        if (unreadable) return retryLater();
-        finish(null, errKey);
-      });
+      if (buf && sig === 'jpeg' && buf.byteLength <= originalMaxBytes()) return finish(buf, null);
+      if (!buf) return finish(null, 'photos.err.unreadable');
+      finish(null, errKey);
     }
 
     function onError() {
-      sniffImage(file, function (sig, unreadable) {
-        if (sig === 'jpeg' && file.size <= originalMaxBytes()) return finish(file, null);
-        if (unreadable) return retryLater();
-        if (sig !== 'heif') return finish(null, 'photos.err.decode');
+      if (!looksHeif) return refuseOrPassThrough('photos.err.decode');
 
-        /* The reader is a megabyte on the wire and a real second of decode,
-           so the twenty second budget is REPLACED rather than shared: on party
-           wifi the download alone can take longer than that, and refusing a
-           good photograph at second twenty one would be this path failing in
-           exactly the case it was built for. Ninety seconds, and the same
-           refusal as before when it runs out. */
-        clearTimeout(timer);
-        timer = setTimeout(function () { finish(null, 'photos.err.decode'); }, 90000);
-
-        loadHeifDecoder(function (mod) {
-          if (!mod) return finish(null, 'photos.err.decode');
-          decodeHeifToCanvas(file, mod, function (full) {
-            if (!full) return finish(null, 'photos.err.decode');
-            encodeFrom(full, full.width, full.height, function () { full.width = full.height = 0; });
-          });
+      /* A HEIF the browser cannot open. The site's own reader has a go: see
+         loadHeifDecoder() for what it is and why it costs nothing until now. */
+      clearTimeout(timer);
+      timer = setTimeout(function () { finish(null, 'photos.err.decode'); }, 90000);
+      loadHeifDecoder(function (mod) {
+        if (!mod) return finish(null, 'photos.err.decode');
+        decodeHeifToCanvas(buf || file, mod, function (full) {
+          if (!full) return finish(null, buf ? 'photos.err.decode' : 'photos.err.unreadable');
+          encodeFrom(full, full.width, full.height, function () { full.width = full.height = 0; });
         });
       });
     }
@@ -5378,12 +5435,11 @@
 
     /* The scale and the encode, shared by the browser's own decode and the
        HEIC reader so the two paths cannot drift apart. releaseSource frees
-       whatever the pixels came from, and it is called on every exit past the
-       canvas allocation for the reason written beside release() below. */
+       whatever the pixels came from, on every exit past the allocation. */
     function encodeFrom(source, w, h, releaseSource) {
       if (!w || !h) {
         if (releaseSource) releaseSource();
-        return finish(null, 'photos.err.decode');
+        return refuseOrPassThrough('photos.err.decode');
       }
 
       // Never upscale. A small photo stays small.
@@ -5395,11 +5451,9 @@
       canvas.width = cw;
       canvas.height = ch;
 
-      /* Every return past the allocation above goes through this, not only the
-         two inside the encoder callback. A canvas that is reachable solely
-         through this closure still holds a cw by ch backing store, which at
-         the ceiling is 1600 by 1600 by four bytes carried into the next file's
-         decode, and the drawImage failure below is itself a memory pressure
+      /* Every return past the allocation above goes through this. A canvas
+         reachable solely through this closure still holds a cw by ch backing
+         store, and the drawImage failure below is itself a memory pressure
          signal: the leak would arrive exactly when the heap is already tight. */
       function release() {
         canvas.width = canvas.height = 0;
@@ -5431,47 +5485,17 @@
       }, 'image/jpeg', quality);
     }
 
-    /* One attempt: a fresh object URL and a fresh element each time, because
-       a blob URL that has failed once does not go back to the file. */
-    function attempt() {
-      url = URL.createObjectURL(file);
-      img = new Image();
-      img.onerror = onError;
-      img.onload = onLoad;
-      img.decoding = 'async';
-      img.src = url;
-    }
-
-    /* THE PHONE WOULD NOT HAND OVER THE BYTES, and that is often temporary.
-
-       Android content providers answer NotReadableError, "permission problems
-       that have occurred after a reference to a file was acquired", for a
-       photograph the gallery app is still finishing, for one that lives in a
-       cloud and is being fetched now that it has been asked for, and for a
-       grant that lapsed. The owner's own phone did exactly this on
-       2026-08-28 with a 2.5 MB JPEG taken seconds earlier, and the same
-       provider hands over the same file a moment later.
-
-       So the read is tried again, five times over ten and a half seconds,
-       before the guest is told to pick it another way. Each try replaces the
-       decode budget rather than sharing it, so a slow provider is not refused
-       by the clock the fast path set. */
-    function retryLater() {
-      if (settled) return;
-      readTries++;
-      if (readTries > 5) return finish(null, 'photos.err.unreadable');
-      var wait = [500, 1000, 2000, 3000, 4000][readTries - 1];
-      clearTimeout(timer);
-      timer = setTimeout(function () { refuseOrPassThrough('photos.err.decode'); }, wait + 20000);
-      if (url) URL.revokeObjectURL(url);
-      if (img) { img.onerror = null; img.onload = null; img.src = ''; }
-      url = null;
-      img = null;
-      setTimeout(function () { if (!settled) attempt(); }, wait);
-    }
-
-    attempt();
+    var pixels = buf
+      ? new Blob([buf], { type: type.indexOf('image/') === 0 ? type : 'image/jpeg' })
+      : file;
+    url = URL.createObjectURL(pixels);
+    img = new Image();
+    img.onerror = onError;
+    img.onload = onLoad;
+    img.decoding = 'async';
+    img.src = url;
   }
+
 
   /* {yyyy-mm-dd}/{fresh-uuid}.jpg. The uuid is minted here per upload and has
      nothing to do with guest_id.
@@ -7100,7 +7124,11 @@
       ext: m ? m[1] : '',
       count: identity.photoCount(),
       paths: paths.length,
-      videos: videos
+      videos: videos,
+      /* Which readers were tried and which one produced the bytes, and what
+         the bytes turned out to be. This is the finding, when there is one. */
+      read: rec.read || null,
+      sig: rec.sig || null
     };
 
     var sent = false;
@@ -7116,21 +7144,7 @@
       }, 'return=minimal');
     }
 
-    /* The first twelve bytes name the real format whatever the type claimed.
-       Bounded by a timer so a provider that never answers cannot hold the
-       record back forever; "unreadable" is itself the finding then. */
-    if (!file.slice || typeof FileReader === 'undefined') return send();
-    var fr = new FileReader();
-    fr.onerror = function () { detail.sig = 'unreadable'; send(); };
-    fr.onabort = function () { detail.sig = 'unreadable'; send(); };
-    fr.onload = function () {
-      var b = new Uint8Array(fr.result), h = '';
-      for (var k = 0; k < b.length; k++) h += (b[k] < 16 ? '0' : '') + b[k].toString(16);
-      detail.sig = h;
-      send();
-    };
-    setTimeout(function () { if (!sent) { detail.sig = 'no answer'; send(); } }, 3000);
-    try { fr.readAsArrayBuffer(file.slice(0, 12)); } catch (e) { detail.sig = 'unreadable'; send(); }
+    send();
   }
 
   function setRowState(rec, state, reasonKey, reasonVals) {
@@ -7987,34 +8001,45 @@
        Both converge on prepared(), so everything after this point, the key,
        the upload, the row, the retry and every failure branch, is written once
        and behaves identically for both kinds. */
-    if (rec.kind === 'video') {
-      probeVideoDuration(rec.file, function (errKey) {
-        if (errKey) {
-          /* Refused rather than failed, because nothing was sent. Same
-             classification a photograph that will not decode receives, for the
-             same reason: there is nothing on the wire to retry. */
-          setRowState(rec, 'refused', errKey, photoRefusalVals(errKey, rec.file));
+    /* THE BYTES FIRST, ONCE, THEN EVERYTHING FROM MEMORY.
+
+       See acquireBytes() for why. Both kinds go through it, and what it
+       tried is kept on the record so a refusal can say which reader failed.
+       The signature is kept for the same reason. */
+    acquireBytes(rec.file, function (buf, how) {
+      rec.read = how;
+      rec.sig = buf ? sigOf(buf) : null;
+
+      if (rec.kind === 'video') {
+        probeVideo(buf, rec.file, function (errKey) {
+          if (errKey) {
+            /* Refused rather than failed, because nothing was sent. Same
+               classification a photograph that will not decode receives, for
+               the same reason: there is nothing on the wire to retry. */
+            setRowState(rec, 'refused', errKey, photoRefusalVals(errKey, rec.file));
+            return runNextFile();
+          }
+          /* The bytes as they are. Never re-encoded, so what reaches the
+             bucket is what the camera wrote. The File itself only when no
+             reader could produce a copy and the element read it anyway. */
+          prepared(buf || rec.file);
+        });
+        return;
+      }
+
+      downscaleToJpeg({ buf: buf, file: rec.file }, maxEdgePx(), jpegQuality(), function (blob, errKey) {
+        /* Terminal for this file and never retried: each retry re-decodes the
+           full resolution source and the third attempt is where a phone gives
+           up. It is a refusal rather than a failure, because nothing was sent. */
+        if (errKey || !blob) {
+          var dk = errKey || 'photos.err.decode';
+          setRowState(rec, 'refused', dk, photoRefusalVals(dk, rec.file));
           return runNextFile();
         }
-        /* The File itself, unmodified. A File IS a Blob, so it travels through
-           uploadObject unchanged and the bytes that reach the bucket are the
-           bytes the camera wrote. */
-        prepared(rec.file);
+        prepared(blob);
       });
-      return;
-    }
-
-    downscaleToJpeg(rec.file, maxEdgePx(), jpegQuality(), function (blob, errKey) {
-      /* Terminal for this file and never retried: each retry re-decodes the
-         full resolution source and the third attempt is where a phone gives
-         up. It is a refusal rather than a failure, because nothing was sent. */
-      if (errKey || !blob) {
-        var dk = errKey || 'photos.err.decode';
-        setRowState(rec, 'refused', dk, photoRefusalVals(dk, rec.file));
-        return runNextFile();
-      }
-      prepared(blob);
     });
+
 
     function prepared(blob) {
 

@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0B0B0C">
 <meta name="color-scheme" content="dark">
 <title>31026 File acceptance self test</title>
-<link rel="icon" href="assets/favicon.svg?v=17" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=18" type="image/svg+xml">
 
 <!-- THIS PAGE IS AN INSTRUMENT, NOT PART OF THE INVITATION.
 
@@ -24,16 +24,17 @@
         and safe to leave on a public URL.
 
      2. IT REPORTS FACTS, NOT OPINIONS. It never re-implements validateFile().
-        It runs the same operations the uploader runs, the decode, the canvas
-        re-encode, the metadata probe, and prints what came back. Two copies
-        of a rule drift apart; two readings of file.type cannot.
+        It runs the same operations the uploader runs, in the same order: the
+        three readers, then the decode, the re-encode and the metadata probe
+        from the copy in memory, and prints what came back. Two copies of a
+        rule drift apart; two readings of the same bytes cannot.
 
      3. IT IS SELF CONTAINED. It does not load styles.css. A diagnostic that
         can be broken by a change to the thing it is diagnosing is not one.
         The tokens below are copied from styles.css on purpose, and they are
         allowed to fall behind it. -->
 
-<script src="config.js?v=17"></script>
+<script src="config.js?v=18"></script>
 <style>
 :root {
   --bg: #0B0B0C; --surface: #141416;
@@ -79,6 +80,7 @@ h1 { font: 700 26px/1.15 var(--font-body); letter-spacing: -0.02em; margin: 0 0 
   box-shadow: inset 0 0 0 1px var(--rule-lit); margin-top: var(--s-3);
 }
 .btn:focus-visible { outline: 2px solid var(--accent-lit); outline-offset: 3px; }
+.btn[disabled] { opacity: 0.6; cursor: default; }
 @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
 
 .card {
@@ -149,6 +151,7 @@ dd.no  { color: var(--accent-lit); }
   var IMG_MB  = parseFloat(P.maxFileSizeMb) || 12;
   var VID_MB  = parseFloat(V.maxFileSizeMb) || 50;
   var VID_SEC = parseFloat(V.maxSeconds) || 60;
+  var ORIG_MB = parseFloat(P.originalMaxMb) || 15;
 
   var out     = document.getElementById('out');
   var input   = document.getElementById('input');
@@ -237,57 +240,142 @@ dd.no  { color: var(--accent-lit); }
     row(dl3, 'video enabled', V.enabled ? 'yes' : 'no', !!V.enabled);
   }
 
-  /* THE TWO OPERATIONS THE UPLOADER PERFORMS, RUN ONE AT A TIME.
+  /* THE THREE READERS, IN THE UPLOADER'S ORDER.
 
-     A photograph is decoded into an <img> and re-encoded through a canvas. A
-     video is handed to a <video> element and read at loadedmetadata. Those are
-     the only two places a good file can be refused for a reason that is about
-     the browser rather than about the file, so those are the two things worth
-     watching directly.
+     The bytes are fetched once, whole, never sliced, through FileReader, then
+     fetch() of a blob URL, then File.arrayBuffer(), each bounded by a timer,
+     the ladder retried five times over ten seconds. Which one produced the
+     bytes, and what every other one said, is the single most useful thing on
+     this page: on Android the readers do not all succeed or fail together. */
+  function acquire(file, cb) {
+    var rep = { via: null, tries: 0, errors: [], ms: 0, buf: null };
+    var t0 = Date.now(), settled = false;
+    function finish(buf) { if (settled) return; settled = true; rep.buf = buf || null; rep.ms = Date.now() - t0; cb(rep); }
+    function errName(e) { return (e && e.name) ? String(e.name) + (e.message ? ' (' + String(e.message).slice(0, 120) + ')' : '') : 'error'; }
 
-     Both carry the uploader's settle guard and its timer, for the uploader's
-     reason: if neither the load nor the error event ever fires, the walk over
-     the picked files stops forever and the page explains nothing. */
-
-  /* HEIC AND HEIF, WHICH NO CHROMIUM CAN OPEN ON ITS OWN.
-
-     The signature is read from the bytes and never from file.type, because a
-     HEIC that came through Files, a share sheet or a cloud picker arrives
-     with an empty type or application/octet-stream as often as with
-     image/heic. Thirty two bytes settle it: 'ftyp' at offset four, then a
-     HEIF brand somewhere in the rest. */
-  function sniffHeif(file, cb) {
-    var fr = new FileReader();
-    fr.onerror = function () { cb(false); };
-    fr.onload = function () {
-      var b = new Uint8Array(fr.result), s = '';
-      for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
-      cb(s.length >= 12 && s.slice(4, 8) === 'ftyp' &&
-         /heic|heix|hevc|hevx|heim|heis|hevm|hevs|mif1|msf1/.test(s.slice(8, 32)));
-    };
-    try { fr.readAsArrayBuffer(file.slice(0, 32)); } catch (e) { cb(false); }
+    function viaReader(next) {
+      var fr = new FileReader(), done = false;
+      var t = setTimeout(function () { if (done) return; done = true; rep.errors.push('reader: no answer in 45 s'); next(null); }, 45000);
+      fr.onerror = function () { if (done) return; done = true; clearTimeout(t); rep.errors.push('reader: ' + errName(fr.error)); next(null); };
+      fr.onabort = fr.onerror;
+      fr.onload = function () { if (done) return; done = true; clearTimeout(t); next(fr.result && fr.result.byteLength ? fr.result : null); };
+      try { fr.readAsArrayBuffer(file); } catch (e) { if (done) return; done = true; clearTimeout(t); rep.errors.push('reader: threw ' + errName(e)); next(null); }
+    }
+    function viaFetch(next) {
+      if (typeof fetch !== 'function') { rep.errors.push('fetch: absent'); return next(null); }
+      var url = URL.createObjectURL(file), done = false;
+      function settle(b, why) { if (done) return; done = true; clearTimeout(t); URL.revokeObjectURL(url); if (why) rep.errors.push('fetch: ' + why); next(b && b.byteLength ? b : null); }
+      var t = setTimeout(function () { settle(null, 'no answer in 45 s'); }, 45000);
+      try {
+        fetch(url).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); })
+          .then(function (b) { settle(b, null); }, function (e) { settle(null, errName(e)); });
+      } catch (e) { settle(null, 'threw ' + errName(e)); }
+    }
+    function viaArrayBuffer(next) {
+      if (typeof file.arrayBuffer !== 'function') { rep.errors.push('arrayBuffer: absent'); return next(null); }
+      var done = false;
+      function settle(b, why) { if (done) return; done = true; clearTimeout(t); if (why) rep.errors.push('arrayBuffer: ' + why); next(b && b.byteLength ? b : null); }
+      var t = setTimeout(function () { settle(null, 'no answer in 45 s'); }, 45000);
+      try { file.arrayBuffer().then(function (b) { settle(b, null); }, function (e) { settle(null, errName(e)); }); }
+      catch (e) { settle(null, 'threw ' + errName(e)); }
+    }
+    function ladder() {
+      rep.tries++;
+      viaReader(function (b1) {
+        if (b1) { rep.via = 'FileReader'; return finish(b1); }
+        viaFetch(function (b2) {
+          if (b2) { rep.via = 'fetch of a blob URL'; return finish(b2); }
+          viaArrayBuffer(function (b3) {
+            if (b3) { rep.via = 'File.arrayBuffer'; return finish(b3); }
+            if (rep.tries > 5) return finish(null);
+            setTimeout(ladder, [500, 1000, 2000, 3000, 4000][rep.tries - 1]);
+          });
+        });
+      });
+    }
+    ladder();
   }
 
-  /* The site's own reader, the same two files the uploader loads, fetched
-     only when a HEIF is actually on the table. Memoised so a batch of five
-     HEICs costs one download. */
+  function signature(buf) {
+    var res = { hex: '', looksLike: 'unknown', heif: false };
+    if (!buf || buf.byteLength < 4) return res;
+    var b = new Uint8Array(buf, 0, Math.min(32, buf.byteLength)), hex = '', asc = '', brand = '';
+    for (var i = 0; i < Math.min(12, b.length); i++) {
+      hex += (b[i] < 16 ? '0' : '') + b[i].toString(16) + ' ';
+      asc += (b[i] >= 32 && b[i] < 127) ? String.fromCharCode(b[i]) : '.';
+    }
+    for (i = 4; i < b.length; i++) brand += String.fromCharCode(b[i]);
+    res.hex = hex.trim() + '  ' + asc;
+    if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) res.looksLike = 'JPEG';
+    else if (b[0] === 0x89 && b[1] === 0x50) res.looksLike = 'PNG';
+    else if (brand.slice(0, 4) === 'ftyp') {
+      res.heif = /heic|heix|hevc|hevx|heim|heis|hevm|hevs|mif1|msf1/.test(brand.slice(4, 28));
+      res.looksLike = res.heif ? 'HEIF' : ('ISO media, brand ' + brand.slice(4, 8).replace(/\W/g, ' ').trim());
+    }
+    else if (b[0] === 0x1A && b[1] === 0x45 && b[2] === 0xDF) res.looksLike = 'Matroska or WebM';
+    else if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46) res.looksLike = 'RIFF, AVI or WebP';
+    else res.looksLike = 'nothing recognised';
+    return res;
+  }
+
+  /* THE FILE'S OWN LENGTH, READ FROM THE CONTAINER IN MEMORY. The same walk
+     the uploader does when the <video> element fails: box headers to moov,
+     then mvhd for timescale and duration. */
+  function containerSeconds(buf) {
+    if (!buf || buf.byteLength < 16) return null;
+    try {
+      var dv = new DataView(buf), n = dv.byteLength;
+      function type4(at) { var s = ''; for (var i = 0; i < 4; i++) s += String.fromCharCode(dv.getUint8(at + i)); return s; }
+      function header(at, remaining) {
+        if (at + 8 > n) return null;
+        var size = dv.getUint32(at), kind = type4(at + 4), head = 8;
+        if (size === 1) { if (at + 16 > n) return null; size = dv.getUint32(at + 8) * 4294967296 + dv.getUint32(at + 12); head = 16; }
+        else if (size === 0) size = remaining;
+        if (size < head || size > remaining) return null;
+        return { size: size, head: head, kind: kind };
+      }
+      function readMvhd(at) {
+        var version = dv.getUint8(at), scale, units;
+        if (version === 1) { if (at + 32 > n) return null; scale = dv.getUint32(at + 20); units = dv.getUint32(at + 24) * 4294967296 + dv.getUint32(at + 28); }
+        else { if (at + 20 > n) return null; scale = dv.getUint32(at + 12); units = dv.getUint32(at + 16); if (units === 4294967295) return null; }
+        if (!scale || !units) return null;
+        var secs = units / scale;
+        return (!isFinite(secs) || secs <= 0 || secs > 14400) ? null : secs;
+      }
+      var at = 0, guard = 96;
+      while (at + 8 <= n && guard-- > 0) {
+        var box = header(at, n - at);
+        if (!box) return null;
+        if (box.kind === 'moov') {
+          var end = at + box.size, p = at + box.head, inner = 64;
+          while (p + 8 <= end && inner-- > 0) {
+            var c = header(p, end - p);
+            if (!c) return null;
+            if (c.kind === 'mvhd') return readMvhd(p + c.head);
+            p += c.size;
+          }
+          return null;
+        }
+        at += box.size;
+      }
+      return null;
+    } catch (e) { return null; }
+  }
+
+  /* The site's own HEIC reader, the same two files the uploader loads. */
   var heifModule = null, heifWaiters = null;
   function loadHeifDecoder(cb) {
     if (heifModule) return cb(heifModule);
     if (heifWaiters) return heifWaiters.push(cb);
     heifWaiters = [cb];
-    function settle(mod) {
-      heifModule = mod || null;
-      var w = heifWaiters; heifWaiters = null;
-      for (var i = 0; i < w.length; i++) w[i](heifModule);
-    }
+    function settle(mod) { heifModule = mod || null; var w = heifWaiters; heifWaiters = null; for (var i = 0; i < w.length; i++) w[i](heifModule); }
     if (typeof WebAssembly === 'undefined') return settle(null);
     var s = document.createElement('script');
-    s.src = 'assets/vendor/libheif.js?v=17';
+    s.src = 'assets/vendor/libheif.js?v=18';
     s.onerror = function () { settle(null); };
     s.onload = function () {
       var x = new XMLHttpRequest();
-      x.open('GET', 'assets/vendor/libheif.wasm?v=17');
+      x.open('GET', 'assets/vendor/libheif.wasm?v=18');
       x.responseType = 'arraybuffer';
       x.onerror = function () { settle(null); };
       x.onload = function () {
@@ -299,219 +387,86 @@ dd.no  { color: var(--accent-lit); }
     document.head.appendChild(s);
   }
 
-  function decodeHeif(file, mod, cb) {
-    var fr = new FileReader();
-    fr.onerror = function () { cb(null, 'the file could not be read'); };
-    fr.onload = function () {
-      var imgs, im, i, w, h, c, ctx, id;
-      try { imgs = new mod.HeifDecoder().decode(fr.result); }
-      catch (e) { return cb(null, 'the reader threw: ' + ((e && e.message) || e)); }
-      if (!imgs || !imgs.length) return cb(null, 'the reader found no image inside');
-      function freeAll() { for (var k = 0; k < imgs.length; k++) { try { imgs[k].free(); } catch (e) {} } }
-      // The largest image is the photograph. Anything smaller beside it is a thumbnail or a depth map.
-      im = imgs[0];
-      for (i = 1; i < imgs.length; i++) {
-        if (imgs[i].get_width() * imgs[i].get_height() > im.get_width() * im.get_height()) im = imgs[i];
-      }
-      w = im.get_width(); h = im.get_height();
-      if (!w || !h) { freeAll(); return cb(null, 'the reader reported zero by zero'); }
-      c = document.createElement('canvas'); c.width = w; c.height = h;
-      ctx = c.getContext('2d');
-      if (!ctx) { freeAll(); return cb(null, 'there is no 2d canvas here'); }
-      id = ctx.createImageData(w, h);
-      im.display(id, function (out) {
-        freeAll();
-        if (!out) { c.width = c.height = 0; return cb(null, 'the reader could not produce pixels'); }
-        ctx.putImageData(id, 0, 0);
-        cb(c, null);
-      });
-    };
-    try { fr.readAsArrayBuffer(file); } catch (e) { cb(null, 'the file could not be read'); }
-  }
-
-  /* CAN THE BYTES BE READ AT ALL.
-
-     The single question every later answer depends on and the one the
-     uploader cannot tell apart from a decode failure: an <img> or a <video>
-     fires the same error whether the picture is undecodable or the phone
-     simply would not hand over the bytes. Android content providers do that,
-     for a picture that lives in a cloud and has not been fetched, for a
-     temporary file the camera app has already cleaned up, and for a grant
-     that lapsed. The first and the last sixty four kilobytes, timed, with the
-     error's own name when it refuses. */
-  function probeBytes(file, cb) {
-    var res = { ok: false, retried: 0 }, t0 = Date.now(), settled = false;
-    function finish() { if (settled) return; settled = true; clearTimeout(timer); res.ms = Date.now() - t0; cb(res); }
-    var timer = setTimeout(function () { res.err = 'no answer in 30 seconds'; finish(); }, 30000);
-    /* The same retry the uploader does: a refused read is often temporary on
-       Android, so five more tries over ten seconds, and the card says how
-       many it took. */
-    function read(start, len, next) {
-      var fr = new FileReader();
-      fr.onerror = function () {
-        res.err = (fr.error && (fr.error.name + (fr.error.message ? ': ' + fr.error.message : ''))) || 'unknown read error';
-        res.lastErr = res.err;
-        if (res.retried >= 5) return finish();
-        res.retried++;
-        setTimeout(function () { read(start, len, next); }, [500, 1000, 2000, 3000, 4000][res.retried - 1]);
-      };
-      fr.onload = function () { next(new Uint8Array(fr.result)); };
-      try { fr.readAsArrayBuffer(file.slice(start, Math.min(file.size, start + len))); }
-      catch (e) { res.err = 'slice threw: ' + ((e && e.message) || e); finish(); }
+  function decodeHeif(buf, mod, cb) {
+    var imgs, im, i, w, h, c, ctx, id;
+    try { imgs = new mod.HeifDecoder().decode(buf); }
+    catch (e) { return cb(null, 'the reader threw: ' + ((e && e.message) || e)); }
+    if (!imgs || !imgs.length) return cb(null, 'the reader found no image inside');
+    function freeAll() { for (var k = 0; k < imgs.length; k++) { try { imgs[k].free(); } catch (e) {} } }
+    im = imgs[0];
+    for (i = 1; i < imgs.length; i++) {
+      if (imgs[i].get_width() * imgs[i].get_height() > im.get_width() * im.get_height()) im = imgs[i];
     }
-    read(0, 65536, function (head) {
-      var hex = '', asc = '';
-      for (var i = 0; i < Math.min(12, head.length); i++) {
-        hex += (head[i] < 16 ? '0' : '') + head[i].toString(16) + ' ';
-        asc += (head[i] >= 32 && head[i] < 127) ? String.fromCharCode(head[i]) : '.';
-      }
-      res.signature = hex.trim() + '  ' + asc;
-      var brand = '';
-      for (i = 4; i < Math.min(32, head.length); i++) brand += String.fromCharCode(head[i]);
-      if (head[0] === 0xFF && head[1] === 0xD8 && head[2] === 0xFF) res.looksLike = 'JPEG';
-      else if (head[0] === 0x89 && head[1] === 0x50) res.looksLike = 'PNG';
-      else if (brand.slice(0, 4) === 'ftyp') res.looksLike = /heic|heix|hevc|hevx|heim|heis|hevm|hevs|mif1|msf1/.test(brand.slice(4, 28)) ? 'HEIF' : ('ISO media, brand ' + brand.slice(4, 8).replace(/\W/g, ' ').trim());
-      else if (head[0] === 0x1A && head[1] === 0x45 && head[2] === 0xDF) res.looksLike = 'Matroska or WebM';
-      else if (head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46) res.looksLike = 'RIFF, AVI or WebP';
-      else res.looksLike = 'nothing recognised';
-      if (file.size <= 65536) { res.ok = true; res.err = null; return finish(); }
-      read(Math.max(0, file.size - 65536), 65536, function () { res.ok = true; res.err = null; finish(); });
+    w = im.get_width(); h = im.get_height();
+    if (!w || !h) { freeAll(); return cb(null, 'the reader reported zero by zero'); }
+    c = document.createElement('canvas'); c.width = w; c.height = h;
+    ctx = c.getContext('2d');
+    if (!ctx) { freeAll(); return cb(null, 'there is no 2d canvas here'); }
+    id = ctx.createImageData(w, h);
+    im.display(id, function (o) {
+      freeAll();
+      if (!o) { c.width = c.height = 0; return cb(null, 'the reader could not produce pixels'); }
+      ctx.putImageData(id, 0, 0);
+      cb(c, null);
     });
   }
 
-  /* THE FILE'S OWN LENGTH, READ FROM THE CONTAINER.
+  /* THE TWO OPERATIONS THE UPLOADER PERFORMS, from the copy in memory when
+     there is one and from the File when there is not, exactly as it does. */
 
-     The same walk the uploader does when the <video> element fails: box
-     headers to moov, then mvhd for timescale and duration. Reported here so
-     the card says whether the uploader would accept the clip on that basis. */
-  function containerSeconds(file, cb) {
-    var settled = false;
-    function finish(v) { if (settled) return; settled = true; clearTimeout(timer); cb(v); }
-    var timer = setTimeout(function () { finish(null); }, 15000);
-    function slice(start, len, next) {
-      if (start < 0 || len <= 0 || start >= file.size) return next(null);
-      var fr = new FileReader();
-      fr.onerror = function () { next(null); };
-      fr.onload = function () { try { next(new DataView(fr.result)); } catch (e) { next(null); } };
-      try { fr.readAsArrayBuffer(file.slice(start, Math.min(file.size, start + len))); } catch (e) { next(null); }
-    }
-    function type4(dv, at) { var s = ''; for (var i = 0; i < 4; i++) s += String.fromCharCode(dv.getUint8(at + i)); return s; }
-    function header(dv, at, remaining) {
-      if (at + 8 > dv.byteLength) return null;
-      var size = dv.getUint32(at), kind = type4(dv, at + 4), head = 8;
-      if (size === 1) { if (at + 16 > dv.byteLength) return null; size = dv.getUint32(at + 8) * 4294967296 + dv.getUint32(at + 12); head = 16; }
-      else if (size === 0) size = remaining;
-      if (size < head || size > remaining) return null;
-      return { size: size, head: head, kind: kind };
-    }
-    function readMvhd(dv, at) {
-      var version = dv.getUint8(at), scale, units;
-      if (version === 1) { if (at + 32 > dv.byteLength) return finish(null); scale = dv.getUint32(at + 20); units = dv.getUint32(at + 24) * 4294967296 + dv.getUint32(at + 28); }
-      else { if (at + 20 > dv.byteLength) return finish(null); scale = dv.getUint32(at + 12); units = dv.getUint32(at + 16); if (units === 4294967295) return finish(null); }
-      if (!scale || !units) return finish(null);
-      var secs = units / scale;
-      finish((!isFinite(secs) || secs <= 0 || secs > 14400) ? null : secs);
-    }
-    function findMvhd(start, len) {
-      slice(start, Math.min(len, 262144), function (dv) {
-        if (!dv) return finish(null);
-        var at = 0, guard = 64;
-        while (at + 8 <= dv.byteLength && guard-- > 0) {
-          var box = header(dv, at, len - at);
-          if (!box) return finish(null);
-          if (box.kind === 'mvhd') return readMvhd(dv, at + box.head);
-          at += box.size;
-        }
-        finish(null);
-      });
-    }
-    function walk(at, guard) {
-      if (guard <= 0 || at + 8 > file.size) return finish(null);
-      slice(at, 16, function (dv) {
-        if (!dv) return finish(null);
-        var box = header(dv, 0, file.size - at);
-        if (!box) return finish(null);
-        if (box.kind === 'moov') return findMvhd(at + box.head, box.size - box.head);
-        walk(at + box.size, guard - 1);
-      });
-    }
-    if (!file || !file.size || typeof DataView === 'undefined') return finish(null);
-    walk(0, 96);
-  }
-
-  function testImage(file, done) {
-    var url, img, settled = false, res = { objectUrl: false };
-    try { url = URL.createObjectURL(file); res.objectUrl = true; }
+  function testImage(file, buf, sig, done) {
+    var res = { fromMemory: !!buf };
+    var pixels = buf ? new Blob([buf], { type: /^image\//.test(file.type) ? file.type : 'image/jpeg' }) : file;
+    var url, img, settled = false;
+    try { url = URL.createObjectURL(pixels); res.objectUrl = true; }
     catch (e) { res.urlError = String((e && e.message) || e); return done(res); }
 
     img = new Image();
     var timer = setTimeout(function () { finish('timed out after 20 seconds'); }, 20000);
-
     function finish(err) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      res.decodeError = err || res.decodeError || null;
+      if (err) res.decodeError = err;
       try { URL.revokeObjectURL(url); } catch (e) {}
       img.src = '';
       done(res);
     }
 
-    /* The browser said no. Before that is taken as the answer, the bytes are
-       asked whether this is a HEIF, and if so the site's own reader has a go,
-       exactly as the uploader now does. Both outcomes are reported, because
-       "the browser could not open it" stays true even when the picture
-       uploads fine. */
     img.onerror = function () {
-      sniffHeif(file, function (isHeif) {
-        res.heif = isHeif;
-        if (!isHeif) return finish('the browser could not decode it');
-        res.decodeError = 'the browser could not decode it';
-        clearTimeout(timer);
-        timer = setTimeout(function () { res.heifReader = 'timed out after 90 seconds'; finish(res.decodeError); }, 90000);
-        loadHeifDecoder(function (mod) {
-          if (!mod) { res.heifReader = 'the reader could not be loaded'; return finish(res.decodeError); }
-          decodeHeif(file, mod, function (canvas, why) {
-            if (!canvas) { res.heifReader = why; return finish(res.decodeError); }
-            res.heifReader = 'decoded ' + canvas.width + ' x ' + canvas.height;
-            res.heifOk = true;
-            encodeFrom(canvas, canvas.width, canvas.height, function () { canvas.width = canvas.height = 0; });
-          });
+      var looksHeif = (sig && sig.heif) || (!buf && /heic|heif/i.test(file.type + ' ' + file.name));
+      if (!looksHeif) return finish('the browser could not decode it');
+      res.decodeError = 'the browser could not decode it';
+      res.heif = true;
+      clearTimeout(timer);
+      timer = setTimeout(function () { res.heifReader = 'timed out after 90 seconds'; finish(res.decodeError); }, 90000);
+      if (!buf) { res.heifReader = 'no bytes in memory to hand to the reader'; return finish(res.decodeError); }
+      loadHeifDecoder(function (mod) {
+        if (!mod) { res.heifReader = 'the reader could not be loaded'; return finish(res.decodeError); }
+        decodeHeif(buf, mod, function (canvas, why) {
+          if (!canvas) { res.heifReader = why; return finish(res.decodeError); }
+          res.heifReader = 'decoded ' + canvas.width + ' x ' + canvas.height;
+          res.heifOk = true;
+          encodeFrom(canvas, canvas.width, canvas.height, function () { canvas.width = canvas.height = 0; });
         });
       });
     };
 
     img.onload = function () { encodeFrom(img, img.naturalWidth, img.naturalHeight, null); };
 
-    /* The re-encode, exactly as the uploader does it, and shared by the
-       browser's own decode and the site's HEIC reader so the two paths cannot
-       drift apart. A file can decode perfectly and still fail here, and the
-       two failures need different answers, so they are never collapsed into
-       one line. */
     function encodeFrom(source, w, h, releaseSource) {
-      res.width = w;
-      res.height = h;
+      res.width = w; res.height = h;
       if (!w || !h) { if (releaseSource) releaseSource(); return finish('it decoded to zero by zero'); }
-
       var maxEdge = parseInt(P.maxEdgePx, 10) || 1600;
-      var scale = Math.min(1, maxEdge / Math.max(res.width, res.height));
-      var cw = Math.max(1, Math.round(res.width * scale));
-      var ch = Math.max(1, Math.round(res.height * scale));
-
+      var scale = Math.min(1, maxEdge / Math.max(w, h));
+      var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
       var c = document.createElement('canvas');
       c.width = cw; c.height = ch;
       function release() { c.width = c.height = 0; if (releaseSource) releaseSource(); }
-
       var ctx = c.getContext('2d');
       if (!ctx) { res.encodeError = 'there is no 2d canvas here'; release(); return finish(null); }
-
       try { ctx.drawImage(source, 0, 0, cw, ch); }
-      catch (e) {
-        res.encodeError = 'drawing it threw: ' + ((e && e.message) || e);
-        release();
-        return finish(null);
-      }
-
+      catch (e) { res.encodeError = 'drawing it threw: ' + ((e && e.message) || e); release(); return finish(null); }
       c.toBlob(function (blob) {
         if (!blob) res.encodeError = 'the encoder returned nothing';
         else if (blob.size < 256) res.encodeError = 'the encoder returned only ' + blob.size + ' bytes';
@@ -525,14 +480,16 @@ dd.no  { color: var(--accent-lit); }
     img.src = url;
   }
 
-  function testVideo(file, done) {
-    var url, v, settled = false, res = { objectUrl: false };
-    try { url = URL.createObjectURL(file); res.objectUrl = true; }
+  function testVideo(file, buf, done) {
+    var res = { fromMemory: !!buf };
+    var type = /^video\//.test(file.type) ? file.type : 'video/mp4';
+    var src = buf ? new Blob([buf], { type: type }) : file;
+    var url, v, settled = false;
+    try { url = URL.createObjectURL(src); res.objectUrl = true; }
     catch (e) { res.urlError = String((e && e.message) || e); return done(res); }
 
     v = document.createElement('video');
     var timer = setTimeout(function () { finish('timed out after 12 seconds'); }, 12000);
-
     function finish(err) {
       if (settled) return;
       settled = true;
@@ -541,55 +498,34 @@ dd.no  { color: var(--accent-lit); }
       try { URL.revokeObjectURL(url); } catch (e) {}
       v.removeAttribute('src');
       try { v.load(); } catch (e) {}
+      if (res.probeError && buf) res.containerSeconds = containerSeconds(buf);
       done(res);
     }
-
-    /* MediaError is the most useful single value on this page, and it is the
-       one thing the uploader throws away. Code 4 means the browser does not
-       own the codec, which is a different problem with a different answer from
-       code 3, which means the bytes themselves are damaged. */
     v.onerror = function () {
       var e = v.error;
       var names = { 1: 'aborted', 2: 'network', 3: 'the bytes would not decode', 4: 'the format is not supported here' };
       if (!e) return finish('it failed without saying why');
       res.mediaErrorCode = e.code;
-      finish('MediaError ' + e.code + ', ' + (names[e.code] || 'unknown') +
-             (e.message ? ', ' + e.message : ''));
+      finish('MediaError ' + e.code + ', ' + (names[e.code] || 'unknown') + (e.message ? ', ' + e.message : ''));
     };
-
     v.onloadedmetadata = function () {
       res.duration = v.duration;
       res.width = v.videoWidth;
       res.height = v.videoHeight;
       finish(null);
     };
-
-    /* When the element fails, the container is asked, exactly as the
-       uploader does. The result rides on res so the card can say both. */
-    var elementDone = done;
-    done = function (r) {
-      if (!r.probeError) return elementDone(r);
-      containerSeconds(file, function (secs) {
-        r.containerSeconds = secs;
-        elementDone(r);
-      });
-    };
-
     v.preload = 'metadata';
     v.muted = true;
     v.playsInline = true;
     v.src = url;
   }
 
-  /* The uploader's own first question, and the only piece of its logic this
-     page mirrors, because every later answer depends on which pipeline the
-     file would have entered. Kept in the shape of the real fileKind() on
-     purpose, so a reader can put them side by side. */
+  /* The uploader's own first question, kept in the shape of the real
+     fileKind() on purpose, so a reader can put them side by side. */
   function kindOf(file) {
     var type = String(file.type || '').toLowerCase();
     if (type.indexOf('image/') === 0) return 'photograph';
     if (type.indexOf('video/') === 0) return 'video';
-
     var name = String(file.name || '').toLowerCase();
     if (/\.(jpe?g|png|heic|heif|webp|gif|tiff?|bmp|avif|jfif)$/.test(name)) return 'photograph';
     if (/\.(mp4|mov|m4v|3gp|3gpp|webm|avi|mkv|qt|mpe?g)$/.test(name)) return 'video';
@@ -597,38 +533,35 @@ dd.no  { color: var(--accent-lit); }
     return null;
   }
 
-  function verdictFor(kind, file, res) {
+  function verdictFor(kind, file, res, rd, sig) {
     if (!file.size) return [false, 'The file arrived with no bytes in it at all. That is usually a picture that lives in the cloud and has not been downloaded onto the phone yet.'];
-    if (res.unreadable) return [false, 'The phone would not let the browser read this file: ' + res.unreadable + '. That is the phone, or the app the file was picked from, and not the file. Try picking it through a different app: Files instead of the gallery, or the other way round, and make sure it is downloaded to the phone.'];
     if (!kind) return [false, 'The browser called this neither a picture nor a video, and the file name did not settle it either.'];
     if (res.urlError) return [false, 'The browser would not open the file at all: ' + res.urlError];
 
+    var noBytes = !rd.buf;
+    var phone = 'The phone would not hand this file over to the browser by any of the three readers, and the browser could not open it directly either. That is the phone, or the app the file was picked from, and not the file. Pick it again through a different app: Files or the gallery rather than Photos, and make sure it has been downloaded to the phone.';
+
     if (kind === 'video') {
-      if (res.probeError && res.containerSeconds) {
-        if (res.containerSeconds > VID_SEC + 1) return [false, 'The browser could not open this clip, but the file itself says it is ' + Math.round(res.containerSeconds) + ' seconds long, which is over ' + VID_SEC + ', so the uploader refuses it on purpose.'];
-        if (file.size > VID_MB * 1024 * 1024) return [false, 'Over the ' + VID_MB + ' MB ceiling, so the uploader refuses it on purpose.'];
-        return [true, 'The browser could not open this clip, but the file itself says it is ' + Math.round(res.containerSeconds) + ' seconds long, and the uploader accepts on that basis. This clip would upload.'];
-      }
       if (res.probeError) {
-        /* Code 4 covers two different situations and this page must not pick
-           between them, because it cannot tell them apart: a codec this
-           browser does not own, and a file that is not a video at all, both
-           arrive here. Saying "the file is fine" would be a guess, and the
-           whole point of this page is that nobody has to guess. */
-        if (res.mediaErrorCode === 4) {
-          return [false, 'This browser could not open the clip at all. Either it lacks the format the clip was recorded in, in which case the file is fine and another phone would play it, or the file is not really a video. The uploader now tries to read the length straight out of the file before refusing it, so this alone no longer decides.'];
+        if (noBytes) return [false, phone];
+        if (res.containerSeconds) {
+          if (res.containerSeconds > VID_SEC + 1) return [false, 'The browser could not open this clip, but the file itself says it is ' + Math.round(res.containerSeconds) + ' seconds long, which is over ' + VID_SEC + ', so the uploader refuses it on purpose.'];
+          if (file.size > VID_MB * 1024 * 1024) return [false, 'Over the ' + VID_MB + ' MB ceiling, so the uploader refuses it on purpose.'];
+          return [true, 'The browser could not open this clip, but the file itself says it is ' + Math.round(res.containerSeconds) + ' seconds long, and the uploader accepts on that basis. This clip would upload.'];
         }
+        if (res.mediaErrorCode === 4) return [false, 'This browser could not open the clip and the file\'s own header could not be read either. Either the format is not one this browser knows, or the file is not really a video.'];
         return [false, 'The browser could not read the clip: ' + res.probeError];
       }
       if (!isFinite(res.duration) || res.duration <= 0) return [false, 'The clip reports no usable length, so there is no way to check it against the one minute rule.'];
       if (res.duration > VID_SEC + 1) return [false, 'Longer than ' + VID_SEC + ' seconds, so the uploader refuses it on purpose.'];
       if (file.size > VID_MB * 1024 * 1024) return [false, 'Over the ' + VID_MB + ' MB ceiling, so the uploader refuses it on purpose.'];
-      return [true, 'This clip would upload.'];
+      return [true, 'This clip would upload' + (noBytes ? ', read directly by the browser after every reader refused it' : '') + '.'];
     }
 
     if (file.size > IMG_MB * 1024 * 1024) return [false, 'Over the ' + IMG_MB + ' MB ceiling, so the uploader refuses it on purpose.'];
-    var jpegOriginal = res.looksLike === 'JPEG' && file.size <= (parseFloat(P.originalMaxMb) || 15) * 1024 * 1024;
+    var jpegOriginal = sig && sig.looksLike === 'JPEG' && file.size <= ORIG_MB * 1024 * 1024;
     if (res.decodeError && !res.heifOk) {
+      if (noBytes) return [false, phone];
       if (res.heif) return [false, 'This is a HEIC. The browser cannot open it and the site\'s own reader could not either: ' + (res.heifReader || 'unknown') + '.'];
       if (jpegOriginal) return [true, 'The browser could not open this picture, but it is a plain JPEG, so the uploader sends the original bytes as they are. This picture would upload.'];
       return [false, 'The browser could not open the picture: ' + res.decodeError + '.'];
@@ -638,7 +571,7 @@ dd.no  { color: var(--accent-lit); }
       return [false, 'The picture opened but could not be re-encoded: ' + res.encodeError + '. That is usually a picture too large for the memory this phone will hand to a web page.'];
     }
     if (res.heifOk) return [true, 'This is a HEIC the browser cannot open on its own. The site\'s own reader opened it, so this picture would upload.'];
-    return [true, 'This picture would upload.'];
+    return [true, 'This picture would upload' + (noBytes ? ', read directly by the browser after every reader refused it' : '') + '.'];
   }
 
   function describe(file, done) {
@@ -659,59 +592,11 @@ dd.no  { color: var(--accent-lit); }
       ? new Date(file.lastModified).toISOString().slice(0, 19).replace('T', ' ')
       : 'not reported');
 
-    var busy = el('p', 'busy', 'Opening it...');
+    var busy = el('p', 'busy', 'Reading it...');
     card.appendChild(busy);
-    var probed = null;
 
-    function finished(res) {
-      card.removeChild(busy);
-
-      // What the bytes said rides along, because the verdict reads it.
-      if (probed) res.looksLike = probed.looksLike;
-
-      /* Nothing was opened, so there is nothing to report about opening it.
-         The verdict below says why. */
-      if (!file.size || res.unreadable) {
-        var vd0 = verdictFor(kind, file, res);
-        var p0 = el('p', 'verdict', vd0[1]);
-        p0.setAttribute('data-ok', '0');
-        card.appendChild(p0);
-        report.push('  VERDICT: ' + vd0[1]);
-        return done();
-      }
-
-      var d2 = group(card, kind === 'video'
-        ? 'what happened when it was opened'
-        : 'what happened when it was opened and re-encoded');
-      row(d2, 'handle made', res.objectUrl ? 'yes' : 'no', !!res.objectUrl);
-
-      if (kind === 'video') {
-        row(d2, 'metadata read', res.probeError ? 'no' : 'yes', !res.probeError);
-        if (res.probeError) {
-          row(d2, 'why not', res.probeError, false);
-          row(d2, 'container length', res.containerSeconds
-            ? (Math.round(res.containerSeconds * 100) / 100) + ' s, read from the file itself'
-            : 'could not be read from the file', !!res.containerSeconds);
-        } else {
-          row(d2, 'length', (Math.round(res.duration * 100) / 100) + ' s');
-          row(d2, 'size on screen', res.width + ' x ' + res.height);
-        }
-      } else {
-        row(d2, 'decoded', res.decodeError ? 'no' : 'yes', !res.decodeError);
-        if (res.decodeError) row(d2, 'why not', res.decodeError, false);
-        if (res.heif !== undefined) row(d2, 'heif signature', res.heif ? 'yes' : 'no', res.heif);
-        if (res.heifReader) row(d2, 'site reader', res.heifReader, !!res.heifOk);
-        if (res.decodeError && !res.heifOk) {
-          // Nothing decoded, so there is nothing to say about the re-encode.
-        } else {
-          row(d2, 'dimensions', res.width + ' x ' + res.height);
-          row(d2, 're-encoded', res.encodeError ? 'no' : 'yes', !res.encodeError);
-          if (res.encodeError) row(d2, 'why not', res.encodeError, false);
-          else row(d2, 'jpeg produced', bytes(res.jpegBytes) + ' at ' + res.jpegAt);
-        }
-      }
-
-      var vd = verdictFor(kind, file, res);
+    function verdict(kind, res, rd, sig) {
+      var vd = verdictFor(kind, file, res, rd, sig);
       var p = el('p', 'verdict', vd[1]);
       p.setAttribute('data-ok', vd[0] ? '1' : '0');
       card.appendChild(p);
@@ -719,32 +604,80 @@ dd.no  { color: var(--accent-lit); }
       done();
     }
 
-    if (!file.size) return finished({ objectUrl: false });
+    if (!file.size) { card.removeChild(busy); return verdict(kind, {}, { buf: null }, null); }
 
-    /* The bytes first. If the phone will not hand them over, every later
-       answer would be a lie about the format. */
-    probeBytes(file, function (pb) {
-      probed = pb;
-      row(dl, 'signature', pb.signature || 'unreadable');
-      row(dl, 'looks like', pb.looksLike || 'unknown');
-      row(dl, 'bytes readable', pb.ok
-        ? 'yes, in ' + pb.ms + ' ms' + (pb.retried ? ', after ' + pb.retried + ' refused ' + (pb.retried === 1 ? 'try' : 'tries') + ' (' + pb.lastErr + ')' : '')
-        : 'NO, after ' + (pb.retried + 1) + ' tries over ' + Math.round(pb.ms / 100) / 10 + ' s: ' + pb.err, pb.ok);
-      if (!pb.ok) return finished({ objectUrl: false, unreadable: pb.err });
-      if (kind === 'video') testVideo(file, finished);
-      else testImage(file, finished);
+    /* The readers first, in the uploader's order. Which one produced the
+       bytes, and what the others said, is the finding on a phone that will
+       not hand a file over. */
+    acquire(file, function (rd) {
+      var d1 = group(card, 'reading the bytes');
+      row(d1, 'read by', rd.via || 'NONE of the three readers', !!rd.via);
+      row(d1, 'attempts', rd.tries + (rd.tries === 1 ? ' pass' : ' passes') + ' over ' + (Math.round(rd.ms / 100) / 10) + ' s');
+      if (rd.errors.length) {
+        // The same refusal six times is one fact with a count, not six lines.
+        var counts = {}, order = [];
+        for (var k = 0; k < rd.errors.length; k++) {
+          if (!counts[rd.errors[k]]) { counts[rd.errors[k]] = 0; order.push(rd.errors[k]); }
+          counts[rd.errors[k]]++;
+        }
+        var parts = [];
+        for (k = 0; k < order.length; k++) parts.push(order[k] + (counts[order[k]] > 1 ? ' x' + counts[order[k]] : ''));
+        row(d1, 'refusals', parts.join(' | '), false);
+      }
+      var sig = rd.buf ? signature(rd.buf) : null;
+      if (sig) {
+        row(d1, 'signature', sig.hex);
+        row(d1, 'looks like', sig.looksLike);
+      }
+
+      busy.textContent = rd.buf ? 'Opening it from memory...' : 'Every reader refused. Trying the browser directly...';
+
+      function finished(res) {
+        card.removeChild(busy);
+        var d2 = group(card, kind === 'video'
+          ? 'what happened when it was opened' + (res.fromMemory ? ' from memory' : ' directly from the file')
+          : 'what happened when it was opened' + (res.fromMemory ? ' from memory' : ' directly from the file') + ' and re-encoded');
+        row(d2, 'handle made', res.objectUrl ? 'yes' : 'no', !!res.objectUrl);
+
+        if (kind === 'video') {
+          row(d2, 'metadata read', res.probeError ? 'no' : 'yes', !res.probeError);
+          if (res.probeError) {
+            row(d2, 'why not', res.probeError, false);
+            if (res.fromMemory) {
+              row(d2, 'container length', res.containerSeconds
+                ? (Math.round(res.containerSeconds * 100) / 100) + ' s, read from the file itself'
+                : 'could not be read from the file', !!res.containerSeconds);
+            }
+          } else {
+            row(d2, 'length', (Math.round(res.duration * 100) / 100) + ' s');
+            row(d2, 'size on screen', res.width + ' x ' + res.height);
+          }
+        } else {
+          row(d2, 'decoded', res.decodeError ? 'no' : 'yes', !res.decodeError);
+          if (res.decodeError) row(d2, 'why not', res.decodeError, false);
+          if (res.heif) row(d2, 'site reader', res.heifReader || 'not tried', !!res.heifOk);
+          if (!(res.decodeError && !res.heifOk)) {
+            row(d2, 'dimensions', res.width + ' x ' + res.height);
+            row(d2, 're-encoded', res.encodeError ? 'no' : 'yes', !res.encodeError);
+            if (res.encodeError) row(d2, 'why not', res.encodeError, false);
+            else row(d2, 'jpeg produced', bytes(res.jpegBytes) + ' at ' + res.jpegAt);
+          }
+        }
+        verdict(kind, res, rd, sig);
+      }
+
+      if (kind === 'video') testVideo(file, rd.buf, finished);
+      else testImage(file, rd.buf, sig, finished);
     });
   }
 
   /* One file at a time, for the reason the uploader does it: exactly one
-     decoded bitmap alive at a time on a phone that may be short of memory. A
-     page that runs out of memory while explaining a file that ran out of
-     memory explains nothing. */
+     copy in memory and one decoded bitmap alive at a time on a phone that
+     may be short of memory. */
   function run(files) {
     out.innerHTML = '';
     report = [];
     copyBtn.className = 'btn btn--ghost hide';
-
     sendBtn.className = 'btn btn--ghost hide';
 
     var i = 0;
@@ -761,6 +694,15 @@ dd.no  { color: var(--accent-lit); }
       describe(files[i++], next);
     })();
   }
+
+  document.getElementById('pick').addEventListener('click', function () { input.click(); });
+
+  input.addEventListener('change', function () {
+    var files = Array.prototype.slice.call(input.files || []);
+    // Cleared so picking the same file twice still fires, as in the uploader.
+    input.value = '';
+    if (files.length) run(files);
+  });
 
   /* THE ONE REQUEST THIS PAGE EVER MAKES, and only when the guest presses the
      button. The report goes into public.diagnostics, which the public key can
@@ -797,21 +739,8 @@ dd.no  { color: var(--accent-lit); }
     }));
   });
 
-  document.getElementById('pick').addEventListener('click', function () { input.click(); });
-
-  input.addEventListener('change', function () {
-    var files = Array.prototype.slice.call(input.files || []);
-    // Cleared so picking the same file twice still fires, as in the uploader.
-    input.value = '';
-    if (files.length) run(files);
-  });
-
   copyBtn.addEventListener('click', function () {
     var text = report.join('\n');
-
-    /* execCommand is deprecated and is the only thing that works when the page
-       is opened over plain http or in a browser that gates the async clipboard
-       behind a permission the owner will not be expecting. */
     function fallback() {
       var ta = document.createElement('textarea');
       ta.value = text;
@@ -823,9 +752,7 @@ dd.no  { color: var(--accent-lit); }
       try { document.execCommand('copy'); } catch (e) {}
       document.body.removeChild(ta);
     }
-
     function done() { copyBtn.textContent = 'Copied. Paste it into the chat.'; }
-
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(done, function () { fallback(); done(); });
     } else {
