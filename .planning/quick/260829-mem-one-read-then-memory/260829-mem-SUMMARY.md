@@ -81,3 +81,30 @@ No Android was in the room. The four behaviours are simulations of the errors th
 reported, not the phone. The rebuild is defensible on its own, a pipeline that refuses at
 the first of four readers is wrong whatever the phone does, but the proof that it fixes
 this phone is one upload on that phone.
+
+## Addendum: the re-pick, and bytes that are not read twice
+
+The owner, on the rebuild: "much better, works at the first try. But if I delete one
+picture and resubmit it, I get the phone-did-not-hand-over sentence."
+
+The logs for those two minutes: three uploads in a row at 06:08, first try. Five
+removals. Then the re-pick of a JPEG refused by all three readers, then the re-pick of
+**the same 39.5 MB video that had just uploaded** refused by all three readers, then the
+pick after that of the same video landing again. So a re-pick fails or succeeds per pick,
+at the provider's whim, and nothing on this side can make the phone hand over a file it
+has decided not to.
+
+But the page held those exact bytes in memory a minute earlier. `acquireBytes()` now keeps
+the last few files it read, keyed by name, size and modification time, which is the
+identity a picker hands back and which two different files do not share. A re-pick
+answers from memory before a single reader is asked. Four files or sixty four megabytes,
+oldest out.
+
+Proved through the real uploader with the real Remove control: pick, remove, then pick the
+same file again with every reader and the element made to refuse it. The JPEG lands in
+583 ms and the clip in 876 ms, no reader consulted, no beacon filed. Thirteen of thirteen
+pipeline cases unchanged.
+
+What this does not cover, honestly: a re-pick after the page was reloaded, because the
+memory is gone with the page. That case is the provider's, and the sentence still tells
+the guest what to do.

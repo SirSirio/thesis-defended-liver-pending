@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0B0B0C">
 <meta name="color-scheme" content="dark">
 <title>31026 File acceptance self test</title>
-<link rel="icon" href="assets/favicon.svg?v=18" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=19" type="image/svg+xml">
 
 <!-- THIS PAGE IS AN INSTRUMENT, NOT PART OF THE INVITATION.
 
@@ -34,7 +34,7 @@
         The tokens below are copied from styles.css on purpose, and they are
         allowed to fall behind it. -->
 
-<script src="config.js?v=18"></script>
+<script src="config.js?v=19"></script>
 <style>
 :root {
   --bg: #0B0B0C; --surface: #141416;
@@ -371,11 +371,11 @@ dd.no  { color: var(--accent-lit); }
     function settle(mod) { heifModule = mod || null; var w = heifWaiters; heifWaiters = null; for (var i = 0; i < w.length; i++) w[i](heifModule); }
     if (typeof WebAssembly === 'undefined') return settle(null);
     var s = document.createElement('script');
-    s.src = 'assets/vendor/libheif.js?v=18';
+    s.src = 'assets/vendor/libheif.js?v=19';
     s.onerror = function () { settle(null); };
     s.onload = function () {
       var x = new XMLHttpRequest();
-      x.open('GET', 'assets/vendor/libheif.wasm?v=18');
+      x.open('GET', 'assets/vendor/libheif.wasm?v=19');
       x.responseType = 'arraybuffer';
       x.onerror = function () { settle(null); };
       x.onload = function () {

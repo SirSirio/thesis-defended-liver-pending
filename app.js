@@ -4894,6 +4894,54 @@
      Memory: at most the configured ceiling, 40 MB for a photograph and
      50 MB for a video, held for the life of one file's turn in the queue.
      ====================================================================== */
+  /* BYTES ALREADY READ ARE NOT READ AGAIN.
+
+     The owner's phone, on the rebuilt pipeline: a picture uploads at the
+     first try, is removed, is picked again, and every reader refuses it.
+     The same item through the same picker minutes apart. Whatever the
+     provider's reason, a grant spent by the first pick or a snapshot the
+     second pick no longer matches, the bytes were in this page's memory a
+     minute ago and there is no reason to ask the phone for them twice.
+
+     So the last few files read are kept, keyed by name, size and
+     modification time, which is the identity a picker hands back and which
+     two different files do not share. A re-pick answers from here before a
+     single reader is asked. Four files or sixty four megabytes, whichever
+     runs out first, oldest out, so the cache can never hold more than one
+     large video and a few photographs. */
+  var bytesCache = [];
+  var BYTES_CACHE_MAX = 4;
+  var BYTES_CACHE_BYTES = 64 * 1024 * 1024;
+
+  function bytesKey(file) {
+    if (!file || !file.size) return null;
+    return String(file.name || '') + '|' + file.size + '|' + String(file.lastModified || 0);
+  }
+
+  function recallBytes(file) {
+    var key = bytesKey(file);
+    if (!key) return null;
+    for (var i = 0; i < bytesCache.length; i++) {
+      if (bytesCache[i].key === key) return bytesCache[i].buf;
+    }
+    return null;
+  }
+
+  function rememberBytes(file, buf) {
+    var key = bytesKey(file);
+    if (!key || !buf || buf.byteLength > BYTES_CACHE_BYTES) return;
+    for (var i = bytesCache.length - 1; i >= 0; i--) {
+      if (bytesCache[i].key === key) bytesCache.splice(i, 1);
+    }
+    bytesCache.push({ key: key, buf: buf });
+    var total = 0, k;
+    for (k = 0; k < bytesCache.length; k++) total += bytesCache[k].buf.byteLength;
+    while (bytesCache.length > BYTES_CACHE_MAX || (total > BYTES_CACHE_BYTES && bytesCache.length > 1)) {
+      total -= bytesCache[0].buf.byteLength;
+      bytesCache.shift();
+    }
+  }
+
   function acquireBytes(file, cb) {
     var report = { via: null, tries: 0, errors: [], ms: 0, failed: false };
     var t0 = Date.now();
@@ -4904,10 +4952,17 @@
       settled = true;
       report.ms = Date.now() - t0;
       report.failed = !buf;
+      if (buf) rememberBytes(file, buf);
       cb(buf, report);
     }
 
     if (!file || typeof FileReader === 'undefined') return finish(null);
+
+    var known = recallBytes(file);
+    if (known) {
+      report.via = 'cache';
+      return finish(known);
+    }
 
     function errName(e) { return (e && e.name) ? String(e.name) : 'error'; }
 
