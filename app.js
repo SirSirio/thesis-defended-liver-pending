@@ -1964,7 +1964,9 @@
   var IDENTITY_OK = newGuestId() !== null;
 
   /* The storage layout under the c03102. prefix, exactly: lang, enrolled,
-     wa_joined, guest_id, name, extra_guests, note, photo_count. The first three
+     wa_joined, guest_id, name, extra_guests, note, photo_count, photo_paths,
+     and altpicker, which is the string 1 once this device has refused to hand
+     over a picked file and is read only by buildUploader(). The first three
      were written by phase 1 and are neither renamed nor repurposed, because
      live guests already carry them on their devices. photo_count was added by
      phase 4 and is the soft half of the five per guest limit; the hard half is
@@ -4903,19 +4905,23 @@
      second pick no longer matches, the bytes were in this page's memory a
      minute ago and there is no reason to ask the phone for them twice.
 
-     So the last few files read are kept, keyed by name, size and
-     modification time, which is the identity a picker hands back and which
-     two different files do not share. A re-pick answers from here before a
-     single reader is asked. Four files or sixty four megabytes, whichever
-     runs out first, oldest out, so the cache can never hold more than one
-     large video and a few photographs. */
+     So the last few files read are kept, keyed by name and size, which is
+     the identity a picker hands back and which two different files do not
+     share. A re-pick answers from here before a single reader is asked. Four
+     files or sixty four megabytes, whichever runs out first, oldest out, so
+     the cache can never hold more than one large video and a few photographs. */
   var bytesCache = [];
   var BYTES_CACHE_MAX = 4;
   var BYTES_CACHE_BYTES = 64 * 1024 * 1024;
 
+  /* Name and size, and deliberately not lastModified. The one thing known
+     about the phone that refuses is that what it reports about a file is not
+     stable from one pick to the next, and a key carrying the least stable
+     field misses exactly when the cache is needed. Two different files that
+     share a name and a byte count is not a case a party produces. */
   function bytesKey(file) {
     if (!file || !file.size) return null;
-    return String(file.name || '') + '|' + file.size + '|' + String(file.lastModified || 0);
+    return String(file.name || '') + '|' + file.size;
   }
 
   function recallBytes(file) {
@@ -5054,14 +5060,18 @@
           if (b2) { report.via = 'fetch'; return finish(b2); }
           viaArrayBuffer(function (b3) {
             if (b3) { report.via = 'arrayBuffer'; return finish(b3); }
-            /* Seven more passes over thirty seconds. Ten was the first
-               guess; a provider that is fetching a cloud item on demand can
-               take longer than that for a twenty megabyte clip on mobile
-               data, and refusing at second eleven would be refusing the file
-               exactly while it was on its way. */
-            if (report.tries > 7) return finish(null);
+            /* Six passes over fifteen seconds. The owner's phone, on the
+               record in public.diagnostics: every bad pick refused all three
+               readers on every pass, identically, and never once relented on
+               the second pass or the sixth. A File the phone will not read
+               now is not read later either; only a fresh pick, or the copy
+               already in memory, produces the bytes. So the wait is long
+               enough for a provider that is genuinely still fetching and no
+               longer, because every second past that is a guest staring at
+               "waiting for the phone" for a file that is not coming. */
+            if (report.tries > 5) return finish(null);
             if (typeof onWait === 'function') onWait(report.tries);
-            setTimeout(ladder, [500, 1000, 2000, 3000, 5000, 8000, 10000][report.tries - 1]);
+            setTimeout(ladder, [500, 1000, 2000, 4000, 7000][report.tries - 1]);
           });
         });
       });
@@ -7223,9 +7233,14 @@
     }
 
     /* The refusal that names the phone opens the other door, and it stays
-       open for the life of the page: a phone that did it once will do it
-       again, and the guest should not have to be refused twice to find it. */
-    if (reasonKey === 'photos.err.unreadable' && photoUploader) photoUploader.setAttribute('data-alt', '1');
+       open for the life of the device and not only the page: a phone that
+       did it once will do it again, and a guest who reloads should find the
+       way out already standing rather than be refused a second time to earn
+       it. buildUploader() reads the flag back. */
+    if (reasonKey === 'photos.err.unreadable') {
+      if (photoUploader) photoUploader.setAttribute('data-alt', '1');
+      store.set('altpicker', '1');
+    }
 
     if (state === 'refused' || state === 'failed') reportRefusal(rec);
 
@@ -7789,6 +7804,10 @@
     photoUploader = box;
     photoQueueEl = queue;
 
+    /* The other door stands from the first render on a device that has
+       already been refused once. setRowState() writes the flag. */
+    if (store.get('altpicker') === '1') box.setAttribute('data-alt', '1');
+
     // The button calls the input from inside its own click handler, which is a
     // user gesture and is the supported pattern on both platforms.
     /* The value is cleared HERE, on the way into the picker, and no longer in
@@ -7799,7 +7818,7 @@
        still fires change, which is the only reason it was ever cleared. */
     function openPicker() {
       input.value = '';
-      openPicker();
+      input.click();
     }
 
     btn.addEventListener('click', function () { openPicker(); });
