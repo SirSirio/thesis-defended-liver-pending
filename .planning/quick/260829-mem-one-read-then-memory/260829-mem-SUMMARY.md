@@ -108,3 +108,44 @@ pipeline cases unchanged.
 What this does not cover, honestly: a re-pick after the page was reloaded, because the
 memory is gone with the page. That case is the provider's, and the sentence still tells
 the guest what to do.
+
+## Addendum 2: the other door, and what is and is not proven
+
+The owner, fairly: "how can you be sure it is the phone and not a bug in the website?"
+
+What is proven: the refusals happen inside the browser's own file reading APIs, all three
+readers at once, at the very first read after the pick, with the same `NotReadableError`
+the stripped down `check.html` reproduces with no uploader involved; the same code reads
+other files on the same phone, and the same file on other picks; iOS has never produced
+it. What is not ruled out: that the way the site opens the picker, `accept="image/*,
+video/*"` with `multiple`, is what steers Android into the picker whose provider
+misbehaves. That is a website thing in the only sense that matters, and it can be tested
+rather than argued.
+
+So the uploader now has **a second door**. After any refusal that named the phone, a
+control appears beside the pick button: "Choose through Files instead". It opens an input
+with no `accept` at all, which is what makes Android open the storage framework's Files
+picker rather than the gallery. Every record carries which door it came through, and the
+beacon carries it as `picker: media | files`, so the diagnostics table will show whether
+the two routes read differently on that phone. If Files always reads, the picker is the
+cause and the door is the fix; if Files refuses too, it is the file, and that is settled.
+
+Three smaller things beside it, all proved:
+
+- **The ladder waits thirty seconds, not ten**, seven passes at 0.5, 1, 2, 3, 5, 8 and 10
+  seconds. A provider fetching a cloud item on demand can take longer than ten for a
+  twenty megabyte clip on mobile data, and refusing at second eleven would be refusing the
+  file exactly while it was on its way.
+- **The status line says what it is waiting for**: "Still waiting for the phone to hand
+  over file 1 of 1", three languages, 267 keys at parity, instead of half a minute of
+  Preparing with nothing moving.
+- **`input.value` is no longer cleared in the change handler**, on the way into a read of
+  the very Files that pick produced. It is cleared on the way into the picker instead,
+  which preserves the one reason it was ever cleared: picking the same file twice still
+  fires change.
+
+Proved: before any refusal the door is hidden; during the ladder the waiting line shows;
+after the refusal the door is visible, labelled, and opens the Files input and not the
+media one; a readable pick through it lands in 146 ms; a refusal through it is tagged
+`files` in the beacon. Thirteen of thirteen pipeline cases, the re-pick from memory, and
+three pages at two viewports unchanged.

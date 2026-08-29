@@ -3360,6 +3360,15 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
 .uploader[data-state="partial"] .uploader__retry,
 .uploader[data-state="failed"] .uploader__retry { display: inline-flex; }
 
+/* The other door, see the alt control in app.js. Hidden until a refusal has
+   named the phone, then standing for the life of the page. */
+.uploader__alt { display: none; }
+.uploader[data-alt="1"] .uploader__alt { display: inline-flex; }
+.uploader__acts .uploader__alt { min-height: 48px; }
+@media (pointer: coarse) {
+  .uploader__acts .uploader__alt { min-height: 52px; }
+}
+
 /* Secondary standing, so the touch table gives it the plain 48px floor and
    52px on a coarse pointer rather than the submit control's 52 and 56. It is
    reachable and clearly a button; it is not the happy path. */

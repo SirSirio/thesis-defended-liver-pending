@@ -4942,7 +4942,10 @@
     }
   }
 
-  function acquireBytes(file, cb) {
+  /* onWait, optional, is called before each retry with the pass number, so
+     the control can say it is waiting on the phone rather than sitting on
+     "Preparing" for half a minute. */
+  function acquireBytes(file, cb, onWait) {
     var report = { via: null, tries: 0, errors: [], ms: 0, failed: false };
     var t0 = Date.now();
     var settled = false;
@@ -5051,8 +5054,14 @@
           if (b2) { report.via = 'fetch'; return finish(b2); }
           viaArrayBuffer(function (b3) {
             if (b3) { report.via = 'arrayBuffer'; return finish(b3); }
-            if (report.tries > 5) return finish(null);
-            setTimeout(ladder, [500, 1000, 2000, 3000, 4000][report.tries - 1]);
+            /* Seven more passes over thirty seconds. Ten was the first
+               guess; a provider that is fetching a cloud item on demand can
+               take longer than that for a twenty megabyte clip on mobile
+               data, and refusing at second eleven would be refusing the file
+               exactly while it was on its way. */
+            if (report.tries > 7) return finish(null);
+            if (typeof onWait === 'function') onWait(report.tries);
+            setTimeout(ladder, [500, 1000, 2000, 3000, 5000, 8000, 10000][report.tries - 1]);
           });
         });
       });
@@ -7183,6 +7192,7 @@
       /* Which readers were tried and which one produced the bytes, and what
          the bytes turned out to be. This is the finding, when there is one. */
       read: rec.read || null,
+      picker: rec.picker || null,
       sig: rec.sig || null
     };
 
@@ -7211,6 +7221,11 @@
       rec.reasonKey = reasonKey || null;
       rec.reasonVals = reasonVals || null;
     }
+
+    /* The refusal that names the phone opens the other door, and it stays
+       open for the life of the page: a phone that did it once will do it
+       again, and the guest should not have to be refused twice to find it. */
+    if (reasonKey === 'photos.err.unreadable' && photoUploader) photoUploader.setAttribute('data-alt', '1');
 
     if (state === 'refused' || state === 'failed') reportRefusal(rec);
 
@@ -7675,6 +7690,23 @@
     retry.id = 'photos-retry';
     acts.appendChild(retry);
 
+    /* THE OTHER DOOR. Android offers two very different pickers for the same
+       input: the media picker, backed by whatever gallery app the phone has
+       made responsible, and the Files picker, backed by the storage
+       framework. The owner's phone hands over readable files through one
+       and refuses them through the other, and nothing on this side can tell
+       which a guest used. So after a refusal that named the phone, a second
+       control opens the other picker: an input with no accept at all, which
+       is what makes Android open Files rather than the gallery. It is
+       hidden until that refusal has happened, because two Choose buttons for
+       one intent is a puzzle, and after it has happened the puzzle is the
+       phone's and the button is the way out. */
+    var alt = document.createElement('button');
+    alt.type = 'button';
+    alt.className = 'btn btn--ghost uploader__alt';
+    alt.id = 'photos-pick-files';
+    acts.appendChild(alt);
+
     zone.appendChild(acts);
 
     /* Why the box is dashed, said once, and only where it is true.
@@ -7722,6 +7754,17 @@
     input.hidden = true;
     box.appendChild(input);
 
+    /* No accept attribute, deliberately: see the alt control above. What comes
+       back is judged by validateFile() exactly as the media picker's files are,
+       so a document picked here is refused by name rather than by being
+       unpickable. */
+    var inputAny = document.createElement('input');
+    inputAny.type = 'file';
+    inputAny.id = 'photos-input-any';
+    inputAny.multiple = true;
+    inputAny.hidden = true;
+    box.appendChild(inputAny);
+
     /* Two live regions with two urgencies, both in the document from first
        render and both empty. Many screen readers will not announce a region
        that arrives with its content already in it, so nothing in this section
@@ -7748,8 +7791,20 @@
 
     // The button calls the input from inside its own click handler, which is a
     // user gesture and is the supported pattern on both platforms.
-    btn.addEventListener('click', function () { input.click(); });
+    /* The value is cleared HERE, on the way into the picker, and no longer in
+       the change handler. Clearing it there cleared it while the File objects
+       from that very pick were about to be read, and on Android nothing about
+       a File backed by a content provider is worth doing anything to while a
+       read is pending. Cleared before opening so picking the same file twice
+       still fires change, which is the only reason it was ever cleared. */
+    function openPicker() {
+      input.value = '';
+      openPicker();
+    }
+
+    btn.addEventListener('click', function () { openPicker(); });
     retry.addEventListener('click', function () { retryFailedFiles(); });
+    alt.addEventListener('click', function () { inputAny.value = ''; inputAny.click(); });
 
     /* THE ZONE'S BEHAVIOUR.
 
@@ -7780,7 +7835,7 @@
         if (n.tagName === 'BUTTON') return;
         n = n.parentNode;
       }
-      input.click();
+      openPicker();
     });
 
     /* role="button" bought the outer target and owes the keyboard back. A real
@@ -7791,7 +7846,7 @@
       var k = e.key;
       if (k !== 'Enter' && k !== ' ' && k !== 'Spacebar') return;
       e.preventDefault();
-      input.click();
+      openPicker();
     });
 
     /* Drag and drop, desktop sugar, never the only route.
@@ -7840,11 +7895,15 @@
     });
     input.addEventListener('change', function () {
       var files = Array.prototype.slice.call(input.files || []);
-      // The value is cleared so picking the same file twice still fires change.
-      input.value = '';
+      // Not cleared here any more: see openPicker() for where and why.
       /* A picker dismissed with no selection changes nothing: no state
          transition, no queue, no status line. */
       if (files.length) runBatch(files);
+    });
+
+    inputAny.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(inputAny.files || []);
+      if (files.length) runBatch(files, 'files');
     });
 
     return box;
@@ -7878,6 +7937,9 @@
     var retry = $('.uploader__retry', uploader);
     if (retry) retry.textContent = t('photos.retry.failed');
 
+    var alt = $('.uploader__alt', uploader);
+    if (alt) alt.textContent = t('photos.pick.files');
+
     setUploaderState(uploader, photoState);
 
     paintStatus();
@@ -7895,7 +7957,7 @@
      offered a retry before they chose to move on, and a queue that accumulates
      across batches grows without bound during exactly the hours the phone is
      busiest. */
-  function runBatch(files) {
+  function runBatch(files, picker) {
     var uploader = photoUploader;
     var maxBytes = maxFileBytes();
     var room = photosRemaining();
@@ -7926,6 +7988,9 @@
     for (i = 0; i < files.length; i++) {
       photoBatch.push({
         file: files[i],
+        /* Which door the file came in through, media or files, kept for the
+           beacon so the table can say whether the two routes read differently. */
+        picker: picker || 'media',
         index: i + 1,
         slot: 0,
         state: 'waiting',
@@ -8064,6 +8129,8 @@
     acquireBytes(rec.file, function (buf, how) {
       rec.read = how;
       rec.sig = buf ? sigOf(buf) : null;
+      // Back from "waiting on the phone" to the ordinary line, if it was ever shown.
+      if (how && how.tries > 1) setUploaderStatus('photos.status.preparing', { i: rec.slot, n: photoBatchTotal });
 
       if (rec.kind === 'video') {
         probeVideo(buf, rec.file, function (errKey) {
@@ -8093,6 +8160,11 @@
         }
         prepared(blob);
       });
+    }, function () {
+      /* The phone has refused once and the ladder is about to try again.
+         Half a minute of Preparing with nothing moving reads as a hang;
+         this line says what is actually being waited for. */
+      setUploaderStatus('photos.status.waiting', { i: rec.slot, n: photoBatchTotal });
     });
 
 

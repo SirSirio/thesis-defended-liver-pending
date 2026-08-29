@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0B0B0C">
 <meta name="color-scheme" content="dark">
 <title>31026 File acceptance self test</title>
-<link rel="icon" href="assets/favicon.svg?v=19" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=20" type="image/svg+xml">
 
 <!-- THIS PAGE IS AN INSTRUMENT, NOT PART OF THE INVITATION.
 
@@ -34,7 +34,7 @@
         The tokens below are copied from styles.css on purpose, and they are
         allowed to fall behind it. -->
 
-<script src="config.js?v=19"></script>
+<script src="config.js?v=20"></script>
 <style>
 :root {
   --bg: #0B0B0C; --surface: #141416;
@@ -244,7 +244,7 @@ dd.no  { color: var(--accent-lit); }
 
      The bytes are fetched once, whole, never sliced, through FileReader, then
      fetch() of a blob URL, then File.arrayBuffer(), each bounded by a timer,
-     the ladder retried five times over ten seconds. Which one produced the
+     the ladder retried seven times over thirty seconds. Which one produced the
      bytes, and what every other one said, is the single most useful thing on
      this page: on Android the readers do not all succeed or fail together. */
   function acquire(file, cb) {
@@ -287,8 +287,8 @@ dd.no  { color: var(--accent-lit); }
           if (b2) { rep.via = 'fetch of a blob URL'; return finish(b2); }
           viaArrayBuffer(function (b3) {
             if (b3) { rep.via = 'File.arrayBuffer'; return finish(b3); }
-            if (rep.tries > 5) return finish(null);
-            setTimeout(ladder, [500, 1000, 2000, 3000, 4000][rep.tries - 1]);
+            if (rep.tries > 7) return finish(null);
+            setTimeout(ladder, [500, 1000, 2000, 3000, 5000, 8000, 10000][rep.tries - 1]);
           });
         });
       });
@@ -371,11 +371,11 @@ dd.no  { color: var(--accent-lit); }
     function settle(mod) { heifModule = mod || null; var w = heifWaiters; heifWaiters = null; for (var i = 0; i < w.length; i++) w[i](heifModule); }
     if (typeof WebAssembly === 'undefined') return settle(null);
     var s = document.createElement('script');
-    s.src = 'assets/vendor/libheif.js?v=19';
+    s.src = 'assets/vendor/libheif.js?v=20';
     s.onerror = function () { settle(null); };
     s.onload = function () {
       var x = new XMLHttpRequest();
-      x.open('GET', 'assets/vendor/libheif.wasm?v=19');
+      x.open('GET', 'assets/vendor/libheif.wasm?v=20');
       x.responseType = 'arraybuffer';
       x.onerror = function () { settle(null); };
       x.onload = function () {
