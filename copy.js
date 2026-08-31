@@ -29,6 +29,8 @@ window.PARTY_COPY = {
     'nav.menu.close': 'Close the course menu',
     'nav.gallery': 'The album',
     'nav.index': 'Course index',
+    'nav.upload': 'Upload your pictures',
+    'nav.upload.short': 'Upload',
 
     'gallery.heading': 'The album',
     'gallery.lede': 'Everything submitted so far, newest first. Tap any photograph to open it.',
@@ -349,6 +351,8 @@ window.PARTY_COPY = {
     'nav.menu.close': 'Chiudi il menu del corso',
     'nav.gallery': 'Album',
     'nav.index': 'Indice del corso',
+    'nav.upload': 'Carica le tue foto',
+    'nav.upload.short': 'Carica',
 
     'gallery.heading': 'Album',
     'gallery.lede': 'Tutto quello che è stato caricato, dalla più recente. Tocca una foto per aprirla.',
@@ -657,6 +661,8 @@ window.PARTY_COPY = {
     'nav.menu.close': 'Luk kursusmenuen',
     'nav.gallery': 'Albummet',
     'nav.index': 'Kursusindeks',
+    'nav.upload': 'Upload dine billeder',
+    'nav.upload.short': 'Upload',
 
     'gallery.heading': 'Albummet',
     'gallery.lede': 'Alt hvad der er uploadet indtil nu, nyeste først. Tryk på et billede for at åbne det.',

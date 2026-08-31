@@ -602,6 +602,35 @@ main, .footer { overflow-x: clip; }
   .topnav a:hover { color: var(--ink); border-bottom-color: var(--accent-lit); }
 }
 
+/* The upload call to action. In the markup from day one but shipped hidden:
+   app.js unhides it on the same gate that opens the photo portal, so the bar
+   only advertises uploading while uploading is actually possible.
+
+   The [hidden] rule is not decoration. An author display beats the browser's
+   own [hidden] { display: none } on specificity, so without it the pill would
+   ignore the attribute and stand in the bar all month. */
+.upload-cta {
+  display: inline-flex; align-items: center;
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 5px 14px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px; font-weight: 500;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: 999px;
+  transition: background var(--t-fast) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+.upload-cta[hidden] { display: none !important; }
+.upload-cta:active { transform: scale(0.96); }
+@media (hover: hover) and (pointer: fine) {
+  .upload-cta:hover { background: var(--accent-lit); }
+}
+.upload-cta__short { display: none; }
+
 .langswitch {
   display: flex; align-items: center; gap: 2px;
   flex-shrink: 0;
@@ -915,6 +944,42 @@ main, .footer { overflow-x: clip; }
 
   /* Moved into the menu panel. See the note in index.html for the arithmetic. */
   .topbar .langswitch { display: none; }
+
+  /* The upload pill drops to its one word form and grows a real touch
+     target. It appears at all only while the portal is open. */
+  .upload-cta { min-height: 44px; padding-inline: 16px; }
+  .upload-cta__full  { display: none; }
+  .upload-cta__short { display: inline; }
+}
+
+/* A very narrow phone cannot hold the badge, the access link, the pill and
+   the menu button on one 52px line. While the pill is on duty the access
+   link yields the bar and lives on in the menu sheet (item 05): by the hour
+   uploads open, everyone who needed the door has already found it. Browsers
+   without :has() simply keep both and crowd a little, which is a smaller
+   failure than hiding either unconditionally. */
+@media (max-width: 560px) {
+  .topbar__inner:has(.upload-cta:not([hidden])) .topnav { display: none; }
+  .topbar__inner:has(.upload-cta:not([hidden])) .upload-cta { margin-left: auto; }
+}
+
+/* Desktop has the opposite squeeze: the six links plus the language switch
+   already fill the 1080px wrap to within a step (see the nowrap note in the
+   masthead block), so a 154px pill overflows the bar by exactly itself. Two
+   things stand down while the pill is up, measured in a real browser at the
+   wrap width with room to spare for the longer Danish strings:
+
+     the Documentation link, because the pill IS that link wearing a better
+     coat, same href and same section, so hiding it loses nothing at all;
+     and the department subtitle, which is a joke the hero repeats anyway.
+
+   Both come straight back the moment the portal closes and the pill hides.
+   A browser without :has() keeps everything and clips the language switch
+   off the right edge instead, which is the least valuable thing in the bar
+   to lose and only for the few pre-2023 desktops that will ever see it. */
+@media (min-width: 901px) {
+  .topbar__inner:has(.upload-cta:not([hidden])) .topnav a[href="#photos"] { display: none; }
+  .topbar__inner:has(.upload-cta:not([hidden])) .mark__dept { display: none; }
 }
 
 /* Desktop keeps the institutional bar it already had: six links on one line,
@@ -2976,6 +3041,15 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
     color: #fff;
     background: rgba(255, 255, 255, 0.14);
   }
+}
+
+/* The upload pill was accent on accent, the same trap the pressed language
+   button walked into above, and it inverts the same way: white chip, red
+   text, 8.92:1. Its base rules further up the file still hold everywhere
+   else, including the poster-white sheet this bar will never meet. */
+.upload-cta { background: #fff; color: var(--accent); }
+@media (hover: hover) and (pointer: fine) {
+  .upload-cta:hover { background: rgba(255, 255, 255, 0.88); }
 }
 
 /* Keyboard focus must survive the band. The global ring is --accent-lit,

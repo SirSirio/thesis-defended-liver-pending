@@ -935,6 +935,19 @@
      never invite them to a portal that is shut. */
   var photosWasOpen = photosOpen(Date.now());
 
+  /* The topbar's upload pill rides the same boolean as the section body:
+     schedule, override and the null recovery all arrive through photosOpen(),
+     so the bar can never advertise a portal the section below refuses. The
+     attribute is written once at load and then only on a flip, not per tick,
+     which is the same economy syncPhotosGate applies to renderPhotos(). */
+  var uploadCtaEl = document.getElementById('upload-cta');
+
+  function syncUploadCta(open) {
+    if (uploadCtaEl) uploadCtaEl.hidden = !open;
+  }
+
+  syncUploadCta(photosWasOpen);
+
   function syncPhotosGate() {
     var open = photosOpen(Date.now());
     // The pocket clock in the closed panel rides this same tick, and the
@@ -942,6 +955,7 @@
     if (!open) tickMiniCountdown();
     if (open === photosWasOpen) return;
     photosWasOpen = open;
+    syncUploadCta(open);
     renderPhotos();
   }
 
