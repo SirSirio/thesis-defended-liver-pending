@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>31026 · Scan to upload</title>
+<link rel="icon" href="assets/favicon.svg?v=25" type="image/svg+xml">
+
+<!-- ==========================================================================
+     THE POSTER
+     ==========================================================================
+     One page, one job: an A4 portrait sheet with a QR code that opens the
+     party site. Printed and taped around the room, or shown full screen so
+     people can scan it off a monitor. Self contained on purpose: no
+     styles.css, no app.js, no Supabase, nothing that can fail between the
+     owner and a printer at 23:40 the night before.
+
+     The QR encodes https://sirsirio.github.io/thesis-defended-liver-pending/
+     at error correction H, which tolerates 30% damage. The course badge
+     parked in the middle covers about 5% of the area, so every camera app
+     reads straight past it. If the site ever moves, the code must be
+     regenerated, not edited.
+
+     Two print buttons, not a settings page. Colour prints the parody in DTU
+     red; black and white swaps every drop of colour for ink-friendly black.
+     The QR itself is black in both, because a QR code that is not dark on
+     light is a QR code that does not scan.
+     ========================================================================== -->
+
+<style>
+  :root {
+    --accent: #990000;
+    --ink: #131315;
+    --ink-dim: #5b5b63;
+    --rule: #d8d8dc;
+    --paper: #ffffff;
+  }
+  body.bw {
+    --accent: #000000;
+    --ink: #000000;
+    --ink-dim: #333333;
+    --rule: #bbbbbb;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #1a1a1e;
+    font-family: "Segoe UI", -apple-system, system-ui, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    display: flex; flex-direction: column; align-items: center;
+    gap: 18px; padding: 28px 12px 60px;
+  }
+  .mono { font-family: "Cascadia Mono", ui-monospace, "SF Mono", Consolas, monospace; }
+
+  /* Screen-only controls. Gone entirely in print. */
+  .tools { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .tools button {
+    appearance: none; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font: 500 14px/1 "Segoe UI", system-ui, sans-serif;
+    padding: 12px 18px; border-radius: 999px;
+  }
+  .tools button:hover { background: rgba(255,255,255,0.16); }
+  .tools .hint {
+    flex-basis: 100%; text-align: center;
+    color: rgba(255,255,255,0.55); font-size: 12.5px; margin-top: 2px;
+  }
+
+  /* The sheet. Fixed at A4 so what is on screen is what lands on paper.
+     Everything lives inside a 14mm inset: home printers cannot reach the
+     edges, and nothing bleeding means nothing clipped. */
+  .sheet {
+    width: 210mm; min-height: 297mm;
+    background: var(--paper);
+    padding: 14mm 16mm 12mm;
+    display: flex; flex-direction: column;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.55);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  @media (max-width: 840px) {
+    .sheet { transform: scale(0.44); transform-origin: top center; margin-bottom: calc(-297mm * 0.56); }
+  }
+
+  .head { display: flex; align-items: center; gap: 5mm; }
+  .badge {
+    display: grid; place-items: center;
+    width: 17mm; height: 12mm;
+    background: var(--accent); color: #fff;
+    font-size: 15pt; letter-spacing: 0.02em;
+    border-radius: 1.2mm;
+  }
+  .head__t { line-height: 1.25; }
+  .head__t b { display: block; font-size: 12.5pt; font-weight: 600; }
+  .head__t span { display: block; font-size: 9pt; color: var(--ink-dim); }
+  .head__ects { margin-left: auto; text-align: right; font-size: 9pt; color: var(--ink-dim); line-height: 1.45; }
+
+  .rule { border: 0; border-top: 0.6mm solid var(--accent); margin: 6mm 0 0; }
+
+  .headline {
+    margin: 9mm 0 0;
+    font-size: 30pt; font-weight: 750; letter-spacing: 0.01em;
+    line-height: 1.04; text-transform: uppercase;
+  }
+  .headline em { font-style: normal; color: var(--accent); }
+  .sub { margin: 4mm 0 0; font-size: 12.5pt; color: var(--ink-dim); line-height: 1.4; }
+
+  .qrwrap { margin: 8mm auto 0; position: relative; width: 118mm; }
+  .qrwrap svg { display: block; width: 100%; height: auto; }
+  .qrwrap .qrbadge {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24mm; height: 15mm;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center;
+    font-size: 17pt; border-radius: 1.5mm;
+    border: 1.6mm solid #fff;
+  }
+  .url {
+    margin: 5mm 0 0; text-align: center;
+    font-size: 11.5pt; letter-spacing: 0.01em;
+  }
+  .url span { color: var(--ink-dim); font-size: 9pt; display: block; margin-bottom: 1.5mm; }
+
+  .steps {
+    display: flex; gap: 6mm; margin-top: 9mm;
+    padding-top: 6mm; border-top: 0.3mm solid var(--rule);
+  }
+  .step { flex: 1; }
+  .step .n { font-size: 10pt; color: var(--accent); font-weight: 600; }
+  .step b { display: block; font-size: 11.5pt; margin-top: 1mm; }
+  .step p { margin: 1.2mm 0 0; font-size: 9.5pt; color: var(--ink-dim); line-height: 1.42; }
+
+  .foot {
+    margin-top: auto; padding-top: 5mm;
+    border-top: 0.3mm solid var(--rule);
+    display: flex; align-items: baseline; gap: 6mm;
+    font-size: 8.5pt; color: var(--ink-dim); line-height: 1.45;
+  }
+  .foot .fine { flex: 1; }
+  .foot .id { white-space: nowrap; }
+
+  @page { size: A4 portrait; margin: 0; }
+  @media print {
+    body { background: #fff; padding: 0; display: block; }
+    .tools { display: none; }
+    .sheet { box-shadow: none; width: auto; min-height: 0; transform: none; margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="tools">
+  <button type="button" onclick="printAs(false)">🖨&nbsp; Print in colour</button>
+  <button type="button" onclick="printAs(true)">🖨&nbsp; Print black &amp; white</button>
+  <p class="hint">A4 portrait, margins none. Or just leave this on a screen and let people scan it.</p>
+</div>
+
+<div class="sheet">
+
+  <div class="head">
+    <span class="badge mono">31026</span>
+    <span class="head__t">
+      <b>Introduction to Applied Celebration</b>
+      <span>Department of Graduation Studies</span>
+    </span>
+    <span class="head__ects">5 ECTS<br>03 October 2026</span>
+  </div>
+  <hr class="rule">
+
+  <h1 class="headline">Photographic evidence <em>required</em></h1>
+  <p class="sub">Tonight is examinable material. Your phone has seen everything,
+  and it is time it testified. Scan below and hand in your documentation.</p>
+
+  <div class="qrwrap">
+    <!-- Generated offline from the live URL, error correction H, 41x41
+         modules. Regenerate rather than edit if the address ever changes. -->
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 45 45" shape-rendering="crispEdges" role="img" aria-label="QR code opening the party site"><path fill="#ffffff" d="M-2 -2h45v45H-2z"/><path stroke="#000000" d="M0 0.5h7m1 0h2m1 0h1m4 0h2m1 0h5m2 0h1m2 0h2m3 0h7M0 1.5h1m5 0h1m2 0h2m1 0h3m3 0h2m1 0h1m1 0h1m1 0h2m1 0h1m3 0h1m1 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h2m2 0h1m3 0h2m1 0h1m1 0h2m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m2 0h1m2 0h4m1 0h2m2 0h1m1 0h2m2 0h3m2 0h1m1 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h1m2 0h2m1 0h1m2 0h2m1 0h1m1 0h4m2 0h1m1 0h2m2 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m2 0h1m3 0h2m1 0h1m1 0h1m1 0h1m3 0h1m1 0h1m2 0h2m3 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M8 7.5h1m2 0h2m6 0h1m1 0h4m3 0h1m2 0h1M5 8.5h2m2 0h2m3 0h1m2 0h2m1 0h1m1 0h1m1 0h1m1 0h4m2 0h1m1 0h1m1 0h1m1 0h1m1 0h1M0 9.5h3m1 0h1m2 0h2m2 0h1m2 0h2m1 0h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h3m3 0h2m2 0h1M1 10.5h3m1 0h4m2 0h1m1 0h2m2 0h3m3 0h1m1 0h5m2 0h1m1 0h3M0 11.5h2m2 0h2m1 0h1m1 0h2m2 0h1m1 0h1m3 0h2m3 0h2m4 0h4m1 0h1m1 0h1m1 0h1M0 12.5h1m3 0h3m4 0h2m1 0h3m1 0h9m1 0h1m3 0h1m1 0h1m4 0h1M0 13.5h1m1 0h1m1 0h1m4 0h3m1 0h2m1 0h5m1 0h2m2 0h1m2 0h12M0 14.5h1m5 0h1m1 0h1m7 0h1m3 0h1m1 0h1m1 0h2m1 0h3m3 0h1m1 0h4M1 15.5h1m5 0h1m2 0h1m2 0h1m1 0h4m1 0h3m4 0h1m2 0h2m1 0h1m4 0h3M3 16.5h2m1 0h2m3 0h5m1 0h4m2 0h2m4 0h1m1 0h1m1 0h1m1 0h1m2 0h1M4 17.5h1m3 0h1m3 0h9m1 0h1m2 0h3m1 0h8m3 0h1M6 18.5h1m1 0h1m1 0h1m2 0h1m1 0h1m1 0h3m1 0h1m2 0h2m1 0h6m1 0h3m3 0h1M0 19.5h1m2 0h1m1 0h1m1 0h1m4 0h2m4 0h1m2 0h3m2 0h1m1 0h1m2 0h2m3 0h2m1 0h1M0 20.5h2m2 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h2m3 0h5m8 0h3M0 21.5h1m1 0h1m5 0h1m1 0h1m2 0h5m3 0h1m4 0h2m1 0h3m4 0h3M0 22.5h2m1 0h1m2 0h1m1 0h2m2 0h2m1 0h7m1 0h1m1 0h4m1 0h1m1 0h1m5 0h1M0 23.5h1m2 0h2m2 0h1m1 0h2m2 0h1m1 0h2m2 0h3m1 0h2m2 0h2m3 0h1m3 0h2m1 0h1M0 24.5h4m2 0h1m1 0h1m2 0h1m1 0h3m2 0h1m2 0h1m1 0h2m3 0h1m2 0h2m1 0h2m1 0h1m1 0h1M0 25.5h1m1 0h3m2 0h4m3 0h1m1 0h3m3 0h3m1 0h4m1 0h1m2 0h1m1 0h2m2 0h1M0 26.5h1m5 0h2m1 0h4m2 0h3m1 0h4m4 0h2m1 0h1m1 0h2m1 0h1M0 27.5h1m2 0h3m2 0h2m1 0h1m1 0h1m3 0h1m4 0h1m1 0h1m2 0h2m2 0h1m2 0h1m1 0h3m1 0h1M1 28.5h6m2 0h1m2 0h1m2 0h3m1 0h3m1 0h1m2 0h2m1 0h1m1 0h1m5 0h2m1 0h1M0 29.5h2m5 0h2m2 0h2m1 0h1m2 0h1m1 0h1m1 0h2m4 0h1m2 0h3m1 0h5m1 0h1M0 30.5h2m2 0h6m1 0h1m4 0h1m3 0h1m1 0h1m1 0h1m2 0h1m1 0h1m1 0h1m1 0h1m3 0h1m2 0h1M0 31.5h1m1 0h1m2 0h1m1 0h1m2 0h1m1 0h2m2 0h1m1 0h2m1 0h1m1 0h1m1 0h4m1 0h1m1 0h1m1 0h4M0 32.5h1m1 0h1m1 0h1m1 0h1m1 0h2m2 0h1m6 0h1m1 0h3m1 0h1m1 0h1m1 0h1m2 0h5m1 0h3M8 33.5h1m2 0h1m1 0h1m2 0h2m1 0h1m1 0h7m1 0h2m1 0h1m3 0h1M0 34.5h7m2 0h2m1 0h4m3 0h2m2 0h2m2 0h3m1 0h2m1 0h1m1 0h2M0 35.5h1m5 0h1m1 0h1m1 0h1m2 0h2m2 0h5m1 0h4m1 0h1m1 0h3m3 0h2m2 0h1M0 36.5h1m1 0h3m1 0h1m2 0h1m1 0h3m1 0h1m1 0h2m1 0h2m1 0h6m2 0h6m2 0h2M0 37.5h1m1 0h3m1 0h1m2 0h1m1 0h4m1 0h1m1 0h3m4 0h1m1 0h1m2 0h2m3 0h1m1 0h1m1 0h2M0 38.5h1m1 0h3m1 0h1m2 0h1m2 0h1m2 0h2m3 0h5m2 0h5m1 0h5m1 0h1M0 39.5h1m5 0h1m10 0h1m1 0h1m3 0h1m1 0h3m2 0h2m4 0h3m1 0h1M0 40.5h7m2 0h1m1 0h2m2 0h5m1 0h2m1 0h3m1 0h2m1 0h1m1 0h1m1 0h4"/></svg>
+    <span class="qrbadge mono" aria-hidden="true">31026</span>
+  </div>
+
+  <p class="url mono">
+    <span>No camera? Type it like it is 2005:</span>
+    sirsirio.github.io/thesis-defended-liver-pending
+  </p>
+
+  <div class="steps">
+    <div class="step">
+      <span class="n mono">01</span>
+      <b>Scan the code</b>
+      <p>Any camera app. Point, tap the link, done. If nothing happens, clean your lens. It is beer.</p>
+    </div>
+    <div class="step">
+      <span class="n mono">02</span>
+      <b>State your name</b>
+      <p>Registered guests only. First name is enough, this is an exam, not passport control.</p>
+    </div>
+    <div class="step">
+      <span class="n mono">03</span>
+      <b>Hand in your evidence</b>
+      <p>Up to five photographs and one minute of video per guest. Choose wisely. Blurry is honest.</p>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span class="fine">Hand-ins are reviewed by the course responsible, who was probably in the picture anyway.
+    Attendance earns 0 ECTS. Documentation earns all 5.</span>
+    <span class="id mono">31026 · Applied Celebration · exam form: oral, loud</span>
+  </div>
+
+</div>
+
+<script>
+  function printAs(bw) {
+    document.body.classList.toggle('bw', bw);
+    window.print();
+  }
+</script>
+
+</body>
+</html>
