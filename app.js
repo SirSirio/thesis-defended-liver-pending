@@ -937,6 +937,9 @@
 
   function syncPhotosGate() {
     var open = photosOpen(Date.now());
+    // The pocket clock in the closed panel rides this same tick, and the
+    // guard inside is one querySelector when the panel is not on screen.
+    if (!open) tickMiniCountdown();
     if (open === photosWasOpen) return;
     photosWasOpen = open;
     renderPhotos();
@@ -7581,6 +7584,66 @@
      paragraph's textContent. That builder writes text directly and adds no
      translation attribute, so there is no applyLanguage() sweep to fight and
      the substituted moment survives a language tap by being rebuilt with it. */
+  /* The hero clock's grammar at pocket size: a number over a small mono
+     label, accent colons between, riding the same one second tick the page
+     already pays for. It reuses the hero's four label keys, so three
+     languages come for free and cannot drift. Built only for the scheduled
+     closed state: a pause has no moment to count to. */
+  function miniCountdown() {
+    var wrap = document.createElement('div');
+    wrap.className = 'minicd';
+    wrap.setAttribute('role', 'timer');
+    wrap.setAttribute('aria-live', 'off');
+
+    var parts = [['d', 'countdown.days'], ['h', 'countdown.hours'],
+                 ['m', 'countdown.minutes'], ['s', 'countdown.seconds']];
+    for (var i = 0; i < parts.length; i++) {
+      if (i) {
+        var sep = document.createElement('span');
+        sep.className = 'minicd__sep';
+        sep.setAttribute('aria-hidden', 'true');
+        sep.textContent = ':';
+        wrap.appendChild(sep);
+      }
+      var unit = document.createElement('div');
+      unit.className = 'minicd__unit';
+      var n = document.createElement('span');
+      n.className = 'minicd__n';
+      n.setAttribute('data-cd', parts[i][0]);
+      n.textContent = '00';
+      var l = document.createElement('span');
+      l.className = 'minicd__l';
+      l.setAttribute('data-i18n', parts[i][1]);
+      l.textContent = t(parts[i][1]);
+      unit.appendChild(n);
+      unit.appendChild(l);
+      wrap.appendChild(unit);
+    }
+    return wrap;
+  }
+
+  /* Four textContent writes per second, and only while the closed panel is
+     actually on the screen: the lookup answers null in every other state and
+     the function costs a querySelector. Days are not clamped to two digits,
+     because a moment more than 99 days out is a real value, not an error. */
+  function tickMiniCountdown() {
+    var host = $('#photos-body .minicd');
+    if (!host || isNaN(photosOpenMs)) return;
+
+    var s = Math.max(0, Math.floor((photosOpenMs - Date.now()) / 1000));
+    var vals = {
+      d: Math.floor(s / 86400),
+      h: Math.floor(s / 3600) % 24,
+      m: Math.floor(s / 60) % 60,
+      s: s % 60
+    };
+    for (var k in vals) {
+      if (!Object.prototype.hasOwnProperty.call(vals, k)) continue;
+      var cell = $('[data-cd="' + k + '"]', host);
+      if (cell) cell.textContent = vals[k] < 10 ? '0' + vals[k] : String(vals[k]);
+    }
+  }
+
   function closedPanel() {
     /* Two different truths wear this panel. Before the scheduled moment the
        honest sentence names the moment; when the admin has closed a portal
@@ -7592,6 +7655,11 @@
     var box = pendingBlock('photos.pending.title', 'photos.closed.body');
     var body = $('.pending__b', box);
     if (body) body.textContent = phrase('photos.closed.body', { when: formatOpensAt() });
+    if (!isNaN(photosOpenMs)) {
+      box.appendChild(miniCountdown());
+      /* Filled before the panel is ever painted, so no frame shows 00:00. */
+      requestAnimationFrame(tickMiniCountdown);
+    }
     return box;
   }
 

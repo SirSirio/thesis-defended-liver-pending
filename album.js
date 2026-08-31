@@ -769,6 +769,39 @@
     }, { passive: true });
   }
 
+  /* ----------------------------------------------------------------------
+     THE DOOR BACK TO THE UPLOADER
+
+     Shown only while the portal would actually take something. The schedule
+     (photos.opensAt) is read synchronously from config, so the ordinary case
+     costs no request and never flashes; the admin override in
+     public.settings refines it when the one extra read lands. The same two
+     rules app.js applies, copied under this page's duplication contract.
+     ---------------------------------------------------------------------- */
+
+  var uploadsOverride = null;
+
+  function syncAddYours() {
+    var el = $('#album-addyours');
+    if (!el) return;
+    var at = Date.parse(String((CFG.photos || {}).opensAt || ''));
+    var open = isNaN(at) ? true : Date.now() >= at;
+    if (uploadsOverride === 'open') open = true;
+    if (uploadsOverride === 'closed') open = false;
+    el.hidden = !open;
+  }
+
+  function fetchUploadsOverride() {
+    if (!sbConfigured() || typeof fetch !== 'function') return;
+    fetch(sbUrl() + '/rest/v1/settings?select=uploads_override&id=eq.1', {
+      method: 'GET', headers: { apikey: sbKey() }
+    }).then(function (r) { return r.json(); }).then(function (rows) {
+      var v = rows && rows[0] && rows[0].uploads_override;
+      uploadsOverride = (v === 'open' || v === 'closed') ? v : null;
+      syncAddYours();
+    }).catch(function () { /* the schedule already decided */ });
+  }
+
   function init() {
     host = $('#grid');
     if (!host) return;
@@ -778,6 +811,8 @@
     wireKeys();
     wireShuffle();
     wireAura();
+    syncAddYours();
+    fetchUploadsOverride();
     load();
   }
 

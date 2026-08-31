@@ -4419,3 +4419,44 @@ details[open] > .fold__sum .fold__chev {
   .lb__step { display: none; }
   .lb__bar { grid-column: 1; }
 }
+
+/* --------------------------------------------------------------------------
+   The closed portal's clock. The hero clock's grammar at pocket size: number
+   over mono label, accent colons, tabular digits, inside the pending panel
+   under the sentence that names the moment. Deliberately small: the hero
+   owns the big clock, this one only keeps the promise concrete. */
+.minicd {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  margin-top: var(--s-4);
+}
+
+.minicd__unit { display: flex; flex-direction: column; }
+
+.minicd__n {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.minicd__l {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-top: var(--s-1);
+}
+
+.minicd__sep {
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--accent-lit);
+  opacity: 0.75;
+}
