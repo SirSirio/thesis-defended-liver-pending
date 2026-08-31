@@ -99,3 +99,18 @@ A WhatsApp invitation message was drafted for the owner (chat only).
 - Harnesses for all of it live in the session scratchpad (run1..run4.js):
   real Chrome, stubbed wire, phone viewport. Rebuild from the summaries if
   needed; they are not committed.
+
+## Addendum, same day: the register under the PIN
+
+admin.html gained a third section: the register. `admin_list_enrollments`,
+`admin_edit_enrollment`, `admin_delete_enrollment` (schema section 14), all
+PIN-checked, rows addressed by the enrollment's own id and never guest_id.
+A name edit rewrites `public.photos.name` for that guest, so the album's
+attribution follows the register; proved on the wire with a first token
+that actually changed. A delete cannot reach the guest's device: their
+phone keeps showing its receipt and quietly re-registers them under the
+same guest_id the next time they touch the form; their photographs stay.
+The PIN now also guards the private notes, which with a four digit PIN is
+an accepted trade, said to the owner in as many words. UI proved in real
+Chrome: list with notes and heads count, edit posting both names, delete
+armed by a second tap that names the person.

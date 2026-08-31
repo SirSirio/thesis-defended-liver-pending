@@ -1064,3 +1064,94 @@ create policy "anon may clear an unrecorded object"
     bucket_id = 'party-photos'
     and not exists (select 1 from public.photos p where p.storage_path = name)
   );
+
+
+-- ============================================================================
+-- 14. THE REGISTER, UNDER THE PIN (2026-08-31)
+-- ----------------------------------------------------------------------------
+-- The owner can read, correct and delete enrollments from admin.html. Rows
+-- are addressed by the enrollment's primary key, never by guest_id: the id
+-- opens nothing else, while a guest_id in a page's memory is a credential.
+--
+-- Correcting a name also rewrites public.photos.name for that guest, so the
+-- album's attribution follows the register. Deleting cannot reach the
+-- guest's device: their phone keeps showing its receipt, and the next time
+-- they edit it the site re-registers them under the same guest_id. Their
+-- photographs are deliberately untouched.
+--
+-- WHAT THE PIN NOW PROTECTS: this list includes the private notes. With the
+-- owner's chosen short PIN that is an accepted trade, recorded here so
+-- nobody mistakes it for an oversight.
+-- ============================================================================
+
+create or replace function public.admin_list_enrollments(p_pin text)
+returns table (
+  id uuid, name text, extra_guests smallint, plus_one_name text,
+  note text, lang text, withdrawn boolean, created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.admin_ok(p_pin) then return; end if;
+  return query
+    select e.id, e.name, e.extra_guests, e.plus_one_name,
+           e.note, e.lang, e.withdrawn, e.created_at
+      from public.enrollments e
+     order by e.created_at;
+end $$;
+
+revoke all on function public.admin_list_enrollments(text) from public;
+grant execute on function public.admin_list_enrollments(text) to anon;
+
+create or replace function public.admin_edit_enrollment(
+  p_pin text, p_id uuid, p_name text default null, p_plus_one text default null
+)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  affected integer;
+  gid uuid;
+begin
+  if not public.admin_ok(p_pin) then return -1; end if;
+
+  update public.enrollments
+     set name = coalesce(nullif(trim(p_name), ''), name),
+         plus_one_name = case when p_plus_one is null then plus_one_name
+                              else nullif(trim(p_plus_one), '') end
+   where id = p_id
+   returning guest_id into gid;
+
+  get diagnostics affected = row_count;
+
+  if affected = 1 and p_name is not null and trim(p_name) <> '' then
+    update public.photos set name = trim(p_name) where guest_id = gid;
+  end if;
+
+  return affected;
+end $$;
+
+revoke all on function public.admin_edit_enrollment(text, uuid, text, text) from public;
+grant execute on function public.admin_edit_enrollment(text, uuid, text, text) to anon;
+
+create or replace function public.admin_delete_enrollment(p_pin text, p_id uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  affected integer;
+begin
+  if not public.admin_ok(p_pin) then return -1; end if;
+  delete from public.enrollments where id = p_id;
+  get diagnostics affected = row_count;
+  return affected;
+end $$;
+
+revoke all on function public.admin_delete_enrollment(text, uuid) from public;
+grant execute on function public.admin_delete_enrollment(text, uuid) to anon;
