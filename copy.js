@@ -145,7 +145,7 @@ window.PARTY_COPY = {
     'obj.6': 'Absorb a minimum of 10 grams of fun, measured by any accredited method',
 
     'enrol.heading': 'Course registration',
-    'enrol.lede': 'Registration is required. Not for bureaucratic reasons, but because the host needs to know how much food to buy.',
+    'enrol.lede': 'Registration is required. Not for bureaucratic reasons, but because dinner is ordered as takeaway and the order follows the headcount. Snacks and some drinks are provided; bringing a bottle of your own is considered part of the coursework.',
     'enrol.pending.title': 'Registration opens shortly',
     'enrol.pending.body': 'The registration system is being set up. Come back in a few days, or tell the host directly in the meantime.',
 
@@ -458,7 +458,7 @@ window.PARTY_COPY = {
     'obj.6': 'Assumere almeno 10 grammi di divertimento, misurati con un metodo accreditato a scelta',
 
     'enrol.heading': 'Iscrizione al corso',
-    'enrol.lede': 'L’iscrizione è obbligatoria. Non per motivi burocratici, ma perché il festeggiato deve sapere quanto cibo comprare.',
+    'enrol.lede': 'L’iscrizione è obbligatoria. Non per motivi burocratici, ma perché la cena arriverà d’asporto e l’ordine segue il numero degli iscritti. Snack e qualche drink sono offerti; portare una bottiglia è considerato parte del programma del corso.',
     'enrol.pending.title': 'Le iscrizioni aprono a breve',
     'enrol.pending.body': 'Il sistema di iscrizione è in fase di configurazione. Torna tra qualche giorno, oppure dillo direttamente al festeggiato.',
 
@@ -766,7 +766,7 @@ window.PARTY_COPY = {
     'obj.6': 'Indtage mindst 10 gram sjov, målt efter en valgfri akkrediteret metode',
 
     'enrol.heading': 'Tilmelding til kurset',
-    'enrol.lede': 'Tilmelding er påkrævet. Ikke af bureaukratiske årsager, men fordi værten skal vide, hvor meget mad der skal købes.',
+    'enrol.lede': 'Tilmelding er påkrævet. Ikke af bureaukratiske årsager, men fordi aftensmaden bestilles som takeaway, og ordren følger deltagerantallet. Snacks og lidt at drikke er der sørget for; at medbringe en flaske selv betragtes som en del af pensum.',
     'enrol.pending.title': 'Tilmelding åbner snart',
     'enrol.pending.body': 'Tilmeldingssystemet er ved at blive sat op. Kom tilbage om et par dage, eller sig det direkte til værten i mellemtiden.',
 
