@@ -5,7 +5,7 @@ milestone_name: milestone
 current_phase: 04.1
 current_phase_name: the-upload-rebuilt
 status: complete
-stopped_at: v22 live. Named plus one (no +2), opensAt restored at 16:00 party day, and admin.html with a server-checked PIN can force the portal open/closed and remove anyone's photo, file included. Android still awaits a first-pick retest (force the portal open from admin.html to test before the day).
+stopped_at: v23 live. Closed photos panel carries a pocket countdown; the album's Add yours hides while the portal is closed. Before that in v22: named plus one (no +2), opensAt restored at 16:00 party day, and admin.html with a server-checked PIN can force the portal open/closed and remove anyone's photo, file included. Android still awaits a first-pick retest (force the portal open from admin.html to test before the day).
 last_updated: "2026-08-31T12:15:00.000Z"
 last_activity: 2026-08-31
 last_activity_desc: v22. Plus one named end to end (DB, view, amend, form, receipt, attendee list); +2 removed; hero button reads Get directions; objective six is 10 grams of fun; opensAt 2026-10-03T16:00+02:00; admin.html + PIN RPCs + settings.uploads_override + orphan-delete storage policy. All proved untrusted-position and in real Chrome.
