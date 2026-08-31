@@ -887,8 +887,37 @@
      album shut for everybody. Written as: closed only when there is a valid
      timestamp still in the future. */
   function photosOpen(now) {
+    /* The admin's override outranks the schedule in both directions, and
+       only while it stands: null follows the clock. It arrives from the
+       settings row below, defaults to null, and a fetch that never lands
+       leaves the schedule in charge, so a network failure can neither lock
+       the album shut nor open it early. */
+    if (uploadsOverride === 'open') return true;
+    if (uploadsOverride === 'closed') return false;
     if (isNaN(photosOpenMs)) return true;
     return now >= photosOpenMs;
+  }
+
+  /* The one row of public.settings anon may read, written only by the
+     admin's PIN-checked function (schema section 12). Fetched at load and
+     then every five minutes, so an override flipped at the party reaches a
+     page that has been sitting open on a table. Every failure path leaves
+     the override exactly as it was. */
+  var uploadsOverride = null;
+
+  function fetchUploadsOverride() {
+    if (!sbConfigured()) return;
+    sbRequest('GET', '/rest/v1/settings?select=uploads_override&id=eq.1', null, null, 8000)
+      .then(function (res) {
+        if (!res || !res.ok || !Array.isArray(res.body) || !res.body.length) return;
+        var v = res.body[0] && res.body[0].uploads_override;
+        v = (v === 'open' || v === 'closed') ? v : null;
+        if (v === uploadsOverride) return;
+        uploadsOverride = v;
+        // Through the gate rather than a straight render, so the page only
+        // repaints when the answer actually changed.
+        syncPhotosGate();
+      });
   }
 
   /* The gate rides the clock that already exists. No new interval and no new
@@ -1964,9 +1993,10 @@
   var IDENTITY_OK = newGuestId() !== null;
 
   /* The storage layout under the c03102. prefix, exactly: lang, enrolled,
-     wa_joined, guest_id, name, extra_guests, note, photo_count, photo_paths,
-     and altpicker, which is the string 1 once this device has refused to hand
-     over a picked file and is read only by buildUploader(). The first three
+     wa_joined, guest_id, name, extra_guests, plus_one, note, photo_count,
+     photo_paths, and altpicker, which is the string 1 once this device has
+     refused to hand over a picked file and is read only by buildUploader().
+     The first three
      were written by phase 1 and are neither renamed nor repurposed, because
      live guests already carry them on their devices. photo_count was added by
      phase 4 and is the soft half of the five per guest limit; the hard half is
@@ -1983,6 +2013,7 @@
         guest_id: store.get('guest_id'),
         name: store.get('name'),
         extra_guests: isNaN(n) ? 0 : n,
+        plus_one: store.get('plus_one'),
         note: store.get('note'),
         enrolled: store.get('enrolled') === '1'
       };
@@ -1994,6 +2025,10 @@
       // A decimal string, read back with parseInt base 10, so no float and no
       // locale formatting ever enters storage.
       store.set('extra_guests', String(f.extra_guests == null ? 0 : f.extra_guests));
+      // Absent when there is nobody, exactly as the note: a removed key is
+      // the stored form of null.
+      if (f.plus_one == null || f.plus_one === '') store.remove('plus_one');
+      else store.set('plus_one', f.plus_one);
       if (f.note == null || f.note === '') store.remove('note');
       else store.set('note', f.note);
       store.set('enrolled', f.enrolled === false ? '0' : '1');
@@ -2116,6 +2151,7 @@
       store.remove('guest_id');
       store.remove('name');
       store.remove('extra_guests');
+      store.remove('plus_one');
       store.remove('note');
       store.remove('enrolled');
       // Forgetting the device must not leave a submission tally behind, nor a
@@ -2244,6 +2280,7 @@
       guest_id: ident.guest_id,
       name: fields.name,
       extra_guests: fields.extra_guests,
+      plus_one_name: fields.plus_one,   // null when nobody is declared
       note: fields.note,          // already null, never the empty string
       lang: lang                  // the resolved module variable, never a raw locale
     };
@@ -2279,6 +2316,7 @@
       p_guest_id: ident.guest_id,
       p_name: fields.name,
       p_extra_guests: fields.extra_guests,
+      p_plus_one: fields.plus_one === null ? '' : fields.plus_one,   // empty clears, as the note
       p_note: fields.note === null ? '' : fields.note,   // empty means clear it
       p_lang: lang,
       p_withdrawn: false
@@ -2424,6 +2462,16 @@
     return (v || '').length > 500 ? 'enrol.err.noteLong' : null;
   }
 
+  /* Required exactly when a plus one is declared, which is the only moment
+     the field is on the screen at all. The count decides; this names. */
+  function validatePlusOne(v, guests) {
+    if (!guests) return null;
+    var s = (v || '').trim();
+    if (!s) return 'enrol.err.plusoneRequired';
+    if (s.length > 60) return 'enrol.err.nameLong';
+    return null;
+  }
+
   function validateGuests(v) {
     var max = maxGuests();
     var n = parseInt(v, 10);
@@ -2500,6 +2548,14 @@
     var guests = $('#enrol-guests', form);
     if (guests && guests.tagName === 'SELECT') {
       out.push({ input: guests, validate: validateGuests });
+    }
+
+    /* Validated against the count as it stands at the moment of the check,
+       never a snapshot: a guest who flips back to 0 has a valid form again
+       without touching this field. */
+    var plus = $('#enrol-plusone', form);
+    if (plus) {
+      out.push({ input: plus, validate: function (v) { return validatePlusOne(v, readGuests(form)); } });
     }
 
     var note = $('#enrol-note', form);
@@ -2585,6 +2641,39 @@
     el.setAttribute('aria-describedby', 'enrol-name-hint enrol-name-err');
     if (value) el.value = value;
     return el;
+  }
+
+  /* The plus one's name, shown only while the count above says 1. The same
+     input grammar as the guest's own name, minus autocomplete: the browser
+     knows whose phone this is, not who they are bringing. */
+  function buildPlusOneInput(value) {
+    var el = document.createElement('input');
+    el.className = 'field__input';
+    el.id = 'enrol-plusone';
+    el.name = 'plus_one';
+    el.type = 'text';
+    el.setAttribute('maxlength', '60');
+    el.setAttribute('autocapitalize', 'words');
+    el.setAttribute('autocorrect', 'off');
+    el.setAttribute('spellcheck', 'false');
+    el.setAttribute('enterkeyhint', 'next');
+    el.setAttribute('aria-describedby', 'enrol-plusone-hint enrol-plusone-err');
+    if (value) el.value = value;
+    return el;
+  }
+
+  /* The whole field row appears and disappears with the count, through the
+     hidden attribute rather than a rebuild, so a typed name survives an
+     accidental flip to 0 and back. Hiding also clears any standing error:
+     a field that is not on the screen must not be the thing blocking the
+     submit. */
+  function syncPlusOneField(form) {
+    var wrap = document.getElementById('enrol-plusone-field');
+    var input = $('#enrol-plusone', form);
+    if (!wrap || !input) return;
+    var shown = readGuests(form) > 0;
+    wrap.hidden = !shown;
+    if (!shown) showFieldError(input, null);
   }
 
   /* A segmented radio group is one tap for a three value choice, shows every
@@ -2695,6 +2784,26 @@
         hintKey: 'enrol.form.guests.hint',
         control: buildGuestsControl(max, clampGuests(ident.extra_guests, max))
       }));
+
+      /* The plus one's name, directly under the count that summons it.
+         Built always and hidden while the count is 0, so the toggle is one
+         attribute and never a rebuild. */
+      var plusField = buildField({
+        id: 'enrol-plusone',
+        labelKey: 'enrol.form.plusone.label',
+        hintKey: 'enrol.form.plusone.hint',
+        control: buildPlusOneInput(ident.plus_one || '')
+      });
+      plusField.id = 'enrol-plusone-field';
+      plusField.hidden = clampGuests(ident.extra_guests, max) < 1;
+      form.appendChild(plusField);
+
+      /* One delegated listener rather than one per radio: the change event
+         bubbles from whichever control buildGuestsControl produced. */
+      form.addEventListener('change', function (e) {
+        var tgt = e.target;
+        if (tgt && tgt.name === 'extra_guests') syncPlusOneField(form);
+      });
     }
 
     form.appendChild(buildField({
@@ -2864,6 +2973,12 @@
       'enrol.record.guests',
       rec.extra_guests > 0 ? String(rec.extra_guests) : t('enrol.record.guests.none')
     ));
+
+    // The count says how many, this row says who. Absent when unnamed,
+    // matching the note's discipline below.
+    if (rec.extra_guests > 0 && rec.plus_one) {
+      list.appendChild(recordRow('enrol.record.plusone', rec.plus_one));
+    }
 
     // Absent entirely rather than filled with an n/a, matching the practical
     // notes discipline next door.
@@ -3211,7 +3326,7 @@
 
   function storedRecord() {
     var ident = identity.get();
-    return { name: ident.name || '', extra_guests: ident.extra_guests, note: ident.note };
+    return { name: ident.name || '', extra_guests: ident.extra_guests, plus_one: ident.plus_one, note: ident.note };
   }
 
   function mountPanel(host, panel) {
@@ -3375,7 +3490,7 @@
        newest first ordering, and it is deliberately not requested: that is
        precisely the social feed reading this block rejects, and the rows are
        sorted here into a register instead. */
-    sbRequest('GET', '/rest/v1/attendees?select=first_name,extra_guests', null, null, 8000)
+    sbRequest('GET', '/rest/v1/attendees?select=first_name,extra_guests,plus_one_first', null, null, 8000)
       .then(function (res) {
         // A newer read is already out or has already landed. This one is not
         // new information, and writing anything at all from here, the clear
@@ -3404,6 +3519,11 @@
           // dropping one would make the list disagree with the count.
           var first = rows[i].first_name;
           if (typeof first === 'string' && first) names.push(first);
+
+          // A named plus one is a person on the list, not a number beside a
+          // name. Unnamed extras still reach the total above.
+          var pfirst = rows[i].plus_one_first;
+          if (typeof pfirst === 'string' && pfirst) names.push(pfirst);
         }
 
         /* Read in exactly one place. A second literal threshold anywhere is how
@@ -3464,9 +3584,16 @@
     var name = nameEl ? nameEl.value.trim() : '';
     var note = noteEl ? noteEl.value.trim() : '';
 
+    var plusEl = $('#enrol-plusone', form);
+    var plus = plusEl ? plusEl.value.trim() : '';
+    var guests = readGuests(form);
+
     return {
       name: name,
-      extra_guests: readGuests(form),
+      extra_guests: guests,
+      // Only when somebody is actually declared. A name typed and then
+      // flipped back to 0 stays on the device and out of the register.
+      plus_one: (guests > 0 && plus) ? plus : null,
       // Never the empty string. An empty note must be a null in the owner's
       // dashboard rather than a column of blank cells.
       note: note ? note : null
@@ -3560,6 +3687,7 @@
           guest_id: ident.guest_id,
           name: fields.name,
           extra_guests: fields.extra_guests,
+          plus_one: fields.plus_one,
           note: fields.note,
           enrolled: true
         });
@@ -3621,6 +3749,7 @@
           guest_id: ident.guest_id,
           name: fields.name,
           extra_guests: fields.extra_guests,
+          plus_one: fields.plus_one,
           note: fields.note,
           enrolled: true
         });
@@ -7453,6 +7582,13 @@
      translation attribute, so there is no applyLanguage() sweep to fight and
      the substituted moment survives a language tap by being rebuilt with it. */
   function closedPanel() {
+    /* Two different truths wear this panel. Before the scheduled moment the
+       honest sentence names the moment; when the admin has closed a portal
+       the schedule says should be open, naming that moment would be a lie
+       in the past tense, so the paused sentence stands instead. */
+    var paused = uploadsOverride === 'closed' &&
+                 (isNaN(photosOpenMs) || Date.now() >= photosOpenMs);
+    if (paused) return pendingBlock('photos.pending.title', 'photos.paused.body');
     var box = pendingBlock('photos.pending.title', 'photos.closed.body');
     var body = $('.pending__b', box);
     if (body) body.textContent = phrase('photos.closed.body', { when: formatOpensAt() });
@@ -8812,6 +8948,12 @@
        a recovery that finds something re-renders a control that already
        exists rather than racing the one that builds it. */
     reconcileMyPhotos();
+
+    /* The admin override, now and then every five minutes. The first fetch
+       usually lands inside a second and flips nothing, because null is both
+       the default and the ordinary value. */
+    fetchUploadsOverride();
+    setInterval(fetchUploadsOverride, 300000);
 
     $$('[data-set-lang]').forEach(function (btn) {
       btn.addEventListener('click', function () {

@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>31026 · Course administration</title>
+<link rel="icon" href="assets/favicon.svg?v=22" type="image/svg+xml">
+<!--
+  THE OWNER'S PAGE. Unlisted, linked from nothing, English only, and it
+  deliberately does not load styles.css: an admin tool that a redesign can
+  break is a tool that fails on the night it is needed.
+
+  It grants nothing on its own. Every action posts the PIN to a security
+  definer function that checks it server side (supabase/schema.sql section
+  13), so holding this page's source, or this URL, gives an attacker nothing
+  but a slow oracle against sixteen random hex characters.
+-->
+<style>
+  :root {
+    --bg: #101014; --surface: #17171C; --line: #2A2A31;
+    --ink: #EDEDEF; --dim: #A9A9B0; --red: #E83F48; --green: #58C08A;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 22px; margin: 8px 0 4px; }
+  h2 { font-size: 16px; margin: 32px 0 8px; border-top: 1px solid var(--line); padding-top: 24px; }
+  .lede { color: var(--dim); margin: 0 0 24px; }
+  label { display: block; color: var(--dim); font-size: 13px; margin-bottom: 6px; }
+  input[type=password] { background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+          border-radius: 8px; padding: 10px 12px; font-size: 16px; width: 240px; max-width: 100%; }
+  button { background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+           border-radius: 8px; padding: 10px 14px; font-size: 14px; cursor: pointer; min-height: 44px; }
+  button:hover { border-color: var(--dim); }
+  button[data-armed="1"] { border-color: var(--red); color: var(--red); }
+  button[data-on="1"] { border-color: var(--green); color: var(--green); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .msg { min-height: 22px; color: var(--dim); }
+  .msg[data-bad="1"] { color: var(--red); }
+  .state { font-weight: 600; }
+  .state[data-v="open"] { color: var(--green); }
+  .state[data-v="closed"] { color: var(--red); }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .tile img, .tile video { display: block; width: 100%; height: 120px; object-fit: cover; background: #000; }
+  .tile .who { padding: 6px 8px 0; font-size: 12px; color: var(--dim);
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile button { width: calc(100% - 16px); margin: 6px 8px 8px; min-height: 36px; padding: 6px; font-size: 13px; }
+  .quiet { color: var(--dim); font-size: 13px; }
+  #logout { border: none; background: none; color: var(--dim); text-decoration: underline; min-height: 0; padding: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Course administration</h1>
+  <p class="lede">Unlisted. Every action is checked server&#8209;side against the PIN; this page grants nothing on its own.</p>
+
+  <section id="gate">
+    <label for="pin">Admin PIN</label>
+    <input id="pin" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="row"><button id="pin-go">Enter</button></div>
+    <p id="gate-msg" class="msg"></p>
+  </section>
+
+  <section id="panel" hidden>
+    <h2>Photo uploads</h2>
+    <p class="quiet" id="sched"></p>
+    <p>Right now the portal is: <span class="state" id="ovr-state">&hellip;</span></p>
+    <div class="row">
+      <button data-ovr="">Follow the schedule</button>
+      <button data-ovr="open">Open now</button>
+      <button data-ovr="closed">Close now</button>
+    </div>
+    <p id="ovr-msg" class="msg"></p>
+    <p class="quiet">Guests' open pages notice a change within five minutes; a reload sees it at once.</p>
+
+    <h2>The album</h2>
+    <p class="quiet">Remove takes two taps and is permanent, for everyone. The guest's own strip on their device will still show the frame until their page reloads.</p>
+    <div class="row"><button id="reload">Reload the album</button></div>
+    <div id="grid"></div>
+    <p id="grid-msg" class="msg"></p>
+
+    <p style="margin-top:40px"><button id="logout">Forget the PIN on this device</button></p>
+  </section>
+</main>
+
+<script src="config.js?v=22"></script>
+<script>
+(function () {
+  'use strict';
+
+  var CFG = window.PARTY_CONFIG || {};
+  var P = CFG.photos || {};
+  var URLBASE = P.supabaseUrl || '';
+  var KEY = P.supabaseKey || '';
+
+  /* A hand copy of the path contract in app.js and album.js, maintained with
+     them. Database supplied strings become URLs here exactly as they do in
+     the album, and the same rule applies. */
+  var PATH_RE = /^\d{4}-\d{2}-\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|mp4|mov|3gp|webm)$/;
+
+  var pin = null;
+  try { pin = window.localStorage.getItem('c03102.admin') || null; } catch (e) { /* private mode */ }
+
+  function $(s) { return document.querySelector(s); }
+
+  function rpc(name, args) {
+    return fetch(URLBASE + '/rest/v1/rpc/' + name, {
+      method: 'POST',
+      headers: { 'apikey': KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(args)
+    }).then(function (r) { return r.json(); }).catch(function () { return null; });
+  }
+
+  function readSettings() {
+    return fetch(URLBASE + '/rest/v1/settings?select=uploads_override&id=eq.1', {
+      headers: { 'apikey': KEY }
+    }).then(function (r) { return r.json(); }).catch(function () { return null; });
+  }
+
+  function msg(el, text, bad) {
+    el.textContent = text || '';
+    if (bad) el.setAttribute('data-bad', '1'); else el.removeAttribute('data-bad');
+  }
+
+  /* ---- the uploads switch ---- */
+
+  function scheduleWords() {
+    var at = P.opensAt;
+    if (!at) return 'The schedule says: open immediately (opensAt is null).';
+    var t = Date.parse(at);
+    if (isNaN(t)) return 'The schedule value could not be parsed; the site treats that as open.';
+    var d = new Date(t);
+    return 'The schedule opens uploads on ' + d.toLocaleString('en-GB', {
+      day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      timeZone: 'Europe/Copenhagen'
+    }) + ' (Copenhagen time).';
+  }
+
+  function paintOverride(v) {
+    var el = $('#ovr-state');
+    if (v === 'open') { el.textContent = 'FORCED OPEN'; el.setAttribute('data-v', 'open'); }
+    else if (v === 'closed') { el.textContent = 'FORCED CLOSED'; el.setAttribute('data-v', 'closed'); }
+    else { el.textContent = 'following the schedule'; el.removeAttribute('data-v'); }
+    var btns = document.querySelectorAll('[data-ovr]');
+    for (var i = 0; i < btns.length; i++) {
+      var mine = btns[i].getAttribute('data-ovr') || '';
+      if (mine === (v || '')) btns[i].setAttribute('data-on', '1');
+      else btns[i].removeAttribute('data-on');
+    }
+  }
+
+  function refreshState() {
+    $('#sched').textContent = scheduleWords();
+    readSettings().then(function (rows) {
+      if (!rows || !rows.length) { paintOverride(null); return; }
+      paintOverride(rows[0].uploads_override || null);
+    });
+  }
+
+  function setOverride(v) {
+    msg($('#ovr-msg'), 'Writing…');
+    rpc('admin_set_uploads', { p_pin: pin, p_override: v || null }).then(function (ok) {
+      if (ok === true) { msg($('#ovr-msg'), 'Done.'); refreshState(); }
+      else if (ok === false) { msg($('#ovr-msg'), 'The PIN was refused. Nothing changed.', true); }
+      else { msg($('#ovr-msg'), 'The wire failed. Nothing is known to have changed.', true); }
+    });
+  }
+
+  /* ---- the album ---- */
+
+  function publicUrl(path) {
+    return URLBASE + '/storage/v1/object/public/' + (P.bucket || 'party-photos') + '/' + path;
+  }
+
+  function tile(row) {
+    var box = document.createElement('div');
+    box.className = 'tile';
+
+    var path = String(row.storage_path || '');
+    if (!PATH_RE.test(path)) return null;
+
+    var isVideo = /\.(?:mp4|mov|3gp|webm)$/i.test(path);
+    var media;
+    if (isVideo) {
+      media = document.createElement('video');
+      media.preload = 'metadata';
+      media.muted = true;
+      media.playsInline = true;
+    } else {
+      media = document.createElement('img');
+      media.loading = 'lazy';
+      media.alt = '';
+    }
+    media.src = publicUrl(path);
+    box.appendChild(media);
+
+    var who = document.createElement('div');
+    who.className = 'who';
+    who.textContent = (row.first_name || 'unknown') + ' · ' +
+      String(row.created_at || '').slice(0, 16).replace('T', ' ');
+    box.appendChild(who);
+
+    /* Two taps: the first arms, the second removes. A stray tap on a grid of
+       thumbnails must not be able to destroy a guest's photograph. */
+    var btn = document.createElement('button');
+    btn.textContent = 'Remove';
+    btn.addEventListener('click', function () {
+      if (!btn.getAttribute('data-armed')) {
+        btn.setAttribute('data-armed', '1');
+        btn.textContent = 'Really remove?';
+        setTimeout(function () {
+          btn.removeAttribute('data-armed');
+          btn.textContent = 'Remove';
+        }, 4000);
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Removing…';
+      rpc('admin_remove_photo', { p_pin: pin, p_path: path }).then(function (n) {
+        if (n === -1) { msg($('#grid-msg'), 'The PIN was refused. Nothing changed.', true); btn.disabled = false; btn.textContent = 'Remove'; return; }
+        if (typeof n === 'number' && n >= 0) {
+          if (box.parentNode) box.parentNode.removeChild(box);
+          /* The row is gone, so the object is now an orphan and the storage
+             policy lets this key clear it. Only the storage API purges the
+             CDN's copy, which is why the file is finished here rather than
+             inside the function. */
+          fetch(URLBASE + '/storage/v1/object/' + (P.bucket || 'party-photos') + '/' + path, {
+            method: 'DELETE', headers: { 'apikey': KEY }
+          }).then(function (r) {
+            msg($('#grid-msg'), r.ok ? 'Removed, the file included.'
+                                     : 'Removed from the album; the file itself may linger in caches.');
+          }).catch(function () {
+            msg($('#grid-msg'), 'Removed from the album; the file itself may linger in caches.');
+          });
+          return;
+        }
+        msg($('#grid-msg'), 'The wire failed. Reload the album to see what stands.', true);
+        btn.disabled = false;
+        btn.textContent = 'Remove';
+      });
+    });
+    box.appendChild(btn);
+
+    return box;
+  }
+
+  function loadAlbum() {
+    msg($('#grid-msg'), 'Loading…');
+    fetch(URLBASE + '/rest/v1/album?select=first_name,storage_path,created_at,kind&order=created_at.desc&limit=300', {
+      headers: { 'apikey': KEY }
+    }).then(function (r) { return r.json(); }).then(function (rows) {
+      var grid = $('#grid');
+      grid.textContent = '';
+      if (!Array.isArray(rows)) { msg($('#grid-msg'), 'The album could not be read.', true); return; }
+      var n = 0;
+      for (var i = 0; i < rows.length; i++) {
+        var t = tile(rows[i]);
+        if (t) { grid.appendChild(t); n++; }
+      }
+      msg($('#grid-msg'), n ? n + ' on record.' : 'The album is empty.');
+    }).catch(function () { msg($('#grid-msg'), 'The album could not be read.', true); });
+  }
+
+  /* ---- the gate ---- */
+
+  function enter(candidate) {
+    msg($('#gate-msg'), 'Checking…');
+    rpc('admin_ok', { p_pin: candidate }).then(function (ok) {
+      if (ok !== true) {
+        msg($('#gate-msg'), ok === false ? 'That is not the PIN.' : 'The wire failed. Try again.', true);
+        return;
+      }
+      pin = candidate;
+      try { window.localStorage.setItem('c03102.admin', pin); } catch (e) { /* session only */ }
+      $('#gate').hidden = true;
+      $('#panel').hidden = false;
+      refreshState();
+      loadAlbum();
+    });
+  }
+
+  $('#pin-go').addEventListener('click', function () { enter($('#pin').value.trim()); });
+  $('#pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') enter($('#pin').value.trim()); });
+
+  var btns = document.querySelectorAll('[data-ovr]');
+  for (var i = 0; i < btns.length; i++) {
+    (function (b) {
+      b.addEventListener('click', function () { setOverride(b.getAttribute('data-ovr')); });
+    })(btns[i]);
+  }
+  $('#reload').addEventListener('click', loadAlbum);
+  $('#logout').addEventListener('click', function () {
+    try { window.localStorage.removeItem('c03102.admin'); } catch (e) { /* nothing held */ }
+    pin = null;
+    $('#panel').hidden = true;
+    $('#gate').hidden = false;
+    msg($('#gate-msg'), 'Forgotten.');
+  });
+
+  /* A held PIN is re-proved against the server rather than trusted: a rotated
+     PIN leaves the stored one behind, and the page must find that out now
+     rather than on the first action that matters. */
+  if (pin) enter(pin);
+})();
+</script>
+</body>
+</html>

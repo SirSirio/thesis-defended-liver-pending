@@ -79,7 +79,7 @@ window.PARTY_COPY = {
     'hero.title': 'Introduction to Applied Celebration',
     'hero.cta.enrol': 'Register for the course',
     'hero.cta.location': 'Find the location',
-    'hero.cta.access': 'Which door',
+    'hero.cta.access': 'Get directions',
     'hero.deadline': 'Registration closes {date}',
 
     /* The course responsible. A real DTU course page names one and shows their
@@ -142,7 +142,7 @@ window.PARTY_COPY = {
     'obj.3': 'Identify at least three people they have never met before',
     'obj.4': 'Operate a quiz interface under non ideal conditions',
     'obj.5': 'Document the evening photographically, within the stated upload limit',
-    'obj.6': 'Assess their own capacity accurately, and act on that assessment',
+    'obj.6': 'Absorb a minimum of 10 grams of fun, measured by any accredited method',
 
     'enrol.heading': 'Course registration',
     'enrol.lede': 'Registration is required. Not for bureaucratic reasons, but because the host needs to know how much food to buy.',
@@ -153,6 +153,8 @@ window.PARTY_COPY = {
     'enrol.form.name.hint': 'As it should appear on the participant list.',
     'enrol.form.guests.label': 'People you are bringing',
     'enrol.form.guests.hint': 'You are already counted.',
+    'enrol.form.plusone.label': 'Your plus one',
+    'enrol.form.plusone.hint': 'Their full name, so they appear on the participant list too.',
     'enrol.form.note.label': 'Note to the host (optional)',
     'enrol.form.note.hint': 'Allergies, arrival time, anything else. Only the host reads this, and you can change it later.',
 
@@ -163,6 +165,7 @@ window.PARTY_COPY = {
     'enrol.err.nameLong': 'Use 60 characters or fewer.',
     'enrol.err.noteLong': 'Use 500 characters or fewer.',
     'enrol.err.guestsRange': 'Choose a number from the list.',
+    'enrol.err.plusoneRequired': 'Enter their name, or set the number back to 0.',
 
     'enrol.submit': 'Submit registration',
     'enrol.submitting': 'Submitting',
@@ -180,6 +183,7 @@ window.PARTY_COPY = {
     'enrol.record.name': 'Name',
     'enrol.record.guests': 'Additional guests',
     'enrol.record.guests.none': 'None',
+    'enrol.record.plusone': 'Plus one',
     'enrol.record.note': 'Note',
 
     'enrol.return.title': 'Your registration',
@@ -260,6 +264,7 @@ window.PARTY_COPY = {
     'photos.pending.title': 'Submission portal opens later',
     'photos.pending.body': 'Uploads open closer to the date. Nothing is required from you now.',
     'photos.closed.body': 'Uploads open on {when}. Nothing is required from you until then.',
+    'photos.paused.body': 'Submissions are paused for a moment by the course responsible. Try again in a little while.',
     'photos.gate.title': 'Registered students only',
     'photos.gate.body': 'Photographic evidence is accepted from registered students, so the album knows whose evening it was. Registration is one field.',
     'photos.cta': 'Submit photographs',
@@ -393,7 +398,7 @@ window.PARTY_COPY = {
     'hero.title': 'Introduzione alla Celebrazione Applicata',
     'hero.cta.enrol': 'Iscriviti al corso',
     'hero.cta.location': 'Trova la sede',
-    'hero.cta.access': 'Quale porta',
+    'hero.cta.access': 'Come arrivare',
     'hero.deadline': 'Le iscrizioni chiudono il {date}',
 
     'hero.host.role': 'Responsabile del corso',
@@ -450,7 +455,7 @@ window.PARTY_COPY = {
     'obj.3': 'Riconoscere almeno tre persone mai viste prima',
     'obj.4': 'Utilizzare un quiz interattivo in condizioni non ideali',
     'obj.5': 'Documentare fotograficamente la serata, entro il limite indicato',
-    'obj.6': 'Valutare correttamente le proprie capacità, e regolarsi di conseguenza',
+    'obj.6': 'Assumere almeno 10 grammi di divertimento, misurati con un metodo accreditato a scelta',
 
     'enrol.heading': 'Iscrizione al corso',
     'enrol.lede': 'L’iscrizione è obbligatoria. Non per motivi burocratici, ma perché il festeggiato deve sapere quanto cibo comprare.',
@@ -461,6 +466,8 @@ window.PARTY_COPY = {
     'enrol.form.name.hint': 'Come deve comparire nell’elenco dei partecipanti.',
     'enrol.form.guests.label': 'Persone che porti con te',
     'enrol.form.guests.hint': 'Tu sei già incluso nel conteggio.',
+    'enrol.form.plusone.label': 'Il tuo +1',
+    'enrol.form.plusone.hint': 'Nome e cognome, così compare anche nell’elenco dei partecipanti.',
     'enrol.form.note.label': 'Nota per il festeggiato (facoltativa)',
     'enrol.form.note.hint': 'Allergie, orario di arrivo, qualsiasi altra cosa. La legge solo il festeggiato, e puoi modificarla più tardi.',
 
@@ -468,6 +475,7 @@ window.PARTY_COPY = {
     'enrol.err.nameLong': 'Usa al massimo 60 caratteri.',
     'enrol.err.noteLong': 'Usa al massimo 500 caratteri.',
     'enrol.err.guestsRange': 'Scegli un numero dall’elenco.',
+    'enrol.err.plusoneRequired': 'Scrivi il suo nome, oppure rimetti il numero a 0.',
 
     'enrol.submit': 'Invia l’iscrizione',
     'enrol.submitting': 'Invio in corso',
@@ -485,6 +493,7 @@ window.PARTY_COPY = {
     'enrol.record.name': 'Nome',
     'enrol.record.guests': 'Ospiti aggiuntivi',
     'enrol.record.guests.none': 'Nessuno',
+    'enrol.record.plusone': 'Accompagnatore',
     'enrol.record.note': 'Nota',
 
     'enrol.return.title': 'La tua iscrizione',
@@ -559,6 +568,7 @@ window.PARTY_COPY = {
     'photos.pending.title': 'Il portale di consegna apre più avanti',
     'photos.pending.body': 'I caricamenti si aprono a ridosso della data. Per ora non devi fare nulla.',
     'photos.closed.body': 'I caricamenti si aprono il {when}. Fino ad allora non devi fare nulla.',
+    'photos.paused.body': 'Le consegne sono momentaneamente sospese dal responsabile del corso. Riprova tra poco.',
     'photos.gate.title': 'Solo studenti iscritti',
     'photos.gate.body': 'Le prove fotografiche si accettano dagli studenti iscritti, così l’album sa di chi è la serata. L’iscrizione è un campo solo.',
     'photos.cta': 'Consegna le fotografie',
@@ -696,7 +706,7 @@ window.PARTY_COPY = {
     'hero.title': 'Introduktion til Anvendt Fejring',
     'hero.cta.enrol': 'Tilmeld dig kurset',
     'hero.cta.location': 'Find stedet',
-    'hero.cta.access': 'Hvilken dør',
+    'hero.cta.access': 'Find vej',
     'hero.deadline': 'Tilmelding lukker {date}',
 
     'hero.host.role': 'Kursusansvarlig',
@@ -753,7 +763,7 @@ window.PARTY_COPY = {
     'obj.3': 'Identificere mindst tre personer, som vedkommende aldrig har mødt før',
     'obj.4': 'Betjene en quiz under ikke ideelle forhold',
     'obj.5': 'Dokumentere aftenen fotografisk inden for den angivne grænse',
-    'obj.6': 'Vurdere sin egen kapacitet korrekt og handle derefter',
+    'obj.6': 'Indtage mindst 10 gram sjov, målt efter en valgfri akkrediteret metode',
 
     'enrol.heading': 'Tilmelding til kurset',
     'enrol.lede': 'Tilmelding er påkrævet. Ikke af bureaukratiske årsager, men fordi værten skal vide, hvor meget mad der skal købes.',
@@ -764,6 +774,8 @@ window.PARTY_COPY = {
     'enrol.form.name.hint': 'Som det skal stå på deltagerlisten.',
     'enrol.form.guests.label': 'Personer du tager med',
     'enrol.form.guests.hint': 'Du selv tæller allerede med.',
+    'enrol.form.plusone.label': 'Din ledsager',
+    'enrol.form.plusone.hint': 'Fulde navn, så vedkommende også står på deltagerlisten.',
     'enrol.form.note.label': 'Besked til værten (valgfri)',
     'enrol.form.note.hint': 'Allergier, ankomsttidspunkt eller andet. Kun værten læser den, og du kan ændre den senere.',
 
@@ -771,6 +783,7 @@ window.PARTY_COPY = {
     'enrol.err.nameLong': 'Brug højst 60 tegn.',
     'enrol.err.noteLong': 'Brug højst 500 tegn.',
     'enrol.err.guestsRange': 'Vælg et tal fra listen.',
+    'enrol.err.plusoneRequired': 'Skriv navnet, eller sæt tallet tilbage til 0.',
 
     'enrol.submit': 'Send tilmelding',
     'enrol.submitting': 'Sender',
@@ -788,6 +801,7 @@ window.PARTY_COPY = {
     'enrol.record.name': 'Navn',
     'enrol.record.guests': 'Ekstra gæster',
     'enrol.record.guests.none': 'Ingen',
+    'enrol.record.plusone': 'Ledsager',
     'enrol.record.note': 'Besked',
 
     'enrol.return.title': 'Din tilmelding',
@@ -862,6 +876,7 @@ window.PARTY_COPY = {
     'photos.pending.title': 'Afleveringsportalen åbner senere',
     'photos.pending.body': 'Upload åbner tættere på datoen. Du skal ikke gøre noget nu.',
     'photos.closed.body': 'Upload åbner {when}. Indtil da skal du ikke gøre noget.',
+    'photos.paused.body': 'Aflevering er midlertidigt sat på pause af den kursusansvarlige. Prøv igen om lidt.',
     'photos.gate.title': 'Kun tilmeldte studerende',
     'photos.gate.body': 'Fotografisk dokumentation modtages fra tilmeldte studerende, så albummet ved, hvis aften det var. Tilmelding er ét felt.',
     'photos.cta': 'Aflever fotografier',

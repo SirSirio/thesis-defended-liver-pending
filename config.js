@@ -143,7 +143,7 @@ window.PARTY_CONFIG = {
 
   enrollment: {
     deadline: '2026-09-26T23:59:00+02:00',
-    maxGuestsPerPerson: 2,   // how many extra people one guest may bring, max 4 (see above)
+    maxGuestsPerPerson: 1,   // one named plus one. The owner removed the +2 option on 2026-08-31
     showCountFrom: 8,        // hide the running total until it looks healthy
     showAttendeeList: true,  // first names only, never full names
   },
@@ -345,11 +345,11 @@ window.PARTY_CONFIG = {
        Keep it earlier than startsAt above. The countdown's closing state
        tells guests to go and upload their photographs, and it must never
        point them at a portal that is still closed. */
-    /* TEMPORARY, 2026-08-17: opened early for the phase 4 device pass. The
-       real moment is '2026-10-03T13:00:00+02:00' and it goes back before the
-       invitations go out. Left as a null rather than a past timestamp so the
-       line that has to be restored is obvious. */
-    opensAt: null,
+    /* Restored 2026-08-31 at the owner's chosen moment: uploads open at
+       16:00 on the day. admin.html can override this in either direction on
+       the night without a deploy, and null still means open immediately,
+       which stays the one line recovery if a phone shows the wrong date. */
+    opensAt: '2026-10-03T16:00:00+02:00',
 
     /* The longest edge of a photograph after the site shrinks it, in
        pixels. Bigger is prettier and roughly doubles the bytes on a

@@ -866,3 +866,201 @@ create policy "anon can file a diagnostic"
 -- table through default privileges. Take back everything but the one needed.
 revoke all on public.diagnostics from anon, authenticated;
 grant insert on public.diagnostics to anon;
+
+
+-- ============================================================================
+-- 12. THE PLUS ONE GETS A NAME (2026-08-31)
+-- ----------------------------------------------------------------------------
+-- One extra person per guest since the owner removed the +2 option, and that
+-- person is named, so the participant list is a list of people rather than a
+-- list of counts. The attendees view exposes the first token only, exactly as
+-- it does for the enrollee's own name; the full name stays in the dashboard.
+--
+-- amend_enrollment grew a p_plus_one argument. The old six argument signature
+-- was DROPPED rather than left beside it: two overloads with defaults make
+-- PostgREST refuse to choose, which breaks every amend call at once. The
+-- empty string clears the column, exactly as the note.
+-- ============================================================================
+
+alter table public.enrollments add column if not exists plus_one_name text;
+alter table public.enrollments drop constraint if exists enrollments_plus_one_name_check;
+alter table public.enrollments add constraint enrollments_plus_one_name_check
+  check (plus_one_name is null or char_length(plus_one_name) <= 60);
+
+-- Appended, never inserted mid list, which keeps create or replace legal and
+-- the anon grant intact.
+create or replace view public.attendees as
+  select
+    split_part(trim(name), ' ', 1) as first_name,
+    extra_guests,
+    created_at,
+    split_part(trim(plus_one_name), ' ', 1) as plus_one_first
+  from public.enrollments
+  where withdrawn = false;
+
+grant select on public.attendees to anon;
+
+drop function if exists public.amend_enrollment(uuid, text, smallint, text, text, boolean);
+
+create or replace function public.amend_enrollment(
+  p_guest_id     uuid,
+  p_name         text     default null,
+  p_extra_guests smallint default null,
+  p_note         text     default null,
+  p_lang         text     default null,
+  p_withdrawn    boolean  default null,
+  p_plus_one     text     default null
+)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  affected integer;
+begin
+  update public.enrollments
+     set name         = coalesce(p_name, name),
+         extra_guests = coalesce(p_extra_guests, extra_guests),
+         note         = case when p_note is null then note else nullif(p_note, '') end,
+         plus_one_name = case when p_plus_one is null then plus_one_name else nullif(p_plus_one, '') end,
+         lang         = coalesce(p_lang, lang),
+         withdrawn    = coalesce(p_withdrawn, withdrawn)
+   where guest_id = p_guest_id;
+
+  get diagnostics affected = row_count;
+  return affected;
+end $$;
+
+revoke all on function public.amend_enrollment(uuid, text, smallint, text, text, boolean, text) from public;
+grant execute on function public.amend_enrollment(uuid, text, smallint, text, text, boolean, text) to anon;
+
+
+-- ============================================================================
+-- 13. THE ADMIN: a PIN, a switch, and a longer arm (2026-08-31)
+-- ----------------------------------------------------------------------------
+-- A name is not a credential on this site, so the admin is not a registration:
+-- it is a PIN, stored only as a bcrypt hash, checked server side by security
+-- definer functions. admin.html (unlisted, linked from nothing) holds the PIN
+-- in that browser's localStorage after one entry. Wrong PIN does nothing.
+--
+-- TO SET OR ROTATE THE PIN, run in the SQL editor (and nowhere else):
+--
+--   insert into public.admin_secret (id, hash)
+--   values (1, extensions.crypt('NEW-PIN-HERE', extensions.gen_salt('bf')))
+--   on conflict (id) do update set hash = excluded.hash;
+--
+-- public.settings.uploads_override: 'open' forces the photo portal open,
+-- 'closed' forces it shut, null follows photos.opensAt in config.js. The
+-- site reads it at load and every five minutes; a fetch that fails leaves
+-- the schedule in charge.
+-- ============================================================================
+
+create extension if not exists pgcrypto with schema extensions;
+
+create table if not exists public.admin_secret (
+  id   int primary key check (id = 1),
+  hash text not null
+);
+alter table public.admin_secret enable row level security;
+revoke all on public.admin_secret from anon, authenticated;
+
+create table if not exists public.settings (
+  id int primary key check (id = 1),
+  uploads_override text check (uploads_override in ('open', 'closed'))
+);
+alter table public.settings enable row level security;
+drop policy if exists "anyone may read the settings" on public.settings;
+create policy "anyone may read the settings"
+  on public.settings for select to anon using (true);
+revoke all on public.settings from anon, authenticated;
+grant select on public.settings to anon;
+insert into public.settings (id, uploads_override) values (1, null)
+  on conflict (id) do nothing;
+
+-- The check. Exposed to anon deliberately: admin.html validates the PIN at
+-- entry with it, and it is the same oracle the two writers below already are.
+-- crypt() against a bcrypt hash costs real server time per guess, and the PIN
+-- is sixteen random hex characters, so the oracle is not a practical door.
+create or replace function public.admin_ok(p_pin text)
+returns boolean
+language sql
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.admin_secret s
+    where s.id = 1 and s.hash = extensions.crypt(p_pin, s.hash)
+  );
+$$;
+
+revoke all on function public.admin_ok(text) from public;
+grant execute on function public.admin_ok(text) to anon;
+
+create or replace function public.admin_set_uploads(p_pin text, p_override text default null)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_override is not null and p_override not in ('open', 'closed') then
+    return false;
+  end if;
+  if not public.admin_ok(p_pin) then
+    return false;
+  end if;
+  update public.settings set uploads_override = p_override where id = 1;
+  return true;
+end $$;
+
+revoke all on function public.admin_set_uploads(text, text) from public;
+grant execute on function public.admin_set_uploads(text, text) to anon;
+
+-- Deletes the row, which removes the photograph from the album for everyone.
+-- The in-function storage.objects delete fails quietly on this project
+-- (postgres does not own that table), so the FILE is finished by admin.html
+-- through the storage API under the orphan policy below, which is also the
+-- only door that purges the CDN's copy. Returns rows removed, or -1 for a
+-- wrong PIN, so the page can tell refusal from a path already gone.
+create or replace function public.admin_remove_photo(p_pin text, p_path text)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  affected integer;
+begin
+  if not public.admin_ok(p_pin) then
+    return -1;
+  end if;
+
+  delete from public.photos where storage_path = p_path;
+  get diagnostics affected = row_count;
+
+  begin
+    delete from storage.objects where bucket_id = 'party-photos' and name = p_path;
+  exception when others then
+    null;
+  end;
+
+  return affected;
+end $$;
+
+revoke all on function public.admin_remove_photo(text, text) from public;
+grant execute on function public.admin_remove_photo(text, text) to anon;
+
+
+-- An object nothing references any more may be cleared by anyone who knows
+-- its exact path. Live photographs are protected by their row; orphan paths
+-- are unguessable uuids known only to their uploader and the admin. This is
+-- what lets admin.html finish a removal through the storage API, which is
+-- the only door that also purges the CDN's copy.
+drop policy if exists "anon may clear an unrecorded object" on storage.objects;
+create policy "anon may clear an unrecorded object"
+  on storage.objects for delete to anon
+  using (
+    bucket_id = 'party-photos'
+    and not exists (select 1 from public.photos p where p.storage_path = name)
+  );
