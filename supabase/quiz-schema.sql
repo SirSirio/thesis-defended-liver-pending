@@ -13,10 +13,15 @@
 --                  a wall anyway. No update, no delete: a name, once chosen,
 --                  is a matter of record, like everything else on this site.
 --
---   quiz_answers   one row per player per question, first answer stands. The
---                  primary key IS the lock: a second tap on another option is
---                  refused with a duplicate key error, which the phone shows
---                  as "locked in". Answers are readable with the key before
+--   quiz_answers   one row per player per question, CHANGEABLE for as long
+--                  as the question is open (owner decision 2026-09-02: the
+--                  first-tap lock felt bad). The room's own state is the
+--                  referee: the insert and update policies both require
+--                  quiz_state to say that exact question is live, so nothing
+--                  lands early, and the reveal freezes everything. A trigger
+--                  stamps created_at server side on every write, so a late
+--                  change honestly pays speed points and a forged timestamp
+--                  is impossible. Answers are readable with the key before
 --                  the reveal, so a guest reading the REST API mid-question
 --                  can see what OTHERS picked, though not what is correct,
 --                  because the correct letters never touch this database
@@ -62,7 +67,7 @@ create policy "anyone may read the players"
   on public.quiz_players for select to anon using (true);
 
 -- ----------------------------------------------------------------------------
--- 2. ANSWERS. The primary key is the whole anti-cheat department.
+-- 2. ANSWERS. The state row is the referee, the trigger is the clock.
 -- ----------------------------------------------------------------------------
 create table if not exists public.quiz_answers (
   player_id  uuid not null references public.quiz_players (id) on delete cascade,
@@ -74,15 +79,56 @@ create table if not exists public.quiz_answers (
 
 alter table public.quiz_answers enable row level security;
 revoke all on public.quiz_answers from anon, authenticated;
-grant select, insert on public.quiz_answers to anon;
+grant select, insert, update on public.quiz_answers to anon;
 
 drop policy if exists "anyone may answer once" on public.quiz_answers;
-create policy "anyone may answer once"
-  on public.quiz_answers for insert to anon with check (true);
+drop policy if exists "answers land only while the question is open" on public.quiz_answers;
+create policy "answers land only while the question is open"
+  on public.quiz_answers for insert to anon
+  with check (exists (
+    select 1 from public.quiz_state s
+    where s.id = 1 and s.phase in ('question', 'tb') and s.q = quiz_answers.q
+  ));
+
+drop policy if exists "answers may change until the reveal" on public.quiz_answers;
+create policy "answers may change until the reveal"
+  on public.quiz_answers for update to anon
+  using (exists (
+    select 1 from public.quiz_state s
+    where s.id = 1 and s.phase in ('question', 'tb') and s.q = quiz_answers.q
+  ))
+  with check (exists (
+    select 1 from public.quiz_state s
+    where s.id = 1 and s.phase in ('question', 'tb') and s.q = quiz_answers.q
+  ));
 
 drop policy if exists "anyone may read the answers" on public.quiz_answers;
 create policy "anyone may read the answers"
   on public.quiz_answers for select to anon using (true);
+
+-- The clock is not the client's to set: created_at is stamped here, with the
+-- database's own now(), on insert AND on every change, so the speed bonus
+-- measures the last decision and a flattering timestamp in the request body
+-- is silently overwritten. On update the identity columns are pinned too.
+create or replace function public.quiz_answer_touched()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op = 'UPDATE' then
+    new.player_id := old.player_id;
+    new.q         := old.q;
+  end if;
+  new.created_at := now();
+  return new;
+end $$;
+
+drop trigger if exists quiz_answer_touch on public.quiz_answers;
+create trigger quiz_answer_touch
+  before insert or update on public.quiz_answers
+  for each row execute function public.quiz_answer_touched();
 
 -- ----------------------------------------------------------------------------
 -- 3. STATE. One row. Readable by all, writable by the PIN alone.

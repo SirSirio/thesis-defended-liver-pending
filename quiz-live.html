@@ -22,10 +22,12 @@
      waiting, a question, the film, a reveal, the leaderboard, a scheduled
      silence, the end.
 
-     It writes exactly two things, ever: one quiz_players row on join, and
-     one quiz_answers row per question. The first answer stands; the database
-     enforces that with its primary key, so a second tap is refused by
-     postgres itself and shown here as "locked in".
+     It writes two kinds of things: one quiz_players row on join, and one
+     quiz_answers row per question, changeable for as long as that question
+     is open. The database is the referee on both counts: answers land or
+     change only while quiz_state says the question is live, and every
+     write's timestamp is stamped server side, so changing your mind late
+     honestly costs speed points and the reveal freezes everything.
 
      Correct answers are nowhere in this page or in quiz-data.js. They arrive
      through quiz_state.revealed only when the host reveals, which is what
@@ -184,8 +186,7 @@
   @keyframes pickPunch {
     0% { transform: scale(0.95); } 50% { transform: scale(1.04); } 100% { transform: scale(1); }
   }
-  .tiles.locked .tile { pointer-events: none; }
-  .tiles.locked .tile:not(.picked) { opacity: 0.35; }
+  .tiles.saving .tile { pointer-events: none; }
 
   /* the LOCKED stamp */
   .stamp {
@@ -283,7 +284,7 @@
   </div>
 </div>
 
-<div class="stamp mono" id="stamp">LOCKED</div>
+<div class="stamp mono" id="stamp">NOTED</div>
 <canvas id="confetti"></canvas>
 
 <script src="config.js?v=25"></script>
@@ -468,52 +469,88 @@
       '  <p class="kicker">Question ' + String(q.n).padStart(2, '0') + ' / 15</p>' +
       '  <h2>' + esc(q.text) + '</h2>' +
       '</div>' +
-      '<div class="tiles' + (mine ? ' locked' : '') + '" id="tiles">' +
+      '<div class="tiles" id="tiles">' +
       q.opts.map(function (o, i) {
         var picked = mine && mine.answer === LETTERS[i];
         return '<button type="button" class="tile' + (long ? ' small' : '') + (picked ? ' picked' : '') + '" data-l="' + LETTERS[i] + '">' +
                '<span class="tg">' + LETTERS[i] + '</span><span>' + esc(o) + '</span></button>';
       }).join('') +
       '</div>' +
-      (mine ? '<p class="scoreline">Locked in. Await the verdict.</p>' : '');
+      '<p class="scoreline" id="qNote">' +
+      (mine ? 'Noted: ' + esc(mine.answer) + '. Change your mind until the verdict.' : '&nbsp;') +
+      '</p>';
     show(html);
-    if (mine) return;
     var tiles = document.getElementById('tiles');
     tiles.addEventListener('click', function (e) {
       var btn = e.target.closest('.tile');
-      if (!btn || tiles.classList.contains('locked')) return;
-      lockAnswer(q.n, btn.dataset.l, btn, tiles);
+      if (!btn || tiles.classList.contains('saving')) return;
+      if (myAnswers[q.n] && myAnswers[q.n].answer === btn.dataset.l) return;
+      saveAnswer(q.n, btn.dataset.l, btn, tiles);
     });
   }
 
-  function lockAnswer(qn, letter, btn, tiles) {
-    tiles.classList.add('locked');
-    btn.classList.add('picked');
+  function stampWord(word) {
     var stamp = document.getElementById('stamp');
+    stamp.textContent = word;
     stamp.classList.remove('go'); void stamp.offsetWidth; stamp.classList.add('go');
     if (navigator.vibrate) { try { navigator.vibrate(30); } catch (e) {} }
-    api('quiz_answers', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify({ player_id: me.id, q: qn, answer: letter }),
-    }).then(function (r) {
-      if (r.ok) return r.json().then(function (rows) { myAnswers[qn] = rows[0]; });
+  }
+
+  /* An answer may change for as long as the question is open. First write is
+     an insert, every change a patch; both are refused by the database once
+     the reveal has happened, and both get their timestamp stamped server
+     side, so a late change honestly pays for its hesitation. */
+  function saveAnswer(qn, letter, btn, tiles) {
+    var prev = myAnswers[qn] || null;
+    tiles.classList.add('saving');
+    tiles.querySelectorAll('.tile').forEach(function (t) { t.classList.remove('picked'); });
+    btn.classList.add('picked');
+    stampWord(prev ? 'CHANGED' : 'NOTED');
+    var note = document.getElementById('qNote');
+
+    var req = prev
+      ? api('quiz_answers?player_id=eq.' + me.id + '&q=eq.' + qn, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ answer: letter }),
+        })
+      : api('quiz_answers', {
+          method: 'POST',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ player_id: me.id, q: qn, answer: letter }),
+        });
+
+    req.then(function (r) {
+      if (r.ok) {
+        return r.json().then(function (rows) {
+          if (!rows.length) return Promise.reject('closed');   /* reveal beat the patch */
+          myAnswers[qn] = rows[0];
+          if (note) note.innerHTML = 'Noted: ' + esc(letter) + '. Change your mind until the verdict.';
+        });
+      }
       if (r.status === 409) {
-        /* two different conflicts wear the same status: a double tap
-           (23505, the first answer stands) and a dead player id after a
-           host reset (23503, the row it references is gone) */
         return r.json().catch(function () { return {}; }).then(function (body) {
           if (body && body.code === '23503') { resetIdentity(); render(); return; }
+          /* a duplicate from a racing double tap: the row exists, patch it */
+          myAnswers[qn] = myAnswers[qn] || { answer: letter, created_at: new Date().toISOString() };
           return fetchMine();
         });
       }
       return Promise.reject(r.status);
-    }).catch(function () {
-      /* the write did not land: unlock so they can try again */
-      delete myAnswers[qn];
-      tiles.classList.remove('locked');
-      btn.classList.remove('picked');
-      flashNet(false, 'answer refused, tap again');
+    }).catch(function (why) {
+      /* the write did not land: put the previous state back, honestly */
+      if (prev) { myAnswers[qn] = prev; } else { delete myAnswers[qn]; }
+      tiles.querySelectorAll('.tile').forEach(function (t) {
+        t.classList.toggle('picked', !!prev && t.dataset.l === prev.answer);
+      });
+      if (why === 'closed') {
+        if (note) note.innerHTML = 'Too late. The verdict was already in.';
+      } else {
+        flashNet(false, 'answer refused, tap again');
+        if (note && !prev) note.innerHTML = '&nbsp;';
+      }
+    }).then(function () {
+      tiles.classList.remove('saving');
     });
   }
 
@@ -522,28 +559,47 @@
     show(
       '<p class="kicker">Tie breaker · open answer</p>' +
       '<h2>' + esc(QUIZ.tb.text) + '</h2>' +
-      (mine
-        ? '<div class="verdict right"><span class="big mono">' + esc(mine.answer) + '</span>' +
-          '<span class="pts">On the record. Closest wins 150.</span></div>'
-        : '<div class="field" style="margin-top:8px">' +
-          '  <label for="tbn">Your number</label>' +
-          '  <input id="tbn" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="0">' +
-          '</div>' +
-          '<button class="btn" id="tbBtn" type="button">Lock it in</button>' +
-          '<p class="err" id="tbErr"></p>')
+      '<div class="field" style="margin-top:8px">' +
+      '  <label for="tbn">Your number</label>' +
+      '  <input id="tbn" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="0"' +
+           (mine ? ' value="' + esc(mine.answer) + '"' : '') + '>' +
+      '</div>' +
+      '<button class="btn" id="tbBtn" type="button">' + (mine ? 'Change it' : 'Lock it in') + '</button>' +
+      '<p class="err" id="tbErr"></p>' +
+      '<p class="scoreline" id="tbNote">' +
+      (mine ? 'On the record: <b>' + esc(mine.answer) + '</b>. Changeable until the count is read.' : 'Closest wins 150. This one is genuinely open book.') +
+      '</p>'
     );
-    if (mine) return;
     document.getElementById('tbBtn').addEventListener('click', function () {
+      var btn = this;
+      var prev = myAnswers[QUIZ.tb.n] || null;
       var v = (document.getElementById('tbn').value || '').replace(/\D/g, '');
-      if (!v) { document.getElementById('tbErr').textContent = 'A number. This one is genuinely open book.'; return; }
-      this.disabled = true;
-      api('quiz_answers', {
-        method: 'POST',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({ player_id: me.id, q: QUIZ.tb.n, answer: v }),
-      }).then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
-        .then(function (rows) { myAnswers[QUIZ.tb.n] = rows[0]; viewSig = ''; render(); })
-        .catch(function () { viewSig = ''; render(); });
+      if (!v) { document.getElementById('tbErr').textContent = 'A number. Any number.'; return; }
+      if (prev && prev.answer === v) return;
+      btn.disabled = true;
+      var req = prev
+        ? api('quiz_answers?player_id=eq.' + me.id + '&q=eq.' + QUIZ.tb.n, {
+            method: 'PATCH',
+            headers: { Prefer: 'return=representation' },
+            body: JSON.stringify({ answer: v }),
+          })
+        : api('quiz_answers', {
+            method: 'POST',
+            headers: { Prefer: 'return=representation' },
+            body: JSON.stringify({ player_id: me.id, q: QUIZ.tb.n, answer: v }),
+          });
+      req.then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (rows) {
+          if (!rows.length) return Promise.reject('closed');
+          myAnswers[QUIZ.tb.n] = rows[0];
+          stampWord(prev ? 'CHANGED' : 'NOTED');
+          viewSig = ''; render();
+        })
+        .catch(function (why) {
+          btn.disabled = false;
+          document.getElementById('tbErr').textContent =
+            why === 'closed' ? 'Too late. The count was already read.' : 'The registrar refused. Try again.';
+        });
     });
   }
 
