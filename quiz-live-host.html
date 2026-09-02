@@ -32,7 +32,13 @@
        L                      leaderboard overlay on / off
        T                      thirty second countdown
        F                      fullscreen        M  sound        ?  help
-       Delete                 reset the whole game (asks twice)
+       Delete, or the RESET
+       button in the HUD      wipe the whole game. Always asks first.
+
+     AFTER THE PODIUM the deck keeps going: the correction round replays
+     every question with the correct answer pre-lit and the room's votes as
+     bars, one keypress each, while every phone re-shows its own verdict.
+     The final slide sends the phones back to their rank and score.
 
      ON THE NIGHT: open this page, enter the PIN, press Delete to wipe the
      dry-run, and leave the lobby QR on the wall while people trickle in.
@@ -379,6 +385,12 @@
   .hud .warnchip { color: var(--accent-lit); }
   .hud .snd { cursor: pointer; user-select: none; }
   .hud .snd.off { text-decoration: line-through; opacity: 0.6; }
+  .hud .rst {
+    cursor: pointer; user-select: none;
+    border: 1px solid var(--rule-lit); border-radius: 6px; padding: 3px 9px;
+    transition: color .2s, border-color .2s;
+  }
+  .hud .rst:hover { color: var(--accent-lit); border-color: var(--accent-lit); }
 
   /* --- overlays ------------------------------------------------------------ */
   .overlay {
@@ -461,6 +473,7 @@
   <span class="chip" id="ansChip"></span>
   <span class="chip warnchip" id="pinChip" hidden>PIN?</span>
   <span class="snd" id="snd" title="M">SND</span>
+  <span class="rst" id="resetBtn" title="Delete key does the same. Always asks first.">RESET</span>
 </div>
 
 <!-- PIN gate -->
@@ -510,8 +523,10 @@
       <kbd>T</kbd><span>30 second countdown</span>
       <kbd>F</kbd><span>fullscreen</span>
       <kbd>M</kbd><span>sound on / off</span>
-      <kbd>delete</kbd><span>reset the whole game</span>
+      <kbd>delete · RESET</kbd><span>wipe the whole game (always asks first)</span>
     </div>
+    <p>After the podium, → keeps going: the correction round walks every
+    question again with the truth lit and the room's votes as bars.</p>
     <button type="button" onclick="document.getElementById('helpOverlay').classList.add('hidden')">Back to the exam</button>
   </div>
 </div>
@@ -585,6 +600,12 @@
   SLIDES.push({ t: 'break', title: 'A second silence', line: 'Thirty seconds of respect for <b>me</b>, who will never get to see him live. Like, ever.' });
   SLIDES.push({ t: 'tb' });
   SLIDES.push({ t: 'podium' });
+  /* The correction round: after the podium, every question again with the
+     truth pre-lit and the room's own vote bars, one keypress each. This is
+     where the host explains himself. Phones follow: each slide re-shows
+     every guest their own verdict for that question. */
+  QUIZ.questions.forEach(function (q) { SLIDES.push({ t: 'ans', q: q }); });
+  SLIDES.push({ t: 'fin' });
 
   var stage = document.getElementById('stage');
   var FX = ['wipe', 'rise', 'zoom'];
@@ -659,6 +680,33 @@
       var tbr = h('div', 'sub');
       tbr.id = 'tbResult';
       fx.appendChild(tbr);
+    }
+
+    else if (d.t === 'ans') {
+      var aq = d.q;
+      fx.appendChild(h('div', 'ghost mono', pad(aq.n)));
+      fx.appendChild(cas(h('div', 'kicker', 'Correction · question ' + pad(aq.n) + ' / 15')));
+      fx.appendChild(cas(h('h2', 'qtext', esc(aq.text))));
+      var aopts = h('div', 'opts');
+      if (aq.opts.length > 5) aopts.classList.add('cols2');
+      if (aq.opts.some(function (o) { return o.length > 70; })) aopts.classList.add('long');
+      aq.opts.forEach(function (o, i) {
+        var r = h('div', 'opt');
+        r.dataset.l = LETTERS[i];
+        r.appendChild(h('div', 'bar'));
+        r.appendChild(h('span', 'tag', LETTERS[i]));
+        r.appendChild(h('span', 'txt', esc(o)));
+        r.appendChild(h('span', 'cnt', ''));
+        aopts.appendChild(cas(r));
+      });
+      fx.appendChild(aopts);
+    }
+
+    else if (d.t === 'fin') {
+      fx.classList.add('t-center');
+      fx.appendChild(cas(h('div', 'kicker', 'Course 31026 · concluded')));
+      fx.appendChild(cas(h('h1', 'headline', 'EXAM <em>OVER</em>')));
+      fx.appendChild(cas(h('p', 'sub', 'Everyone passes. One of you passed <b>harder</b>.<br>The bar has reopened. Dismissed.')));
     }
 
     else if (d.t === 'podium') {
@@ -820,7 +868,8 @@
     }
     if (d.t === 'break') return { phase: 'break', q: null };
     if (d.t === 'tb') return { phase: 'tb', q: TB_N };
-    if (d.t === 'podium') return { phase: 'end', q: null };
+    if (d.t === 'podium' || d.t === 'fin') return { phase: 'end', q: null };
+    if (d.t === 'ans') return { phase: 'reveal', q: d.q.n };
     return { phase: 'lobby', q: null };
   }
 
@@ -844,12 +893,19 @@
     var target = phaseForSlide(i, filmPending);
     if (target.phase === 'film') openFilm();
     if (d.t === 'q' && revealedMap[d.q.n]) {
-      paintReveal(d.q, null);           /* re-entering a revealed question: keep it revealed */
+      paintReveal(s, d.q, null);        /* re-entering a revealed question: keep it revealed */
       target = { phase: 'reveal', q: d.q.n };
     } else if (d.t === 'q') {
       s.classList.remove('is-revealed');
     }
+    if (d.t === 'ans') {
+      /* the truth pre-lit: from the game's own reveal, or straight from the
+         key when a question was skipped during play */
+      var letter = (revealedMap[d.q.n] && revealedMap[d.q.n].a) || ANSWERS[d.q.n] || null;
+      paintReveal(s, d.q, null, letter);
+    }
     if (d.t === 'podium') { finishGame(); return; }
+    if (d.t === 'fin') { fireConfetti(140); setTimeout(function () { fireConfetti(120); }, 600); }
     if (d.t === 'tb' && revealedMap[TB_N]) target = { phase: 'reveal', q: TB_N };
     push(target.phase, target.q);
 
@@ -899,13 +955,12 @@
   });
 
   /* ---- reveal ------------------------------------------------------------- */
-  function paintReveal(q, counts) {
-    var s = slides.filter(function (sl, i) { return SLIDES[i].t === 'q' && SLIDES[i].q.n === q.n; })[0];
+  function paintReveal(s, q, counts, letter) {
     if (!s) return;
     if (counts == null) {
-      /* re-entering an already revealed question (or resuming after a
-         reload): the verdict is known but the bars still deserve their
-         numbers, so fetch them and paint again */
+      /* re-entering an already revealed question, resuming after a reload,
+         or a correction slide: the verdict is known but the bars still
+         deserve their numbers, so fetch them and paint again */
       api('quiz_answers?select=answer&q=eq.' + q.n + '&limit=500')
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (rows) {
@@ -914,24 +969,19 @@
             var l = String(row.answer || '').toUpperCase();
             cs[l] = (cs[l] || 0) + 1;
           });
-          paintReveal(q, cs);
+          paintReveal(s, q, cs, letter);
         });
       return;
     }
-    var rev = revealedMap[q.n];
+    var hitL = letter || (revealedMap[q.n] && revealedMap[q.n].a) || null;
     var rows = s.querySelectorAll('.opt');
-    var total = 0, max = 1;
-    if (counts) {
-      for (var k in counts) { total += counts[k]; max = Math.max(max, counts[k]); }
-    }
+    var max = 1;
+    for (var k in counts) { max = Math.max(max, counts[k]); }
     rows.forEach(function (r) {
       var l = r.dataset.l;
-      var n = counts ? (counts[l] || 0) : null;
-      r.classList.toggle('hit', !!rev && rev.a === l);
-      if (n != null) {
-        r.style.setProperty('--w', (n / max).toFixed(3));
-        r.querySelector('.cnt').textContent = n;
-      }
+      r.classList.toggle('hit', hitL === l);
+      r.style.setProperty('--w', ((counts[l] || 0) / max).toFixed(3));
+      r.querySelector('.cnt').textContent = counts[l] || 0;
     });
     s.classList.add('is-revealed');
   }
@@ -962,7 +1012,7 @@
         });
         revealedMap[qn] = { a: a, t: (room && room.started_at) || new Date().toISOString() };
         push('reveal', qn, revealedMap);
-        paintReveal(d.q, counts);
+        paintReveal(slides[cur], d.q, counts);
         sfx.reveal();
         fireConfetti(40);
       });
@@ -1213,6 +1263,9 @@
   });
   document.getElementById('resetCancel').addEventListener('click', function () {
     resetOverlay.classList.add('hidden');
+  });
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    resetOverlay.classList.remove('hidden');
   });
 
   /* ---- input -------------------------------------------------------------- */
