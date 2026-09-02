@@ -1,0 +1,1281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>31026 · Live Exam · Examiner</title>
+<link rel="icon" href="assets/favicon.svg?v=25" type="image/svg+xml">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Saira:wght@500;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<!-- ==========================================================================
+     THE EXAMINER'S CONSOLE
+     ==========================================================================
+     The projector half of the live quiz. Runs on the laptop, drives the wall,
+     and is the only page that ever writes quiz_state, always through the
+     PIN-gated quiz_set_state function. The PIN is the same one admin.html
+     uses, entered once and kept in this browser's localStorage. The phones
+     (quiz-live.html) follow whatever this page does, about two seconds behind.
+
+     THE ANSWER KEY IS IN THIS FILE and in no file a phone loads. It reaches
+     the database one letter at a time, at the moment of each reveal.
+
+     HOW TO DRIVE IT
+       →  space  click        next (opens the question; on the film slide,
+                              first press rolls the film, second opens options)
+       ←                      back
+       enter  or  R           reveal the answer (freezes the wall, bars rise)
+       L                      leaderboard overlay on / off
+       T                      thirty second countdown
+       F                      fullscreen        M  sound        ?  help
+       Delete                 reset the whole game (asks twice)
+
+     ON THE NIGHT: open this page, enter the PIN, press Delete to wipe the
+     dry-run, and leave the lobby QR on the wall while people trickle in.
+
+     The paper deck (quiz.html + quiz-sheet.html) remains the fallback that
+     works when the wifi does not.
+     ========================================================================== -->
+
+<style>
+  :root {
+    --bg: #0B0B0C; --surface: #141416; --surface-2: #1B1B1E;
+    --ink: #F4F4F5; --ink-dim: #A1A1A6; --ink-faint: #6E6E73;
+    --accent: #990000; --accent-lit: #E83F48;
+    --rule: #2A2A2E; --rule-lit: #3A3A40;
+    --display: 'Saira', 'Arial Narrow', system-ui, sans-serif;
+    --body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-both: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--body); overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  body.no-cursor { cursor: none; }
+
+  .ambient {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(42% 55% at 82% 12%, rgba(153,0,0,0.16), transparent 70%),
+      radial-gradient(50% 60% at 8% 95%, rgba(153,0,0,0.10), transparent 70%);
+    animation: breathe 14s var(--ease-both) infinite alternate;
+  }
+  @keyframes breathe {
+    from { transform: scale(1); opacity: .85; }
+    to   { transform: translate3d(-2%,1.5%,0) scale(1.06); opacity: 1; }
+  }
+  .vignette {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: radial-gradient(120% 120% at 50% 45%, transparent 55%, rgba(0,0,0,0.5) 100%);
+  }
+
+  .stage { position: fixed; inset: 0; z-index: 2; }
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: clamp(24px, 6vh, 72px) clamp(28px, 7vw, 110px);
+    visibility: hidden; pointer-events: none;
+  }
+  .slide.is-active { visibility: visible; pointer-events: auto; }
+  .slide .fx {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: inherit;
+    opacity: 0;
+    transition: opacity .55s var(--ease-out), transform .65s var(--ease-out),
+                clip-path .65s var(--ease-out);
+    will-change: transform, opacity, clip-path;
+  }
+  .slide[data-fx="wipe"] .fx { clip-path: inset(0 100% 0 0); transform: translateX(4%); }
+  .slide[data-fx="rise"] .fx { clip-path: inset(100% 0 0 0); transform: translateY(6%); }
+  .slide[data-fx="zoom"] .fx { clip-path: inset(8% 8% 8% 8% round 24px); transform: scale(1.08); }
+  .slide.is-active .fx { opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+
+  .cas {
+    opacity: 0; transform: translateY(26px);
+    transition: opacity .5s var(--ease-out), transform .6s var(--ease-out);
+  }
+  .is-active .cas {
+    opacity: 1; transform: none;
+    transition-delay: calc(0.18s + var(--i, 0) * 0.07s);
+  }
+
+  .ghost {
+    position: absolute; right: -1vw; bottom: -9vh; z-index: -1;
+    font-family: var(--display); font-weight: 800; line-height: 1;
+    font-size: clamp(240px, 46vh, 560px);
+    color: transparent;
+    -webkit-text-stroke: 2px rgba(153,0,0,0.32);
+    opacity: 0; transform: translateX(60px);
+    transition: opacity .9s var(--ease-out) .25s, transform 1.1s var(--ease-out) .25s;
+    user-select: none;
+  }
+  .is-active .ghost { opacity: 1; transform: none; }
+
+  .kicker {
+    font-family: var(--mono); font-size: clamp(13px, 1.6vh, 17px);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent-lit);
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: clamp(14px, 2.6vh, 26px);
+  }
+  .kicker::after {
+    content: ''; height: 1px; flex: 0 1 180px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform .8s var(--ease-out) .5s;
+  }
+  .is-active .kicker::after { transform: scaleX(1); }
+  .t-center .kicker { justify-content: center; white-space: nowrap; }
+  .t-center .kicker::after { display: none; }
+  .t-center { align-items: center; text-align: center; }
+
+  .qtext {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(28px, 5vh, 54px);
+    line-height: 1.12; text-wrap: balance;
+    margin: 0 0 clamp(18px, 3.6vh, 36px);
+    max-width: 26ch;
+  }
+  .t-center .qtext { max-width: none; }
+  .headline {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(48px, 13vh, 130px);
+    line-height: 0.98; text-transform: uppercase;
+    margin: clamp(12px, 2.5vh, 24px) 0 0;
+  }
+  .headline em { font-style: normal; color: var(--accent-lit); }
+  .sub {
+    font-size: clamp(15px, 2.3vh, 21px); color: var(--ink-dim);
+    max-width: 56ch; line-height: 1.55; margin: clamp(12px, 2.2vh, 20px) auto 0;
+    text-wrap: pretty;
+  }
+  .sub b { color: var(--ink); }
+  .mono { font-family: var(--mono); }
+  .badge {
+    font-family: var(--mono); font-size: clamp(15px, 2vh, 20px);
+    background: var(--accent); color: #fff;
+    padding: 10px 18px; border-radius: 8px; display: inline-block;
+  }
+
+  /* --- options + live bars ---------------------------------------------- */
+  .opts { display: grid; gap: clamp(8px, 1.4vh, 13px); max-width: 1100px; }
+  .opts.cols2 { grid-template-columns: 1fr 1fr; column-gap: clamp(16px, 2.5vw, 32px); }
+  .opt {
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; gap: clamp(12px, 1.6vw, 20px);
+    padding: clamp(9px, 1.5vh, 14px) clamp(14px, 1.8vw, 22px);
+    border: 1px solid var(--rule-lit); border-radius: 12px;
+    background: rgba(20,20,22,0.6);
+    font-size: clamp(15px, 2.4vh, 25px); line-height: 1.3; font-weight: 500;
+    transition: opacity .45s var(--ease-out), transform .5s var(--ease-out),
+                background .45s, border-color .45s, box-shadow .45s;
+  }
+  .opts.long .opt { font-size: clamp(13px, 1.9vh, 19px); }
+  .opt .tag {
+    font-family: var(--mono); font-size: 0.72em;
+    width: 2.1em; height: 2.1em; flex: none;
+    display: grid; place-items: center;
+    border: 1px solid var(--rule-lit); border-radius: 8px; color: var(--ink-dim);
+    position: relative; z-index: 1;
+  }
+  .opt .txt { position: relative; z-index: 1; }
+  .opt .bar {
+    position: absolute; inset: 0; z-index: 0;
+    background: var(--surface-2);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform .9s var(--ease-out);
+  }
+  .opt .cnt {
+    position: relative; z-index: 1; margin-left: auto;
+    font-family: var(--mono); font-size: 0.8em; color: var(--ink-dim);
+    opacity: 0; transition: opacity .4s .5s;
+  }
+  .is-revealed .opt .bar { transform: scaleX(var(--w, 0)); }
+  .is-revealed .opt .cnt { opacity: 1; }
+  .is-revealed .opt { opacity: 0.45; }
+  .is-revealed .opt.hit {
+    opacity: 1; transform: scale(1.02);
+    border-color: var(--accent-lit); color: #fff;
+    box-shadow: 0 12px 60px rgba(153,0,0,0.45);
+    animation: punch .6s var(--ease-out);
+  }
+  .is-revealed .opt.hit .bar { background: var(--accent); }
+  .is-revealed .opt.hit .tag { border-color: rgba(255,255,255,0.6); color: #fff; }
+  .is-revealed .opt.hit .cnt { color: #fff; }
+  @keyframes punch { 0% { transform: scale(0.97); } 45% { transform: scale(1.05); } 100% { transform: scale(1.02); } }
+
+  /* answered-so-far chip on question slides */
+  .answering {
+    margin-top: clamp(14px, 2.6vh, 24px);
+    font-family: var(--mono); font-size: clamp(13px, 1.8vh, 17px);
+    color: var(--ink-dim); display: flex; align-items: center; gap: 12px;
+  }
+  .answering .n { color: var(--accent-lit); font-size: 1.3em; }
+  .answering .pulse {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--accent-lit);
+    animation: blink 1.4s var(--ease-both) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.25; } }
+
+  /* --- lobby -------------------------------------------------------------- */
+  .lobby { display: flex; gap: clamp(30px, 6vw, 90px); align-items: center; }
+  .lobby .left { flex: 1; }
+  .lobby .left .sub { margin-left: 0; }
+  .qrcard {
+    flex: none; background: #fff; border-radius: 20px;
+    padding: clamp(16px, 2.6vh, 26px);
+    width: clamp(220px, 34vh, 340px);
+    box-shadow: 0 30px 90px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);
+    transform: rotate(2deg);
+  }
+  .qrcard svg { display: block; width: 100%; height: auto; }
+  .qrcard .cap {
+    text-align: center; font-family: var(--mono); font-size: 11px;
+    color: #131315; margin-top: 10px; letter-spacing: 0.05em;
+  }
+  .joiners {
+    margin-top: clamp(16px, 3vh, 28px);
+    display: flex; flex-wrap: wrap; gap: 8px; max-width: 620px;
+    min-height: 44px; align-content: flex-start;
+  }
+  .joiner {
+    font-family: var(--mono); font-size: clamp(12px, 1.7vh, 16px);
+    border: 1px solid var(--rule-lit); border-radius: 999px;
+    background: var(--surface); color: var(--ink-dim);
+    padding: 7px 14px;
+    animation: joinerIn .5s var(--ease-out) backwards;
+  }
+  @keyframes joinerIn {
+    from { opacity: 0; transform: translateY(14px) scale(0.9); }
+    to   { opacity: 1; transform: none; }
+  }
+  .joincount { font-family: var(--mono); color: var(--accent-lit); font-size: clamp(16px, 2.6vh, 24px); margin-top: clamp(14px, 2.6vh, 24px); }
+
+  /* --- leaderboard overlay ------------------------------------------------ */
+  .boardwrap {
+    position: fixed; inset: 0; z-index: 45;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: clamp(24px, 6vh, 72px) clamp(28px, 8vw, 140px);
+    background: rgba(11,11,12,0.92); backdrop-filter: blur(10px);
+    opacity: 0; visibility: hidden; transform: scale(1.04);
+    transition: opacity .45s var(--ease-out), transform .5s var(--ease-out), visibility 0s .45s;
+  }
+  body.board-open .boardwrap {
+    opacity: 1; visibility: visible; transform: none;
+    transition: opacity .45s var(--ease-out), transform .5s var(--ease-out);
+  }
+  .boardrows { display: grid; gap: clamp(8px, 1.5vh, 14px); max-width: 900px; }
+  .brow {
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; gap: 16px;
+    border: 1px solid var(--rule-lit); border-radius: 12px;
+    padding: clamp(9px, 1.6vh, 15px) 18px;
+    background: var(--surface);
+    opacity: 0; transform: translateX(-30px);
+    transition: opacity .5s var(--ease-out), transform .55s var(--ease-out);
+  }
+  body.board-open .brow { opacity: 1; transform: none; transition-delay: calc(var(--i) * 0.08s); }
+  .brow .bbar {
+    position: absolute; inset: 0; background: var(--surface-2);
+    transform: scaleX(var(--w, 0)); transform-origin: left;
+    transition: transform .9s var(--ease-out) calc(0.2s + var(--i) * 0.08s);
+  }
+  .brow.first .bbar { background: var(--accent); }
+  .brow > span { position: relative; }
+  .brow .rk { font-family: var(--mono); color: var(--ink-dim); width: 2.4em; }
+  .brow.first .rk, .brow.first .bp { color: #fff; }
+  .brow.first { color: #fff; border-color: var(--accent-lit); }
+  .brow .bn { font-family: var(--display); font-weight: 600; font-size: clamp(17px, 2.8vh, 28px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .brow .bp { margin-left: auto; font-family: var(--mono); color: var(--accent-lit); font-size: clamp(15px, 2.4vh, 24px); }
+
+  /* --- podium ------------------------------------------------------------- */
+  .podium { display: flex; align-items: flex-end; justify-content: center; gap: clamp(14px, 2.5vw, 30px); margin-top: clamp(18px, 4vh, 40px); }
+  .pod {
+    width: clamp(140px, 18vw, 240px); border-radius: 14px 14px 0 0;
+    background: var(--surface-2); border: 1px solid var(--rule-lit); border-bottom: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 16px 10px 0; text-align: center;
+    transform: translateY(101%); opacity: 0;
+    animation: podRise .8s var(--ease-out) forwards;
+  }
+  .pod .medal { font-size: clamp(26px, 5vh, 44px); }
+  .pod .pname { font-family: var(--display); font-weight: 800; font-size: clamp(17px, 3vh, 30px); line-height: 1.1; overflow-wrap: anywhere; }
+  .pod .ppts { font-family: var(--mono); color: var(--ink-dim); margin-top: 4px; font-size: clamp(12px, 1.8vh, 16px); }
+  .pod.p1 { height: clamp(180px, 34vh, 320px); background: var(--accent); border-color: var(--accent-lit); animation-delay: 1.1s; }
+  .pod.p1 .ppts { color: rgba(255,255,255,0.8); }
+  .pod.p2 { height: clamp(130px, 25vh, 240px); animation-delay: 0.5s; }
+  .pod.p3 { height: clamp(95px, 18vh, 180px); animation-delay: 0.1s; }
+  @keyframes podRise { to { transform: none; opacity: 1; } }
+  .podwrap { overflow: hidden; padding-top: 10px; }
+
+  /* --- film --------------------------------------------------------------- */
+  .film {
+    position: fixed; inset: 0; z-index: 40; background: #000;
+    opacity: 0; visibility: hidden; transform: scale(1.06);
+    transition: opacity .6s var(--ease-out), transform .7s var(--ease-out), visibility 0s .6s;
+  }
+  body.film-open .film {
+    opacity: 1; visibility: visible; transform: none;
+    transition: opacity .6s var(--ease-out), transform .7s var(--ease-out);
+  }
+  body.film-dim .film { opacity: 0.18; transform: scale(0.98); pointer-events: none; z-index: 1; }
+  .film video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .film .missing { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 40px; }
+  .film .missing div { border: 1px dashed var(--rule-lit); border-radius: 16px; padding: 40px 50px; max-width: 560px; }
+  .film .missing b { font-family: var(--display); font-size: clamp(22px, 4vh, 34px); display: block; }
+  .film .missing p { color: var(--ink-dim); font-size: 15px; line-height: 1.5; }
+
+  /* --- intermission / timer ---------------------------------------------- */
+  .silence-count {
+    font-family: var(--mono); font-size: clamp(90px, 26vh, 260px); line-height: 1;
+    font-variant-numeric: tabular-nums; margin: clamp(10px, 3vh, 30px) 0 0;
+  }
+  .silence-count.warn { color: var(--accent-lit); }
+  .silence-hint { font-family: var(--mono); font-size: clamp(12px, 1.7vh, 16px); color: var(--ink-faint); letter-spacing: 0.12em; text-transform: uppercase; }
+
+  .ring {
+    position: fixed; top: clamp(16px, 3vh, 34px); right: clamp(18px, 3vw, 40px); z-index: 60;
+    width: 76px; height: 76px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: 22px; font-variant-numeric: tabular-nums;
+    background: conic-gradient(var(--accent-lit) calc(var(--p, 0) * 1turn), var(--rule) 0);
+    opacity: 0; transform: scale(0.7); pointer-events: none;
+    transition: opacity .3s, transform .3s var(--ease-out);
+  }
+  .ring::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: var(--surface); }
+  .ring span { position: relative; }
+  .ring.on { opacity: 1; transform: none; }
+  .ring.warn { color: var(--accent-lit); }
+
+  body.shake .stage { animation: quake .4s linear; }
+  @keyframes quake {
+    0%,100% { transform: translate(0,0); }
+    20% { transform: translate(-10px,4px); } 40% { transform: translate(9px,-6px); }
+    60% { transform: translate(-7px,-3px); } 80% { transform: translate(5px,5px); }
+  }
+
+  /* --- HUD ----------------------------------------------------------------- */
+  .hud {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 62;
+    display: flex; align-items: center; gap: 18px;
+    padding: 14px clamp(18px, 3vw, 40px) 16px;
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint);
+    transition: opacity .4s, transform .4s;
+  }
+  body.hud-hidden .hud { opacity: 0; transform: translateY(10px); pointer-events: none; }
+  .hud .track { flex: 1; height: 2px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+  .hud .fill { height: 100%; width: 0%; background: var(--accent-lit); transition: width .5s var(--ease-both); }
+  .hud .chip { white-space: nowrap; color: var(--ink-dim); letter-spacing: 0.06em; }
+  .hud .warnchip { color: var(--accent-lit); }
+  .hud .snd { cursor: pointer; user-select: none; }
+  .hud .snd.off { text-decoration: line-through; opacity: 0.6; }
+
+  /* --- overlays ------------------------------------------------------------ */
+  .overlay {
+    position: fixed; inset: 0; z-index: 80;
+    display: grid; place-items: center;
+    background: rgba(11,11,12,0.85); backdrop-filter: blur(8px);
+    opacity: 1; transition: opacity .4s var(--ease-out), visibility 0s .4s;
+  }
+  .overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  .panel {
+    background: var(--surface); border: 1px solid var(--rule-lit); border-radius: 18px;
+    padding: clamp(26px, 5vh, 44px) clamp(28px, 5vw, 52px);
+    max-width: 620px; text-align: center;
+  }
+  .panel h2 { font-family: var(--display); font-weight: 800; font-size: clamp(24px, 4.5vh, 38px); margin: 12px 0 8px; text-transform: uppercase; }
+  .panel p { color: var(--ink-dim); font-size: 15.5px; line-height: 1.55; margin: 0 0 18px; }
+  .panel input {
+    width: 100%; appearance: none;
+    background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--rule-lit); border-radius: 12px;
+    font: 500 20px/1.2 var(--mono); text-align: center;
+    padding: 14px 16px; outline: none; margin-bottom: 16px;
+  }
+  .panel input:focus { border-color: var(--accent-lit); }
+  .panel button {
+    appearance: none; cursor: pointer; border: 0; border-radius: 999px;
+    background: var(--accent); color: #fff;
+    font: 600 16px/1 var(--body); padding: 15px 30px;
+    transition: transform .15s var(--ease-out);
+  }
+  .panel button:active { transform: scale(0.97); }
+  .panel .ghostbtn { background: transparent; border: 1px solid var(--rule-lit); color: var(--ink-dim); margin-left: 10px; }
+  .panel .err { color: var(--accent-lit); font-size: 14px; min-height: 1.3em; margin-top: 12px; }
+  .panel.shake { animation: quake .4s linear; }
+  .panel .keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; text-align: left; font-size: 14px; margin: 0 auto 22px; max-width: 460px; }
+  .panel .keys kbd {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink);
+    background: var(--surface-2); border: 1px solid var(--rule-lit); border-bottom-width: 2px;
+    border-radius: 6px; padding: 3px 9px; white-space: nowrap; justify-self: start;
+  }
+  .panel .keys span { color: var(--ink-dim); align-self: center; }
+
+  #confetti { position: fixed; inset: 0; z-index: 70; pointer-events: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001s !important;
+      transition-duration: 0.15s !important;
+      transition-delay: 0s !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="ambient"></div>
+<div class="vignette"></div>
+<div class="stage" id="stage"></div>
+
+<div class="boardwrap" id="board"></div>
+
+<div class="film" id="film">
+  <video id="qvideo" src="assets/quiz-video.mp4" preload="metadata" playsinline></video>
+  <div class="missing" id="filmMissing" hidden>
+    <div>
+      <b>Reel missing</b>
+      <p class="mono">assets/quiz-video.mp4</p>
+      <p>Drop the file in and this panel becomes the evidence. The question works either way.</p>
+    </div>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+<div class="ring" id="ring"><span id="ringNum">30</span></div>
+
+<div class="hud" id="hud">
+  <span class="chip">31026 · LIVE EXAM · EXAMINER</span>
+  <div class="track"><div class="fill" id="fill"></div></div>
+  <span class="chip" id="joinedChip">0 in</span>
+  <span class="chip" id="ansChip"></span>
+  <span class="chip warnchip" id="pinChip" hidden>PIN?</span>
+  <span class="snd" id="snd" title="M">SND</span>
+</div>
+
+<!-- PIN gate -->
+<div class="overlay" id="pinOverlay">
+  <div class="panel" id="pinPanel">
+    <span class="badge mono">31026</span>
+    <h2>Examiner check</h2>
+    <p>The same PIN as admin.html. The wall obeys nobody else.</p>
+    <input id="pinInput" type="password" autocomplete="off" placeholder="····">
+    <br>
+    <button type="button" id="pinBtn">Take the chair</button>
+    <p class="err" id="pinErr"></p>
+  </div>
+</div>
+
+<!-- tie breaker truth input -->
+<div class="overlay hidden" id="tbOverlay">
+  <div class="panel">
+    <h2>The official count</h2>
+    <p>How many bestemmie, really? The number goes on the wall and closest wins 150.</p>
+    <input id="tbTruth" type="text" inputmode="numeric" placeholder="0">
+    <br>
+    <button type="button" id="tbGo">Reveal it</button>
+    <button type="button" class="ghostbtn" id="tbCancel">Not yet</button>
+  </div>
+</div>
+
+<!-- reset confirm -->
+<div class="overlay hidden" id="resetOverlay">
+  <div class="panel">
+    <h2>Wipe the game?</h2>
+    <p>Every player, every answer, back to the lobby. For dry runs, and once before doors. There is no undo.</p>
+    <button type="button" id="resetGo">Wipe it</button>
+    <button type="button" class="ghostbtn" id="resetCancel">Keep it</button>
+  </div>
+</div>
+
+<!-- help -->
+<div class="overlay hidden" id="helpOverlay">
+  <div class="panel">
+    <h2>Controls</h2>
+    <div class="keys">
+      <kbd>→ · space · click</kbd><span>next (opens the question to the room)</span>
+      <kbd>←</kbd><span>back</span>
+      <kbd>enter / R</kbd><span>reveal the answer</span>
+      <kbd>L</kbd><span>leaderboard on / off</span>
+      <kbd>T</kbd><span>30 second countdown</span>
+      <kbd>F</kbd><span>fullscreen</span>
+      <kbd>M</kbd><span>sound on / off</span>
+      <kbd>delete</kbd><span>reset the whole game</span>
+    </div>
+    <button type="button" onclick="document.getElementById('helpOverlay').classList.add('hidden')">Back to the exam</button>
+  </div>
+</div>
+
+<script src="config.js?v=25"></script>
+<script src="quiz-data.js?v=25"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* =========================================================================
+     THE ANSWER KEY. The only copy a projector ever loads. Letters match
+     quiz-data.js option order; TB truth is asked for live at reveal time,
+     so the number does not need to exist before the night.
+     ========================================================================= */
+  var ANSWERS = {
+    1: 'B', 2: 'B', 3: 'C', 4: 'D', 5: 'B', 6: 'B', 7: 'C',
+    8: null,   /* the one he does not really mind: STILL UNSET */
+    9: null,   /* the ranking: STILL UNSET */
+    10: 'A', 11: 'D', 12: 'A', 13: 'D', 14: 'B', 15: 'C',
+  };
+
+  var P = (window.PARTY_CONFIG && window.PARTY_CONFIG.photos) || {};
+  var BASE = P.supabaseUrl || '';
+  var KEY = P.supabaseKey || '';
+  var QUIZ = window.QUIZ_LIVE;
+  var LETTERS = 'ABCDEFGHI';
+  var TB_N = QUIZ.tb.n;
+  var reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var store = {
+    get: function (k) { try { return localStorage.getItem('c03102.' + k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem('c03102.' + k, String(v)); } catch (e) {} },
+  };
+  var pin = store.get('admin') || null;
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({
+      apikey: KEY, Authorization: 'Bearer ' + KEY,
+      'Content-Type': 'application/json',
+    }, opts.headers || {});
+    return fetch(BASE + '/rest/v1/' + path, opts);
+  }
+  function rpc(name, args) {
+    return api('rpc/' + name, { method: 'POST', body: JSON.stringify(args) })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); });
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function h(tag, cls, html) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (html != null) el.innerHTML = html;
+    return el;
+  }
+
+  /* =========================================================================
+     SLIDES. Lobby, fifteen questions, two silences, tie breaker, podium.
+     ========================================================================= */
+  var SLIDES = [{ t: 'lobby' }];
+  QUIZ.questions.forEach(function (q) {
+    SLIDES.push({ t: 'q', q: q });
+    if (q.n === 9) SLIDES.push({ t: 'break', title: 'A moment of silence', line: 'Thirty seconds of respect for the death of <b>Oliver Tree</b>.' });
+  });
+  SLIDES.push({ t: 'break', title: 'A second silence', line: 'Thirty seconds of respect for <b>me</b>, who will never get to see him live. Like, ever.' });
+  SLIDES.push({ t: 'tb' });
+  SLIDES.push({ t: 'podium' });
+
+  var stage = document.getElementById('stage');
+  var FX = ['wipe', 'rise', 'zoom'];
+
+  var QR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 37 37" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h37v37H0z"/><path stroke="#000000" d="M0 0.5h7m2 0h1m3 0h2m1 0h3m1 0h1m2 0h1m1 0h2m1 0h1m1 0h7M0 1.5h1m5 0h1m3 0h1m1 0h1m3 0h1m2 0h1m1 0h1m2 0h5m1 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m1 0h2m1 0h6m2 0h5m2 0h2m2 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m1 0h1m1 0h1m2 0h1m2 0h2m1 0h1m2 0h4m1 0h1m2 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h1m3 0h3m3 0h2m3 0h1m4 0h1m1 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m1 0h2m1 0h4m3 0h1m1 0h2m2 0h1m1 0h3m1 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M8 7.5h1m2 0h3m1 0h1m3 0h1m1 0h1m1 0h1m2 0h2M0 8.5h1m1 0h5m4 0h3m4 0h1m1 0h1m1 0h5m1 0h1m1 0h5M0 9.5h1m3 0h2m2 0h2m1 0h1m3 0h2m5 0h4m2 0h1m2 0h1m1 0h3M0 10.5h2m1 0h1m2 0h5m9 0h1m1 0h1m2 0h4m1 0h2m3 0h2M0 11.5h2m2 0h2m1 0h1m1 0h4m3 0h1m1 0h1m2 0h2m5 0h2m1 0h1m4 0h1M0 12.5h3m1 0h1m1 0h2m1 0h2m6 0h1m2 0h1m3 0h3m2 0h4m1 0h3M1 13.5h3m1 0h1m1 0h2m1 0h4m2 0h6m1 0h3m2 0h1m2 0h1M1 14.5h1m2 0h3m1 0h1m3 0h1m1 0h4m2 0h3m1 0h1m2 0h1m1 0h1m1 0h3m1 0h2M1 15.5h1m2 0h2m3 0h2m1 0h7m2 0h1m1 0h2m1 0h1m4 0h2m3 0h1M0 16.5h3m1 0h3m1 0h2m1 0h6m2 0h1m2 0h1m1 0h4m1 0h2m1 0h1m1 0h2M0 17.5h1m4 0h1m1 0h3m1 0h1m2 0h2m2 0h1m1 0h1m2 0h1m2 0h1m4 0h1m3 0h1M0 18.5h2m2 0h3m2 0h1m1 0h1m1 0h1m1 0h2m2 0h1m2 0h1m1 0h5m4 0h4M1 19.5h1m2 0h2m2 0h2m1 0h1m1 0h3m3 0h5m2 0h1m1 0h3m5 0h1M0 20.5h1m1 0h1m2 0h3m1 0h5m1 0h1m1 0h1m1 0h1m2 0h1m1 0h7m1 0h3M1 21.5h2m4 0h3m2 0h1m1 0h1m1 0h1m1 0h3m1 0h2m1 0h1m2 0h2m3 0h1M1 22.5h3m1 0h2m2 0h2m1 0h1m2 0h1m2 0h1m1 0h3m2 0h1m1 0h7m1 0h2M4 23.5h1m3 0h1m3 0h1m2 0h2m2 0h1m1 0h2m4 0h1m2 0h3m2 0h2M0 24.5h1m1 0h3m1 0h1m1 0h1m3 0h1m1 0h2m2 0h1m1 0h1m1 0h1m2 0h1m3 0h4m1 0h2M0 25.5h1m1 0h1m4 0h5m1 0h1m1 0h2m4 0h1m1 0h1m1 0h1m2 0h1m2 0h1M0 26.5h1m4 0h4m1 0h2m1 0h1m3 0h1m2 0h3m4 0h1m2 0h2m3 0h2M0 27.5h1m2 0h3m1 0h2m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m2 0h1m2 0h1m1 0h1m1 0h1m2 0h2m2 0h1M0 28.5h1m1 0h6m2 0h1m1 0h2m3 0h1m2 0h1m1 0h2m1 0h2m1 0h5m1 0h3M8 29.5h3m1 0h3m1 0h5m2 0h1m1 0h4m3 0h2M0 30.5h7m3 0h1m1 0h1m1 0h2m1 0h1m2 0h3m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1M0 31.5h1m5 0h1m1 0h2m2 0h1m1 0h1m1 0h3m1 0h2m2 0h1m1 0h1m1 0h1m3 0h2m2 0h1M0 32.5h1m1 0h3m1 0h1m1 0h6m2 0h1m4 0h1m1 0h10m1 0h3M0 33.5h1m1 0h3m1 0h1m1 0h4m2 0h2m2 0h1m1 0h1m2 0h1m4 0h3m1 0h2m2 0h1M0 34.5h1m1 0h3m1 0h1m1 0h3m1 0h1m1 0h3m2 0h1m1 0h1m2 0h1m1 0h2m1 0h1m3 0h4M0 35.5h1m5 0h1m4 0h1m1 0h1m1 0h1m3 0h3m5 0h2m3 0h2m2 0h1M0 36.5h7m1 0h4m1 0h3m1 0h1m1 0h1m2 0h5m2 0h2m1 0h5"/></svg>';
+
+  SLIDES.forEach(function (d, idx) {
+    var slide = h('section', 'slide');
+    slide.dataset.fx = FX[idx % FX.length];
+    var fx = h('div', 'fx');
+    slide.appendChild(fx);
+    var c = 0;
+    var cas = function (el) { el.classList.add('cas'); el.style.setProperty('--i', c++); return el; };
+
+    if (d.t === 'lobby') {
+      var row = h('div', 'lobby');
+      var left = h('div', 'left');
+      left.appendChild(cas(h('div', 'kicker', 'Course 31026 · final examination · live')));
+      left.appendChild(cas(h('h1', 'headline', 'SCAN.<br>SIT.<br><em>SWEAT.</em>')));
+      left.appendChild(cas(h('p', 'sub', 'Phone out, camera at the code, state your name.<br>The wall asks, your phone answers, the podium remembers.')));
+      left.appendChild(cas(h('div', 'joincount', '<span id="lobbyN">0</span> enrolled')));
+      var joiners = h('div', 'joiners');
+      joiners.id = 'joiners';
+      left.appendChild(joiners);
+      row.appendChild(left);
+      var card = h('div', 'qrcard', QR_SVG + '<div class="cap mono">…/quiz-live.html</div>');
+      row.appendChild(cas(card));
+      fx.appendChild(row);
+    }
+
+    else if (d.t === 'q') {
+      var q = d.q;
+      fx.appendChild(h('div', 'ghost mono', pad(q.n)));
+      fx.appendChild(cas(h('div', 'kicker',
+        'Question ' + pad(q.n) + ' / 15' + (q.film ? ' · film screening' : ''))));
+      fx.appendChild(cas(h('h2', 'qtext', esc(q.text))));
+      var opts = h('div', 'opts');
+      if (q.opts.length > 5) opts.classList.add('cols2');
+      if (q.opts.some(function (o) { return o.length > 70; })) opts.classList.add('long');
+      q.opts.forEach(function (o, i) {
+        var r = h('div', 'opt');
+        r.dataset.l = LETTERS[i];
+        r.appendChild(h('div', 'bar'));
+        r.appendChild(h('span', 'tag', LETTERS[i]));
+        r.appendChild(h('span', 'txt', esc(o)));
+        r.appendChild(h('span', 'cnt', ''));
+        opts.appendChild(cas(r));
+      });
+      fx.appendChild(opts);
+      var live = h('div', 'answering');
+      live.innerHTML = '<span class="pulse"></span><span><span class="n" id="ans-' + q.n + '">0</span> answered</span>';
+      fx.appendChild(cas(live));
+    }
+
+    else if (d.t === 'break') {
+      fx.classList.add('t-center');
+      fx.appendChild(cas(h('div', 'kicker', 'Scheduled intermission')));
+      fx.appendChild(cas(h('h2', 'qtext', d.title)));
+      fx.appendChild(cas(h('p', 'sub', d.line)));
+      fx.appendChild(cas(h('div', 'silence-count mono', '30')));
+      fx.appendChild(cas(h('p', 'silence-hint', 'Press T. Nobody speaks.')));
+      slide.dataset.silence = '1';
+    }
+
+    else if (d.t === 'tb') {
+      fx.classList.add('t-center');
+      fx.appendChild(cas(h('div', 'kicker', 'Tie breaker · open answer · closest wins 150')));
+      fx.appendChild(cas(h('h2', 'qtext', esc(QUIZ.tb.text))));
+      fx.appendChild(cas(h('p', 'sub', 'Type a number on your phone. A prayer is not a number.')));
+      fx.appendChild(cas(h('div', 'silence-count mono', '<span id="tbCount">0</span>')));
+      fx.appendChild(cas(h('p', 'silence-hint', 'guesses on record · enter reveals the official count')));
+      var tbr = h('div', 'sub');
+      tbr.id = 'tbResult';
+      fx.appendChild(tbr);
+    }
+
+    else if (d.t === 'podium') {
+      fx.classList.add('t-center');
+      fx.appendChild(cas(h('div', 'kicker', 'End of examination · official standings')));
+      fx.appendChild(cas(h('h1', 'headline', 'THE <em>PODIUM</em>')));
+      var pw = h('div', 'podwrap');
+      pw.appendChild(h('div', 'podium'));
+      pw.id = 'podiumWrap';
+      fx.appendChild(pw);
+      fx.appendChild(cas(h('p', 'sub', 'Grade awarded: 12, everyone. Glory awarded: sparingly.')));
+    }
+
+    stage.appendChild(slide);
+  });
+
+  var slides = [].slice.call(stage.children);
+
+  /* =========================================================================
+     SOUND + CONFETTI + TIMER, same instruments as quiz.html.
+     ========================================================================= */
+  var audioCtx = null, soundOn = true;
+  function beep(freq, dur, type, gain, when) {
+    if (!soundOn) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      var t = audioCtx.currentTime + (when || 0);
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = type || 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(gain || 0.08, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t); o.stop(t + dur + 0.05);
+    } catch (e) {}
+  }
+  var sfx = {
+    next: function () { beep(340, 0.07, 'triangle', 0.045); },
+    reveal: function () { beep(523, 0.14, 'sine', 0.09); beep(784, 0.3, 'sine', 0.09, 0.11); },
+    tick: function () { beep(1000, 0.03, 'square', 0.028); },
+    gong: function () { beep(196, 0.7, 'sawtooth', 0.1); beep(98, 0.9, 'sine', 0.12, 0.02); },
+    join: function () { beep(660, 0.06, 'triangle', 0.03); },
+  };
+  var sndEl = document.getElementById('snd');
+  function setSound(v) { soundOn = v; sndEl.classList.toggle('off', !v); }
+  sndEl.addEventListener('click', function () { setSound(!soundOn); });
+
+  var canvas = document.getElementById('confetti');
+  var ctx2d = canvas.getContext('2d');
+  var particles = [], confettiRaf = null;
+  function sizeCanvas() { canvas.width = innerWidth; canvas.height = innerHeight; }
+  addEventListener('resize', sizeCanvas); sizeCanvas();
+  function fireConfetti(count) {
+    if (reduceMotion) return;
+    var colors = ['#990000', '#E83F48', '#F4F4F5', '#A1A1A6'];
+    for (var i = 0; i < count; i++) {
+      particles.push({
+        x: innerWidth * (0.2 + Math.random() * 0.6), y: innerHeight + 10,
+        vx: (Math.random() - 0.5) * 14, vy: -(11 + Math.random() * 13),
+        w: 5 + Math.random() * 7, hh: 8 + Math.random() * 8,
+        rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3,
+        c: colors[i % colors.length], life: 1,
+      });
+    }
+    if (!confettiRaf) tickConfetti();
+  }
+  function tickConfetti() {
+    ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+    particles = particles.filter(function (p) { return p.life > 0 && p.y < innerHeight + 40; });
+    particles.forEach(function (p) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.32; p.vx *= 0.99;
+      p.rot += p.vr; p.life -= 0.004;
+      ctx2d.save(); ctx2d.translate(p.x, p.y); ctx2d.rotate(p.rot);
+      ctx2d.globalAlpha = Math.max(0, Math.min(1, p.life * 1.4));
+      ctx2d.fillStyle = p.c; ctx2d.fillRect(-p.w / 2, -p.hh / 2, p.w, p.hh);
+      ctx2d.restore();
+    });
+    confettiRaf = particles.length ? requestAnimationFrame(tickConfetti) : null;
+    if (!particles.length) ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  var ring = document.getElementById('ring');
+  var ringNum = document.getElementById('ringNum');
+  var timer = null;
+  function currentBigCount() {
+    var s = slides[cur];
+    return s && s.dataset.silence ? s.querySelector('.silence-count') : null;
+  }
+  function stopTimer() {
+    if (timer) { clearInterval(timer); timer = null; }
+    ring.classList.remove('on', 'warn');
+    var big = currentBigCount();
+    if (big) { big.textContent = '30'; big.classList.remove('warn'); }
+  }
+  function startTimer(seconds) {
+    stopTimer();
+    var left = seconds || 30;
+    var big = currentBigCount();
+    var paint = function () {
+      if (big) { big.textContent = left; big.classList.toggle('warn', left <= 5); }
+      else {
+        ring.classList.add('on');
+        ring.style.setProperty('--p', left / (seconds || 30));
+        ringNum.textContent = left;
+        ring.classList.toggle('warn', left <= 5);
+      }
+    };
+    paint();
+    timer = setInterval(function () {
+      left -= 1;
+      if (left <= 5 && left > 0) sfx.tick();
+      if (left <= 0) {
+        paint(); stopTimer(); sfx.gong();
+        if (!reduceMotion) {
+          document.body.classList.add('shake');
+          setTimeout(function () { document.body.classList.remove('shake'); }, 450);
+        }
+        return;
+      }
+      paint();
+    }, 1000);
+  }
+
+  /* =========================================================================
+     STATE. `cur` is the slide, `room` the last polled quiz_state row,
+     `revealedMap` the local working copy this page writes back.
+     ========================================================================= */
+  var cur = -1;
+  var room = null;
+  var revealedMap = {};
+  var players = [];            /* [{id,name,created_at}] */
+  var knownJoiners = {};
+  var pinChip = document.getElementById('pinChip');
+  var fill = document.getElementById('fill');
+
+  function push(phase, q, revealed) {
+    if (!pin) { needPin(''); return Promise.resolve(false); }
+    return rpc('quiz_set_state', {
+      p_pin: pin, p_phase: phase,
+      p_q: q == null ? null : q,
+      p_revealed: revealed || null,
+    }).then(function (ok) {
+      pinChip.hidden = !!ok;
+      if (!ok) needPin('The database refused that PIN.');
+      return ok;
+    }).catch(function () {
+      pinChip.hidden = false;
+      return false;
+    });
+  }
+
+  /* ---- navigation -------------------------------------------------------- */
+  function phaseForSlide(i, filmStep) {
+    var d = SLIDES[i];
+    if (d.t === 'lobby') return { phase: 'lobby', q: null };
+    if (d.t === 'q') {
+      if (d.q.film && filmStep) return { phase: 'film', q: d.q.n };
+      return { phase: 'question', q: d.q.n };
+    }
+    if (d.t === 'break') return { phase: 'break', q: null };
+    if (d.t === 'tb') return { phase: 'tb', q: TB_N };
+    if (d.t === 'podium') return { phase: 'end', q: null };
+    return { phase: 'lobby', q: null };
+  }
+
+  var filmPending = false;   /* on the film slide: true until the reel has rolled */
+
+  function closeBoard() { document.body.classList.remove('board-open'); }
+  function closeFilm() { document.body.classList.remove('film-open', 'film-dim'); qvideo.pause(); }
+
+  function goTo(i, dir) {
+    i = Math.max(0, Math.min(SLIDES.length - 1, i));
+    if (i === cur && slides[i].classList.contains('is-active')) return;
+    if (cur >= 0) slides[cur].classList.remove('is-active');
+    stopTimer(); closeFilm(); closeBoard();
+    cur = i;
+    var d = SLIDES[i];
+    var s = slides[i];
+    void s.offsetWidth;
+    s.classList.add('is-active');
+
+    filmPending = !!(d.t === 'q' && d.q.film && !revealedMap[d.q.n]);
+    var target = phaseForSlide(i, filmPending);
+    if (target.phase === 'film') openFilm();
+    if (d.t === 'q' && revealedMap[d.q.n]) {
+      paintReveal(d.q, null);           /* re-entering a revealed question: keep it revealed */
+      target = { phase: 'reveal', q: d.q.n };
+    } else if (d.t === 'q') {
+      s.classList.remove('is-revealed');
+    }
+    if (d.t === 'podium') { finishGame(); return; }
+    if (d.t === 'tb' && revealedMap[TB_N]) target = { phase: 'reveal', q: TB_N };
+    push(target.phase, target.q);
+
+    fill.style.width = (i / (SLIDES.length - 1)) * 100 + '%';
+    location.replace('#' + i);
+  }
+
+  function nextStep() {
+    var d = SLIDES[cur];
+    if (d && d.t === 'q' && d.q.film && filmPending) {
+      /* the reel has rolled (or been skipped): open the options and the clock */
+      filmPending = false;
+      document.body.classList.add('film-open');
+      document.body.classList.add('film-dim');
+      qvideo.pause();
+      push('question', d.q.n);
+      sfx.next();
+      return;
+    }
+    if (cur < SLIDES.length - 1) { sfx.next(); goTo(cur + 1, +1); }
+  }
+  function prevStep() {
+    var d = SLIDES[cur];
+    if (d && d.t === 'q' && d.q.film && !filmPending && !revealedMap[d.q.n]) {
+      filmPending = true;
+      openFilm();
+      push('film', d.q.n);
+      return;
+    }
+    if (cur > 0) goTo(cur - 1, -1);
+  }
+
+  /* ---- film --------------------------------------------------------------- */
+  var qvideo = document.getElementById('qvideo');
+  qvideo.addEventListener('error', function () {
+    document.getElementById('filmMissing').hidden = false;
+  });
+  function openFilm() {
+    document.body.classList.add('film-open');
+    document.body.classList.remove('film-dim');
+    try { qvideo.currentTime = 0; } catch (e) {}
+    qvideo.play().catch(function () {});
+  }
+  qvideo.addEventListener('ended', function () {
+    var d = SLIDES[cur];
+    if (d && d.t === 'q' && d.q.film && filmPending) nextStep();
+  });
+
+  /* ---- reveal ------------------------------------------------------------- */
+  function paintReveal(q, counts) {
+    var s = slides.filter(function (sl, i) { return SLIDES[i].t === 'q' && SLIDES[i].q.n === q.n; })[0];
+    if (!s) return;
+    if (counts == null) {
+      /* re-entering an already revealed question (or resuming after a
+         reload): the verdict is known but the bars still deserve their
+         numbers, so fetch them and paint again */
+      api('quiz_answers?select=answer&q=eq.' + q.n + '&limit=500')
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (rows) {
+          var cs = {};
+          rows.forEach(function (row) {
+            var l = String(row.answer || '').toUpperCase();
+            cs[l] = (cs[l] || 0) + 1;
+          });
+          paintReveal(q, cs);
+        });
+      return;
+    }
+    var rev = revealedMap[q.n];
+    var rows = s.querySelectorAll('.opt');
+    var total = 0, max = 1;
+    if (counts) {
+      for (var k in counts) { total += counts[k]; max = Math.max(max, counts[k]); }
+    }
+    rows.forEach(function (r) {
+      var l = r.dataset.l;
+      var n = counts ? (counts[l] || 0) : null;
+      r.classList.toggle('hit', !!rev && rev.a === l);
+      if (n != null) {
+        r.style.setProperty('--w', (n / max).toFixed(3));
+        r.querySelector('.cnt').textContent = n;
+      }
+    });
+    s.classList.add('is-revealed');
+  }
+
+  function reveal() {
+    var d = SLIDES[cur];
+    if (!d) return;
+    if (d.t === 'tb') { revealTB(); return; }
+    if (d.t !== 'q') return;
+    if (d.q.film && filmPending) return;      /* not before the reel */
+    var qn = d.q.n;
+    if (revealedMap[qn]) return;              /* already revealed */
+    var a = ANSWERS[qn];
+    if (!a) {
+      /* no key: ask on the spot rather than dying on stage */
+      var typed = prompt('No answer set for question ' + qn + '. Which letter is correct?', '');
+      if (!typed) return;
+      a = typed.trim().toUpperCase().slice(0, 1);
+      if (LETTERS.indexOf(a) < 0) return;
+    }
+    api('quiz_answers?select=answer&q=eq.' + qn + '&limit=500')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        var counts = {};
+        rows.forEach(function (row) {
+          var l = String(row.answer || '').toUpperCase();
+          counts[l] = (counts[l] || 0) + 1;
+        });
+        revealedMap[qn] = { a: a, t: (room && room.started_at) || new Date().toISOString() };
+        push('reveal', qn, revealedMap);
+        paintReveal(d.q, counts);
+        sfx.reveal();
+        fireConfetti(40);
+      });
+  }
+
+  /* ---- tie breaker -------------------------------------------------------- */
+  var tbOverlay = document.getElementById('tbOverlay');
+  function revealTB() {
+    if (revealedMap[TB_N]) return;
+    tbOverlay.classList.remove('hidden');
+    document.getElementById('tbTruth').focus();
+  }
+  document.getElementById('tbCancel').addEventListener('click', function () {
+    tbOverlay.classList.add('hidden');
+  });
+  document.getElementById('tbGo').addEventListener('click', function () {
+    var v = (document.getElementById('tbTruth').value || '').replace(/\D/g, '');
+    if (!v) return;
+    tbOverlay.classList.add('hidden');
+    var truth = parseInt(v, 10);
+    revealedMap[TB_N] = { n: truth, t: (room && room.started_at) || new Date().toISOString() };
+    push('reveal', TB_N, revealedMap);
+    api('quiz_answers?select=player_id,answer&q=eq.' + TB_N + '&limit=500')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        var byId = {};
+        players.forEach(function (p) { byId[p.id] = p.name; });
+        rows.sort(function (a, b) {
+          return Math.abs(parseInt(a.answer, 10) - truth) - Math.abs(parseInt(b.answer, 10) - truth);
+        });
+        var best = rows.slice(0, 3).map(function (r2) {
+          return esc(byId[r2.player_id] || '?') + ' (' + esc(r2.answer) + ')';
+        });
+        var el = document.getElementById('tbResult');
+        el.innerHTML = 'The official count: <b class="mono" style="color:var(--accent-lit)">' + truth + '</b>' +
+          (best.length ? '<br>Closest: <b>' + best.join('</b> · ') + '</b>' : '');
+        sfx.reveal();
+        fireConfetti(80);
+      });
+  });
+
+  /* ---- scoring + leaderboard --------------------------------------------- */
+  function fetchScores() {
+    return Promise.all([
+      api('quiz_players?select=id,name&limit=500').then(function (r) { return r.ok ? r.json() : []; }),
+      api('quiz_answers?select=player_id,q,answer,created_at&limit=5000').then(function (r) { return r.ok ? r.json() : []; }),
+    ]).then(function (res) {
+      players = res[0];
+      var answers = res[1];
+      var byPlayer = {};
+      players.forEach(function (p) { byPlayer[p.id] = { id: p.id, name: p.name, pts: 0 }; });
+      answers.forEach(function (a) {
+        var pl = byPlayer[a.player_id];
+        if (!pl) return;
+        if (a.q === TB_N) return;
+        pl.pts += QUIZ.points(revealedMap[a.q], a);
+      });
+      /* tie breaker: closest guess(es) collect 150 */
+      var tbRev = revealedMap[TB_N];
+      if (tbRev && tbRev.n != null) {
+        var guesses = answers.filter(function (a) { return a.q === TB_N; });
+        var bestDist = Infinity;
+        guesses.forEach(function (g) {
+          bestDist = Math.min(bestDist, Math.abs(parseInt(g.answer, 10) - tbRev.n));
+        });
+        guesses.forEach(function (g) {
+          if (Math.abs(parseInt(g.answer, 10) - tbRev.n) === bestDist && byPlayer[g.player_id]) {
+            byPlayer[g.player_id].pts += 150;
+          }
+        });
+      }
+      var list = Object.keys(byPlayer).map(function (k) { return byPlayer[k]; });
+      list.sort(function (a, b) { return b.pts - a.pts; });
+      return list;
+    });
+  }
+
+  var boardEl = document.getElementById('board');
+  function toggleBoard() {
+    if (document.body.classList.contains('board-open')) {
+      closeBoard();
+      var t = phaseForSlide(cur, filmPending);
+      var d = SLIDES[cur];
+      if (d.t === 'q' && revealedMap[d.q.n]) t = { phase: 'reveal', q: d.q.n };
+      push(t.phase, t.q);
+      return;
+    }
+    fetchScores().then(function (list) {
+      var top = list.slice(0, 8);
+      var max = Math.max(1, top.length ? top[0].pts : 1);
+      boardEl.innerHTML =
+        '<div class="kicker" style="display:flex">Standings · after this question</div>' +
+        '<div class="boardrows">' +
+        top.map(function (p, i) {
+          return '<div class="brow' + (i === 0 ? ' first' : '') + '" style="--i:' + i + ';--w:' + (p.pts / max).toFixed(3) + '">' +
+            '<div class="bbar"></div>' +
+            '<span class="rk mono">' + (i + 1) + '</span>' +
+            '<span class="bn">' + esc(p.name) + '</span>' +
+            '<span class="bp">' + p.pts + '</span></div>';
+        }).join('') +
+        '</div>';
+      document.body.classList.add('board-open');
+      push('board', null);
+      sfx.next();
+    });
+  }
+
+  function finishGame() {
+    fetchScores().then(function (list) {
+      revealedMap._final = list.map(function (p) { return { id: p.id, name: p.name, pts: p.pts }; });
+      push('end', null, revealedMap);
+      var wrap = document.getElementById('podiumWrap');
+      var podium = wrap.querySelector('.podium');
+      var medals = ['🥇', '🥈', '🥉'];
+      var order = [1, 0, 2];    /* silver, gold, bronze left to right */
+      podium.innerHTML = order.map(function (rank) {
+        var p = list[rank];
+        if (!p) return '';
+        return '<div class="pod p' + (rank + 1) + '">' +
+          '<span class="medal">' + medals[rank] + '</span>' +
+          '<span class="pname">' + esc(p.name) + '</span>' +
+          '<span class="ppts mono">' + p.pts + ' pts</span></div>';
+      }).join('');
+      fill.style.width = '100%';
+      location.replace('#' + cur);
+      fireConfetti(160);
+      setTimeout(function () { fireConfetti(160); }, 700);
+      setTimeout(function () { fireConfetti(120); }, 1500);
+      sfx.reveal();
+    });
+  }
+
+  /* ---- polling ------------------------------------------------------------ */
+  var pollBusy = false;
+  function poll() {
+    if (pollBusy || !pin) return;
+    pollBusy = true;
+    var jobs = [
+      api('quiz_state?select=phase,q,started_at,revealed&id=eq.1')
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (rows) { if (rows[0]) room = rows[0]; }),
+      api('quiz_players?select=id,name,created_at&order=created_at.asc&limit=500')
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (rows) {
+          players = rows;
+          document.getElementById('joinedChip').textContent = rows.length + ' in';
+          var lobbyN = document.getElementById('lobbyN');
+          if (lobbyN) lobbyN.textContent = rows.length;
+          var box = document.getElementById('joiners');
+          if (box && SLIDES[cur] && SLIDES[cur].t === 'lobby') {
+            rows.slice(-24).forEach(function (p) {
+              if (knownJoiners[p.id]) return;
+              knownJoiners[p.id] = true;
+              var chip = h('span', 'joiner mono', esc(p.name));
+              box.appendChild(chip);
+              while (box.children.length > 24) box.removeChild(box.firstChild);
+              sfx.join();
+            });
+          }
+        }),
+    ];
+    var d = SLIDES[cur];
+    if (d && (d.t === 'q' || d.t === 'tb')) {
+      var qn = d.t === 'tb' ? TB_N : d.q.n;
+      jobs.push(api('quiz_answers?select=player_id&q=eq.' + qn + '&limit=500')
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (rows) {
+          var el = document.getElementById(d.t === 'tb' ? 'tbCount' : 'ans-' + qn);
+          if (el && String(rows.length) !== el.textContent) {
+            el.textContent = rows.length;
+          }
+          document.getElementById('ansChip').textContent =
+            (d.t === 'tb' ? 'guesses ' : 'answers ') + rows.length + '/' + players.length;
+        }));
+    } else {
+      document.getElementById('ansChip').textContent = '';
+    }
+    Promise.all(jobs).catch(function () {}).then(function () { pollBusy = false; });
+  }
+  setInterval(poll, 2000);
+
+  /* ---- PIN gate ----------------------------------------------------------- */
+  var pinOverlay = document.getElementById('pinOverlay');
+  var pinPanel = document.getElementById('pinPanel');
+  function needPin(msg) {
+    document.getElementById('pinErr').textContent = msg || '';
+    pinOverlay.classList.remove('hidden');
+  }
+  function boot() {
+    pinOverlay.classList.add('hidden');
+    /* resume where the room already is, without writing anything */
+    api('quiz_state?select=phase,q,started_at,revealed&id=eq.1')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        room = rows[0] || null;
+        if (room && room.revealed) {
+          revealedMap = room.revealed;
+        }
+        var at = 0;
+        var hashAt = parseInt(location.hash.slice(1), 10);
+        if (!isNaN(hashAt)) at = Math.max(0, Math.min(SLIDES.length - 1, hashAt));
+        else if (room && room.q) {
+          for (var i = 0; i < SLIDES.length; i++) {
+            if ((SLIDES[i].t === 'q' && SLIDES[i].q.n === room.q) ||
+                (SLIDES[i].t === 'tb' && room.q === TB_N)) { at = i; break; }
+          }
+        }
+        goTo(at, +1);
+        poll();
+      })
+      .catch(function () { goTo(0, +1); });
+  }
+  document.getElementById('pinBtn').addEventListener('click', function () {
+    var candidate = document.getElementById('pinInput').value.trim();
+    if (!candidate) return;
+    rpc('admin_ok', { p_pin: candidate }).then(function (ok) {
+      if (!ok) {
+        pinPanel.classList.remove('shake'); void pinPanel.offsetWidth; pinPanel.classList.add('shake');
+        document.getElementById('pinErr').textContent = 'Not the PIN. The chair stays empty.';
+        return;
+      }
+      pin = candidate;
+      store.set('admin', pin);
+      pinChip.hidden = true;
+      boot();
+    }).catch(function () {
+      document.getElementById('pinErr').textContent = 'The registrar is unreachable.';
+    });
+  });
+  document.getElementById('pinInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('pinBtn').click();
+  });
+
+  /* ---- reset -------------------------------------------------------------- */
+  var resetOverlay = document.getElementById('resetOverlay');
+  document.getElementById('resetGo').addEventListener('click', function () {
+    resetOverlay.classList.add('hidden');
+    rpc('quiz_reset', { p_pin: pin }).then(function (n) {
+      if (n < 0) { needPin('The database refused that PIN.'); return; }
+      revealedMap = {};
+      knownJoiners = {};
+      players = [];
+      var box = document.getElementById('joiners');
+      if (box) box.innerHTML = '';
+      slides.forEach(function (s) { s.classList.remove('is-revealed'); });
+      goTo(0, -1);
+    });
+  });
+  document.getElementById('resetCancel').addEventListener('click', function () {
+    resetOverlay.classList.add('hidden');
+  });
+
+  /* ---- input -------------------------------------------------------------- */
+  var helpOverlay = document.getElementById('helpOverlay');
+  document.addEventListener('keydown', function (e) {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    if (!pinOverlay.classList.contains('hidden')) return;
+    if (!helpOverlay.classList.contains('hidden')) { helpOverlay.classList.add('hidden'); return; }
+    if (!tbOverlay.classList.contains('hidden')) return;
+    if (!resetOverlay.classList.contains('hidden')) {
+      if (e.key === 'Escape') resetOverlay.classList.add('hidden');
+      return;
+    }
+    switch (e.key) {
+      case 'ArrowRight': case ' ': case 'PageDown': case 'ArrowDown':
+        e.preventDefault(); nextStep(); break;
+      case 'ArrowLeft': case 'PageUp': case 'ArrowUp':
+        e.preventDefault(); prevStep(); break;
+      case 'Enter': case 'r': case 'R':
+        e.preventDefault(); reveal(); break;
+      case 'l': case 'L': toggleBoard(); break;
+      case 't': case 'T': timer ? stopTimer() : startTimer(30); break;
+      case 'f': case 'F':
+        document.fullscreenElement ? document.exitFullscreen()
+          : document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(function () {});
+        break;
+      case 'm': case 'M': setSound(!soundOn); break;
+      case '?': helpOverlay.classList.remove('hidden'); break;
+      case 'Home': goTo(0, -1); break;
+      case 'Delete': resetOverlay.classList.remove('hidden'); break;
+    }
+  });
+  document.addEventListener('click', function (e) {
+    if (!pinOverlay.classList.contains('hidden')) return;
+    if (e.target.closest('.panel') || e.target.closest('.hud') || e.target.closest('.boardwrap')) return;
+    if (!helpOverlay.classList.contains('hidden')) { helpOverlay.classList.add('hidden'); return; }
+    if (!tbOverlay.classList.contains('hidden') || !resetOverlay.classList.contains('hidden')) return;
+    (e.clientX < innerWidth * 0.2) ? prevStep() : nextStep();
+  });
+
+  var idleT = null;
+  function poke() {
+    document.body.classList.remove('no-cursor', 'hud-hidden');
+    clearTimeout(idleT);
+    idleT = setTimeout(function () { document.body.classList.add('no-cursor', 'hud-hidden'); }, 3000);
+  }
+  addEventListener('mousemove', poke);
+  addEventListener('keydown', poke);
+  poke();
+
+  /* ---- entry -------------------------------------------------------------- */
+  if (!BASE || !KEY) {
+    needPin('config.js is missing its Supabase values.');
+  } else if (pin) {
+    /* stored PIN: verify it still opens the door before trusting it */
+    rpc('admin_ok', { p_pin: pin }).then(function (ok) {
+      if (ok) { boot(); } else { pin = null; needPin(''); }
+    }).catch(function () { needPin('The registrar is unreachable.'); });
+  } else {
+    needPin('');
+  }
+})();
+</script>
+
+</body>
+</html>
