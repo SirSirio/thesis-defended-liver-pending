@@ -2701,6 +2701,16 @@
      Above four values the segments no longer fit at 320px and the field renders
      as a native select over the same range instead. That is the documented
      overflow branch, not a fallback. */
+  /* "0" on a party form reads as a mistake and "1" reads as yourself, so the
+     segments say what they mean instead: "Just me" and "Me +1". The value
+     underneath is still the extra-guest count; only the face changed.
+     Owner request, 2026-09-02, after real guests picked 1 while coming alone. */
+  function guestsFace(n) {
+    return n === 0
+      ? t('enrol.form.guests.solo')
+      : t('enrol.form.guests.plus').replace('{n}', String(n));
+  }
+
   function buildGuestsControl(max, value) {
     if (max > 4) {
       var sel = document.createElement('select');
@@ -2711,7 +2721,7 @@
       for (var i = 0; i <= max; i++) {
         var opt = document.createElement('option');
         opt.value = String(i);
-        opt.textContent = String(i);
+        opt.textContent = guestsFace(i);
         if (i === value) opt.selected = true;
         sel.appendChild(opt);
       }
@@ -2739,7 +2749,7 @@
       if (j === value) radio.checked = true;
 
       var face = document.createElement('span');
-      face.textContent = String(j);
+      face.textContent = guestsFace(j);
 
       seg.appendChild(radio);
       seg.appendChild(face);
