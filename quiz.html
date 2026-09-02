@@ -1,0 +1,1206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>31026 · Final Exam</title>
+<link rel="icon" href="assets/favicon.svg?v=25" type="image/svg+xml">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Saira:wght@500;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<!-- ==========================================================================
+     THE FINAL EXAM
+     ==========================================================================
+     One page, one job: the quiz, projected on a wall, driven from a keyboard
+     or a presentation clicker. Nobody's phone opens this. It is a hidden page,
+     linked from nowhere, and like qr.html it is self contained on purpose:
+     no styles.css, no app.js, no GSAP, nothing that can fail between the
+     laptop and the projector at 21:00.
+
+     HOW TO DRIVE IT
+       →  space  click        next (on the video slide this also plays the video)
+       ←                      back
+       enter  or  R           reveal the correct answer on the current question
+       T                      thirty second countdown (questions and silences)
+       F                      fullscreen, i.e. presentation mode
+       M                      sound on / off
+       ?                      this list, on screen
+
+     THE CORRECTION ROUND: after the PENS DOWN slide the deck replays every
+     question as an answer slide with the correct option already lit, one per
+     keypress, which is where you walk the room and explain yourself. It is
+     generated from the questions, so it never needs separate editing.
+
+     THE ANSWERS live in the DECK array below, one letter per question,
+     'A' through 'I', or null while unknown. A question with null still works:
+     revealing it just shows a small "answer not set" note to you and nothing
+     to the room. Fill them in before the night.
+
+     THE VIDEO for question 7 is assets/quiz-video.mp4. Drop the file in and
+     it plays full screen between the question and its options. Until the file
+     exists the slide shows a clearly labelled missing-reel panel, so a dry
+     run tells you immediately.
+
+     THE EVIDENCE PHOTO for question 4 (the landlord's termination email) is
+     assets/quiz-landlord.png, shown when that answer is revealed. Optional:
+     missing file, no panel, nothing breaks.
+
+     The answer sheet people write on is quiz-sheet.html.
+     ========================================================================== -->
+
+<style>
+  :root {
+    --bg:        #0B0B0C;
+    --surface:   #141416;
+    --surface-2: #1B1B1E;
+    --ink:       #F4F4F5;
+    --ink-dim:   #A1A1A6;
+    --ink-faint: #6E6E73;
+    --accent:    #990000;
+    --accent-lit:#E83F48;
+    --rule:      #2A2A2E;
+    --rule-lit:  #3A3A40;
+    --display: 'Saira', 'Arial Narrow', system-ui, sans-serif;
+    --body:    'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --ease-out:  cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-both: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  body.no-cursor { cursor: none; }
+
+  /* --- The room's lighting. Two red pools drifting very slowly. ---------- */
+  .ambient {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(42% 55% at 82% 12%, rgba(153,0,0,0.16), transparent 70%),
+      radial-gradient(50% 60% at 8% 95%, rgba(153,0,0,0.10), transparent 70%);
+    animation: breathe 14s var(--ease-both) infinite alternate;
+  }
+  @keyframes breathe {
+    from { transform: translate3d(0,0,0) scale(1); opacity: .85; }
+    to   { transform: translate3d(-2%,1.5%,0) scale(1.06); opacity: 1; }
+  }
+  .vignette {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: radial-gradient(120% 120% at 50% 45%, transparent 55%, rgba(0,0,0,0.5) 100%);
+  }
+
+  /* --- The stage and its slides ----------------------------------------- */
+  .stage { position: fixed; inset: 0; z-index: 2; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: clamp(24px, 6vh, 72px) clamp(28px, 7vw, 110px);
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .slide.is-active { visibility: visible; pointer-events: auto; }
+
+  /* Entry and exit. Three transition flavours, dealt round-robin by JS via
+     data-fx, so the deck never repeats the same move twice in a row.
+     Everything is transform + opacity + clip-path: nothing that reflows. */
+  .slide .fx {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: inherit;
+    opacity: 0;
+    transition: opacity .55s var(--ease-out), transform .65s var(--ease-out),
+                clip-path .65s var(--ease-out);
+    will-change: transform, opacity, clip-path;
+  }
+  .slide[data-fx="wipe"]  .fx { clip-path: inset(0 100% 0 0); transform: translateX(4%); }
+  .slide[data-fx="rise"]  .fx { clip-path: inset(100% 0 0 0); transform: translateY(6%); }
+  .slide[data-fx="zoom"]  .fx { clip-path: inset(8% 8% 8% 8% round 24px); transform: scale(1.08); }
+  .slide.is-active .fx {
+    opacity: 1; transform: none; clip-path: inset(0 0 0 0);
+  }
+  .slide.went-back.is-active .fx { transition-duration: .45s, .5s, .5s; }
+
+  /* Children cascade in only while their slide is active. Delay comes from
+     --i set inline. On exit the delay collapses to zero so nothing lags. */
+  .cas {
+    opacity: 0; transform: translateY(26px) rotate(0.4deg);
+    transition: opacity .5s var(--ease-out), transform .6s var(--ease-out);
+    transition-delay: 0s;
+    will-change: transform, opacity;
+  }
+  .is-active .cas {
+    opacity: 1; transform: none;
+    transition-delay: calc(0.18s + var(--i, 0) * 0.07s);
+  }
+
+  /* The huge ghost numeral behind every question. */
+  .ghost {
+    position: absolute; right: -1vw; bottom: -9vh; z-index: -1;
+    font-family: var(--display); font-weight: 800; line-height: 1;
+    font-size: clamp(240px, 46vh, 560px);
+    color: transparent;
+    -webkit-text-stroke: 2px rgba(153,0,0,0.32);
+    letter-spacing: -0.02em;
+    opacity: 0; transform: translateX(60px);
+    transition: opacity .9s var(--ease-out) .25s, transform 1.1s var(--ease-out) .25s;
+    user-select: none;
+  }
+  .is-active .ghost { opacity: 1; transform: none; }
+
+  /* --- Type ------------------------------------------------------------- */
+  .kicker {
+    font-family: var(--mono); font-size: clamp(13px, 1.6vh, 17px);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent-lit);
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: clamp(14px, 2.6vh, 26px);
+  }
+  .kicker::after {
+    content: ''; height: 1px; flex: 0 1 180px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform .8s var(--ease-out) .5s;
+  }
+  .is-active .kicker::after { transform: scaleX(1); }
+  .t-center .kicker { justify-content: center; white-space: nowrap; }
+  .t-center .kicker::after { display: none; }
+  .t-center .qtext { max-width: none; }
+
+  .qtext {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(28px, 5.6vh, 58px);
+    line-height: 1.12; letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0 0 clamp(20px, 4.5vh, 44px);
+    max-width: 24ch;
+  }
+  .qtext em { font-style: normal; color: var(--accent-lit); }
+
+  /* --- Options ---------------------------------------------------------- */
+  .opts { display: grid; gap: clamp(8px, 1.5vh, 14px); max-width: 1100px; }
+  .opts.cols2 { grid-template-columns: 1fr 1fr; column-gap: clamp(16px, 2.5vw, 32px); }
+  @media (max-width: 760px) { .opts.cols2 { grid-template-columns: 1fr; } }
+
+  .opt {
+    display: flex; align-items: center; gap: clamp(12px, 1.6vw, 20px);
+    padding: clamp(10px, 1.7vh, 16px) clamp(14px, 1.8vw, 22px);
+    border: 1px solid var(--rule-lit);
+    border-radius: 12px;
+    background: rgba(20,20,22,0.6);
+    font-size: clamp(16px, 2.6vh, 27px);
+    line-height: 1.3;
+    font-weight: 500;
+    transition: opacity .45s var(--ease-out), transform .5s var(--ease-out),
+                background .45s, border-color .45s, color .45s,
+                box-shadow .45s;
+  }
+  .opts.long .opt { font-size: clamp(14px, 2.1vh, 21px); }
+  .opt .tag {
+    font-family: var(--mono); font-weight: 500;
+    font-size: 0.72em;
+    width: 2.1em; height: 2.1em; flex: none;
+    display: grid; place-items: center;
+    border: 1px solid var(--rule-lit); border-radius: 8px;
+    color: var(--ink-dim);
+    transition: inherit;
+  }
+
+  /* Reveal. The right answer punches, the rest step back into the dark. */
+  .is-revealed .opt        { opacity: 0.32; transform: scale(0.985); }
+  .is-revealed .opt.hit {
+    opacity: 1;
+    transform: scale(1.03);
+    background: var(--accent);
+    border-color: var(--accent-lit);
+    color: #fff;
+    box-shadow: 0 12px 60px rgba(153,0,0,0.55), 0 0 0 1px rgba(232,63,72,0.6);
+    animation: punch .6s var(--ease-out);
+  }
+  .is-revealed .opt.hit .tag { border-color: rgba(255,255,255,0.6); color: #fff; }
+  @keyframes punch {
+    0% { transform: scale(0.97); }
+    45% { transform: scale(1.06); }
+    100% { transform: scale(1.03); }
+  }
+  .no-answer {
+    position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%) translateY(8px);
+    font-family: var(--mono); font-size: 13px; color: var(--ink-faint);
+    border: 1px dashed var(--rule-lit); border-radius: 8px; padding: 6px 12px;
+    opacity: 0; transition: opacity .3s, transform .3s;
+    white-space: nowrap;
+  }
+  .no-answer.show { opacity: 1; transform: translateX(-50%); }
+
+  /* The landlord evidence, entering like a stamped exhibit. */
+  .evidence {
+    position: absolute; right: clamp(20px, 6vw, 90px); top: 50%;
+    width: clamp(220px, 30vw, 460px);
+    transform: translateY(-50%) rotate(8deg) scale(0.7);
+    opacity: 0;
+    transition: opacity .5s var(--ease-out), transform .6s var(--ease-out);
+    z-index: 5;
+    pointer-events: none;
+  }
+  .is-revealed .evidence.has-img {
+    opacity: 1;
+    transform: translateY(-50%) rotate(-3deg) scale(1);
+  }
+  .evidence img {
+    display: block; width: 100%;
+    border: 6px solid #fff; border-radius: 4px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+  }
+  .evidence figcaption {
+    margin-top: 8px; text-align: center;
+    font-family: var(--mono); font-size: 12px; color: var(--ink-dim);
+  }
+
+  /* --- Title slide ------------------------------------------------------- */
+  .t-center { align-items: center; text-align: center; }
+  .badge {
+    font-family: var(--mono); font-size: clamp(15px, 2vh, 20px);
+    background: var(--accent); color: #fff;
+    padding: 10px 18px; border-radius: 8px;
+    display: inline-block;
+    letter-spacing: 0.06em;
+  }
+  .headline {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(52px, 15vh, 150px);
+    line-height: 0.98; letter-spacing: -0.015em;
+    text-transform: uppercase;
+    margin: clamp(16px, 3vh, 30px) 0 0;
+  }
+  .headline .ch {
+    display: inline-block;
+    opacity: 0; transform: translateY(0.5em) rotate(4deg);
+    transition: opacity .5s var(--ease-out), transform .65s var(--ease-out);
+    transition-delay: calc(0.25s + var(--i) * 0.035s);
+  }
+  .is-active .headline .ch { opacity: 1; transform: none; }
+  .headline .sp { display: inline-block; width: 0.28em; }
+  .headline em { font-style: normal; color: var(--accent-lit); }
+  .sub {
+    font-size: clamp(15px, 2.4vh, 22px); color: var(--ink-dim);
+    max-width: 52ch; line-height: 1.55; margin: clamp(14px, 2.5vh, 24px) auto 0;
+    text-wrap: pretty;
+  }
+  .sub b { color: var(--ink); font-weight: 600; }
+  .mono { font-family: var(--mono); }
+
+  /* --- Rules slide ------------------------------------------------------- */
+  .rules { display: grid; gap: clamp(10px, 2vh, 18px); max-width: 900px; }
+  .rule-row {
+    display: flex; gap: 18px; align-items: baseline;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: clamp(10px, 2vh, 18px);
+  }
+  .rule-row .n { font-family: var(--mono); color: var(--accent-lit); font-size: clamp(13px, 1.8vh, 17px); }
+  .rule-row p { margin: 0; font-size: clamp(16px, 2.6vh, 26px); line-height: 1.4; }
+  .rule-row p span { color: var(--ink-dim); }
+
+  /* --- Video slide -------------------------------------------------------- */
+  .film {
+    position: fixed; inset: 0; z-index: 40;
+    background: #000;
+    opacity: 0; visibility: hidden; transform: scale(1.06);
+    transition: opacity .6s var(--ease-out), transform .7s var(--ease-out), visibility 0s .6s;
+  }
+  body.film-open .film {
+    opacity: 1; visibility: visible; transform: none;
+    transition: opacity .6s var(--ease-out), transform .7s var(--ease-out);
+  }
+  .film video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  body.film-dim .film { opacity: 0.18; transform: scale(0.98); pointer-events: none; z-index: 1; }
+  .film .missing {
+    position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+    padding: 40px;
+  }
+  .film .missing div {
+    border: 1px dashed var(--rule-lit); border-radius: 16px;
+    padding: 40px 50px; max-width: 560px;
+  }
+  .film .missing b { font-family: var(--display); font-size: clamp(22px, 4vh, 34px); display: block; }
+  .film .missing p { color: var(--ink-dim); font-size: 15px; line-height: 1.5; }
+  .film-hint {
+    position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%);
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.55); text-transform: uppercase;
+  }
+
+  /* --- Intermission -------------------------------------------------------- */
+  .silence-count {
+    font-family: var(--mono); font-weight: 500;
+    font-size: clamp(90px, 26vh, 260px);
+    line-height: 1; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    margin: clamp(10px, 3vh, 30px) 0 0;
+  }
+  .silence-count.warn { color: var(--accent-lit); }
+  .silence-hint { font-family: var(--mono); font-size: clamp(12px, 1.7vh, 16px); color: var(--ink-faint); letter-spacing: 0.12em; text-transform: uppercase; }
+
+  /* --- Tie breaker / end ---------------------------------------------------- */
+  .giant-q {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(120px, 34vh, 340px); line-height: 1;
+    color: var(--accent);
+    text-shadow: 0 0 120px rgba(153,0,0,0.5);
+    animation: qpulse 2.6s var(--ease-both) infinite alternate;
+    margin: 0;
+  }
+  @keyframes qpulse {
+    from { transform: scale(1) rotate(-2deg); }
+    to   { transform: scale(1.07) rotate(2deg); }
+  }
+
+  /* --- Answer key ---------------------------------------------------------- */
+  .keygrid {
+    display: grid; grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: clamp(8px, 1.6vh, 16px); max-width: 900px;
+  }
+  @media (max-width: 700px) { .keygrid { grid-template-columns: repeat(2, 1fr); } }
+  .keycell {
+    border: 1px solid var(--rule-lit); border-radius: 12px;
+    background: rgba(20,20,22,0.6);
+    padding: clamp(10px, 1.8vh, 18px);
+    display: flex; align-items: baseline; justify-content: space-between;
+    font-family: var(--mono);
+  }
+  .keycell .kq { color: var(--ink-dim); font-size: clamp(12px, 1.7vh, 16px); }
+  .keycell .ka {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(24px, 4.4vh, 44px); line-height: 1;
+    color: var(--accent-lit);
+  }
+
+  /* --- HUD ------------------------------------------------------------------ */
+  .hud {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    display: flex; align-items: center; gap: 18px;
+    padding: 14px clamp(18px, 3vw, 40px) 16px;
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint);
+    transition: opacity .4s var(--ease-out), transform .4s var(--ease-out);
+  }
+  body.hud-hidden .hud { opacity: 0; transform: translateY(10px); pointer-events: none; }
+  .hud .id { white-space: nowrap; letter-spacing: 0.08em; }
+  .hud .track {
+    flex: 1; height: 2px; background: var(--rule); border-radius: 2px; overflow: hidden;
+  }
+  .hud .fill {
+    height: 100%; width: 0%; background: var(--accent-lit);
+    transition: width .5s var(--ease-both);
+  }
+  .hud .where { white-space: nowrap; color: var(--ink-dim); letter-spacing: 0.08em; }
+  .hud .snd { cursor: pointer; user-select: none; }
+  .hud .snd.off { text-decoration: line-through; opacity: 0.6; }
+
+  /* Countdown ring, top right, for questions. */
+  .ring {
+    position: fixed; top: clamp(16px, 3vh, 34px); right: clamp(18px, 3vw, 40px); z-index: 60;
+    width: 76px; height: 76px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: 22px; font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    background: conic-gradient(var(--accent-lit) calc(var(--p, 0) * 1turn), var(--rule) 0);
+    opacity: 0; transform: scale(0.7); pointer-events: none;
+    transition: opacity .3s, transform .3s var(--ease-out);
+  }
+  .ring::before {
+    content: ''; position: absolute; inset: 5px; border-radius: 50%; background: var(--surface);
+  }
+  .ring span { position: relative; }
+  .ring.on { opacity: 1; transform: none; }
+  .ring.warn { animation: ringshake .3s linear infinite; color: var(--accent-lit); }
+  @keyframes ringshake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); } 75% { transform: translateX(2px); }
+  }
+
+  body.shake .stage { animation: quake .4s linear; }
+  @keyframes quake {
+    0%,100% { transform: translate(0,0); }
+    20% { transform: translate(-10px, 4px); } 40% { transform: translate(9px, -6px); }
+    60% { transform: translate(-7px, -3px); } 80% { transform: translate(5px, 5px); }
+  }
+
+  /* Start overlay + help */
+  .overlay {
+    position: fixed; inset: 0; z-index: 80;
+    display: grid; place-items: center;
+    background: rgba(11,11,12,0.82);
+    backdrop-filter: blur(8px);
+    opacity: 1; transition: opacity .45s var(--ease-out), visibility 0s .45s;
+  }
+  .overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  .panel {
+    background: var(--surface); border: 1px solid var(--rule-lit); border-radius: 18px;
+    padding: clamp(26px, 5vh, 44px) clamp(28px, 5vw, 52px);
+    max-width: 620px; text-align: center;
+  }
+  .panel h2 { font-family: var(--display); font-weight: 800; font-size: clamp(24px, 4.5vh, 38px); margin: 14px 0 8px; text-transform: uppercase; letter-spacing: 0.01em; }
+  .panel p { color: var(--ink-dim); font-size: 15.5px; line-height: 1.55; margin: 0 0 18px; }
+  .panel .keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; text-align: left; font-size: 14px; margin: 0 auto 22px; max-width: 420px; }
+  .panel .keys kbd {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink);
+    background: var(--surface-2); border: 1px solid var(--rule-lit); border-bottom-width: 2px;
+    border-radius: 6px; padding: 3px 9px; white-space: nowrap; justify-self: start;
+  }
+  .panel .keys span { color: var(--ink-dim); align-self: center; }
+  .panel button {
+    appearance: none; cursor: pointer; border: 0; border-radius: 999px;
+    background: var(--accent); color: #fff;
+    font: 600 16px/1 var(--body); letter-spacing: 0.02em;
+    padding: 15px 30px;
+    transition: transform .15s var(--ease-out), box-shadow .3s;
+  }
+  .panel button:hover { box-shadow: 0 10px 40px rgba(153,0,0,0.5); }
+  .panel button:active { transform: scale(0.97); }
+  .panel .alt { display: block; margin-top: 12px; font-size: 13px; color: var(--ink-faint); }
+  .panel .alt a { color: var(--ink-dim); }
+
+  /* Confetti canvas */
+  #confetti { position: fixed; inset: 0; z-index: 70; pointer-events: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001s !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.15s !important;
+      transition-delay: 0s !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="ambient"></div>
+<div class="vignette"></div>
+
+<div class="stage" id="stage"></div>
+
+<!-- Full-screen film layer for question 7 -->
+<div class="film" id="film">
+  <video id="qvideo" src="assets/quiz-video.mp4" preload="metadata" playsinline></video>
+  <div class="missing" id="filmMissing" hidden>
+    <div>
+      <b>Reel missing</b>
+      <p class="mono">assets/quiz-video.mp4</p>
+      <p>Drop the file in and this panel is replaced by the evidence.
+         The slide works either way; the room just gets less.</p>
+    </div>
+  </div>
+  <div class="film-hint">→ to continue · ← to rewatch the question</div>
+</div>
+
+<canvas id="confetti"></canvas>
+
+<div class="ring" id="ring"><span id="ringNum">30</span></div>
+
+<div class="hud" id="hud">
+  <span class="id">31026 · FINAL EXAM · AIDS PERMITTED: NONE</span>
+  <div class="track"><div class="fill" id="fill"></div></div>
+  <span class="where" id="where">—</span>
+  <span class="snd" id="snd" title="M">SND</span>
+</div>
+
+<div class="overlay" id="startOverlay">
+  <div class="panel">
+    <span class="badge mono">31026</span>
+    <h2>Final examination</h2>
+    <p>Fifteen questions, one film screening, one tie breaker, two scheduled
+       silences. Sheets out, pens ready, phones on airplane mode or on
+       quiz-sheet duty.</p>
+    <div class="keys">
+      <kbd>→ · space · click</kbd><span>next</span>
+      <kbd>←</kbd><span>back</span>
+      <kbd>enter / R</kbd><span>reveal the answer</span>
+      <kbd>T</kbd><span>30 second countdown</span>
+      <kbd>F</kbd><span>fullscreen</span>
+      <kbd>M</kbd><span>sound on / off</span>
+    </div>
+    <button id="startBtn" type="button">Enter presentation mode</button>
+    <span class="alt">or press any key · <a href="quiz-sheet.html">print the answer sheets</a></span>
+  </div>
+</div>
+
+<div class="overlay hidden" id="helpOverlay">
+  <div class="panel">
+    <h2>Controls</h2>
+    <div class="keys">
+      <kbd>→ · space · click</kbd><span>next</span>
+      <kbd>←</kbd><span>back</span>
+      <kbd>enter / R</kbd><span>reveal the answer</span>
+      <kbd>T</kbd><span>30 second countdown</span>
+      <kbd>F</kbd><span>fullscreen</span>
+      <kbd>M</kbd><span>sound on / off</span>
+      <kbd>home / end</kbd><span>first / last slide</span>
+      <kbd>?</kbd><span>this panel</span>
+    </div>
+    <button type="button" onclick="document.getElementById('helpOverlay').classList.add('hidden')">Back to the exam</button>
+  </div>
+</div>
+
+<script>
+/* ===========================================================================
+   THE DECK.
+   Edit questions here. `answer` is a LETTER, 'A' upward, or null if you have
+   not decided yet — null never breaks anything, it only skips the highlight.
+   =========================================================================== */
+const DECK = [
+
+  { type: 'title' },
+  { type: 'rules' },
+
+  { type: 'q', text: 'I am notoriously famous for:',
+    opts: ['Drinking wine', 'Eating slow', 'Always wearing my headphones', 'Barefoot shoes'],
+    answer: 'B' },
+
+  { type: 'q', text: 'The martial art I have been practicing for many years is called:',
+    opts: ['Taekwondo', 'Viet Vo Dao', 'Vovinam Kiem Quyen', 'Quan Ki Do'],
+    answer: 'B' },
+
+  { type: 'q', text: 'My favourite AI model, 100€ a month for the last 3 months:',
+    opts: ['Gemini', 'ChatGPT', 'Claude', 'Grok', 'DeepSeek'],
+    answer: 'C' },
+
+  { type: 'q', text: 'My first Copenhagen landlord was just crazy. She did many things. She did <em>NOT</em>:',
+    opts: [
+      'Wrap the heater regulators in duct tape so we could not turn them on',
+      'Build a 5th room over a weekend where the living room was supposed to be',
+      'Nearly kick me out by email (subject: “Notice of Termination of Lease”) after I complained',
+      'Crash her car into one of our bikes and hand us an air fryer as compensation',
+    ],
+    answer: 'D',
+    image: 'assets/quiz-landlord.png',
+    imageCaption: 'Exhibit A' },
+
+  { type: 'q', text: 'At DTU I immediately joined a biotech competition and built a biosensor from scratch. It was called:',
+    opts: ['SensUs', 'iGEM', 'BioDesign Challenge', 'Tech-n-Bio'],
+    answer: 'B' },
+
+  { type: 'q', text: 'When it gets warm and the sun is shining, I cannot stop thinking about:',
+    opts: ['Ice cold beer', 'BBQs', 'Swimming in the sea', 'Camping in nature'],
+    answer: 'B' },
+
+  /* -- Question 7. The screening. -----------------------------------------
+     Flow on the night: question appears → next shows the film full screen
+     → next brings the options up. `answer` follows the same letter rule. */
+  { type: 'video', text: 'When was this video recorded?',
+    opts: [
+      'Bachelor’s graduation, 8 PM',
+      'Erasmus farewell party, 2 AM',
+      'New Year’s Eve, 11:58 PM',
+      'A completely ordinary Tuesday, 9 AM',
+    ],
+    answer: 'C' },
+
+  { type: 'q', text: 'A few things I don’t like. Which one do I actually just <em>not really mind</em>?',
+    opts: [
+      'Beer', 'Windy weather', 'Cold water', 'Techno music', 'People complaining',
+      'Biotechnology', 'Balaton lake', 'Dressing up for parties',
+      'People driving slowly (THOSE F***ING BASTARDS SHOULD JUST F***ING WALK!!!)',
+    ],
+    answer: null },
+
+  { type: 'q', text: 'From best (I don’t mind) to worst (I f***ing hate it), which ranking is most accurate?',
+    opts: [
+      'Windy weather → Cold water → Techno music → Balaton lake → Biotechnology → Beer',
+      'Cold water → Techno music → Biotechnology → Beer → Windy weather → Balaton lake',
+      'Techno music → Cold water → Beer → Windy weather → Balaton lake → Biotechnology',
+      'Balaton lake → Techno music → Biotechnology → Cold water → Beer → Windy weather',
+    ],
+    answer: null },
+
+  { type: 'break',
+    title: 'A moment of silence',
+    lines: ['Thirty seconds of respect for the death of <b>Oliver Tree</b>.'],
+    hint: 'Press T. Nobody speaks.' },
+
+  { type: 'q', text: 'My go-to breakfast is:',
+    opts: [
+      'Broccoli / carrot / cauliflower + almond milk + oats',
+      'Avocado toast',
+      'Croissant + apple / banana',
+      'Protein banana bread',
+    ],
+    answer: 'A' },
+
+  { type: 'q', text: 'Crazy things that happened during my stay in Denmark. Which one is <em>NOT</em> true?',
+    opts: [
+      'A besty set off the fire alarm cooking a burger at 3 AM while I slept',
+      'I have carried weapons across a border',
+      'I have spent 30 hours in a row on a bus',
+      'My bike got stolen and the guy just rode away in front of me',
+      'I calmly walked through a city centre at −27°C in a swimming costume and sunglasses, drinking wine',
+    ],
+    answer: 'D' },
+
+  { type: 'q', text: 'The sentence I have said most often, with the most emphasis, in the past 2 years:',
+    opts: ['VEERY NIIIICEEE', 'Porco dio', 'Buongiornoooooo', 'Whaaaat?'],
+    answer: 'A' },
+
+  { type: 'q', text: 'Lately I became a workaholic. On average, how many hours was I at DTU every day, weekends included?',
+    opts: ['8', '9', '10', '12', '14'],
+    answer: 'D' },
+
+  { type: 'q', text: 'Which AI model was I using during my thesis, at ~100€ a month?',
+    opts: ['DeepSeek', 'Claude', 'Gemini', 'ChatGPT'],
+    answer: 'B' },
+
+  { type: 'q', text: 'How many purchases did I make on Vinted in the past 6 months?',
+    opts: ['8', '15', '26', '35'],
+    answer: 'C' },
+
+  { type: 'break',
+    title: 'A second silence',
+    lines: ['Thirty seconds of respect for <b>me</b>, who will never get to see him live. Like, ever.'],
+    hint: 'Press T. Still nobody speaks.' },
+
+  { type: 'tb',
+    text: 'How many <em>bestemmie</em> did I say in the last month of thesis?',
+    sub: 'Closest number wins. Write a number, not a prayer.',
+    answer: null },   /* the real count. Shown on the key slide once set. */
+
+  { type: 'end' },
+  { type: 'key' },
+  { type: 'outro' },
+];
+
+/* Where the video and the answers config end and the machinery begins.
+   Nothing below needs editing for content changes. */
+
+/* THE CORRECTION ROUND. After PENS DOWN and before the key slide, one
+   answer slide per question, generated from the questions themselves: same
+   text, same options, the correct one already lit, no keypress needed. This
+   is where the host walks the room and explains. Nothing to maintain here:
+   edit a question above and its correction slide follows. */
+const answerSlides = DECK.filter(d => d.type === 'q' || d.type === 'video')
+                         .map(d => ({ type: 'answer', src: d }));
+DECK.splice(DECK.findIndex(d => d.type === 'key'), 0, ...answerSlides);
+
+const LETTERS = 'ABCDEFGHI';
+const stage = document.getElementById('stage');
+const filmEl = document.getElementById('film');
+const qvideo = document.getElementById('qvideo');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---- Build slides ------------------------------------------------------- */
+let qCounter = 0, aCounter = 0;
+const meta = DECK.map(d => {
+  if (d.type === 'q' || d.type === 'video') { qCounter += 1; return { n: qCounter }; }
+  if (d.type === 'answer') { aCounter += 1; return { n: aCounter }; }
+  return {};
+});
+const TOTAL_Q = qCounter;
+
+function h(tag, cls, html) {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (html != null) el.innerHTML = html;
+  return el;
+}
+function chars(text, offset = 0) {
+  return [...text].map((c, i) =>
+    c === ' ' ? '<span class="sp"></span>'
+              : `<span class="ch" style="--i:${i + offset}">${c}</span>`).join('');
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+
+const FX = ['wipe', 'rise', 'zoom'];
+
+function addEvidence(slide, d) {
+  if (!d.image) return;
+  const fig = h('figure', 'evidence');
+  const img = new Image();
+  img.src = d.image;
+  img.onload = () => fig.classList.add('has-img');
+  fig.appendChild(img);
+  fig.appendChild(h('figcaption', 'mono', d.imageCaption || 'Exhibit A'));
+  slide.appendChild(fig);
+}
+
+DECK.forEach((d, idx) => {
+  const slide = h('section', 'slide');
+  slide.dataset.fx = FX[idx % FX.length];
+  const fx = h('div', 'fx');
+  slide.appendChild(fx);
+  let c = 0;
+  const cas = (el) => { el.classList.add('cas'); el.style.setProperty('--i', c++); return el; };
+
+  if (d.type === 'title') {
+    fx.classList.add('t-center');
+    fx.appendChild(cas(h('div', '', '<span class="badge mono">31026</span>')));
+    const head = h('h1', 'headline', chars('FINAL ') + `<em>${chars('EXAM', 6)}</em>`);
+    fx.appendChild(head);
+    fx.appendChild(cas(h('p', 'sub', 'Course 31026 · Introduction to Applied Celebration<br>Subject of examination: <b>the course responsible</b>. Duration: one party.')));
+    fx.appendChild(cas(h('p', 'sub mono', 'sheets out · pens ready · → to begin')));
+  }
+
+  else if (d.type === 'rules') {
+    fx.appendChild(cas(h('div', 'kicker', 'Examination rules')));
+    const rules = h('div', 'rules');
+    [
+      ['§1', '<b>15 questions</b>, one film screening, one tie breaker. <span>Write the letter on your sheet.</span>'],
+      ['§2', 'Phones allowed <span>only for writing answers. The examiner sees everything. He always has.</span>'],
+      ['§3', 'Cheating is <b>permitted</b> <span>but will be read aloud and mocked.</span>'],
+      ['§4', 'Grading follows the Danish scale: <b>everyone gets a 12</b>, <span>but only one of you gets the glory.</span>'],
+    ].forEach(([n, txt]) => {
+      const row = h('div', 'rule-row');
+      row.appendChild(h('span', 'n mono', n));
+      row.appendChild(h('p', '', txt));
+      rules.appendChild(cas(row));
+    });
+    fx.appendChild(rules);
+  }
+
+  else if (d.type === 'q' || d.type === 'video') {
+    const n = meta[idx].n;
+    fx.appendChild(h('div', 'ghost mono', pad(n)));
+    fx.appendChild(cas(h('div', 'kicker', `Question ${pad(n)} / ${pad(TOTAL_Q)}` + (d.type === 'video' ? ' · film screening' : ''))));
+    fx.appendChild(cas(h('h2', 'qtext', d.text)));
+    const opts = h('div', 'opts');
+    if (d.opts.length > 5) opts.classList.add('cols2');
+    if (d.opts.some(o => o.length > 70)) opts.classList.add('long');
+    d.opts.forEach((o, i) => {
+      const row = h('div', 'opt');
+      row.appendChild(h('span', 'tag', LETTERS[i]));
+      row.appendChild(h('span', '', o));
+      opts.appendChild(cas(row));
+    });
+    fx.appendChild(opts);
+    if (d.type === 'video') {
+      fx.appendChild(cas(h('p', 'silence-hint', '→ roll the film · answers after the screening')));
+      slide.dataset.video = '1';
+      opts.style.display = 'none';   /* options hidden until the film has run */
+    }
+    addEvidence(slide, d);
+    const na = h('div', 'no-answer mono', 'answer not set: edit the DECK in quiz.html');
+    slide.appendChild(na);
+  }
+
+  /* Correction round: a question again, with the truth already lit. */
+  else if (d.type === 'answer') {
+    const q = d.src;
+    const n = meta[idx].n;
+    fx.appendChild(h('div', 'ghost mono', pad(n)));
+    fx.appendChild(cas(h('div', 'kicker', `Correction · question ${pad(n)} / ${pad(TOTAL_Q)}`)));
+    fx.appendChild(cas(h('h2', 'qtext', q.text)));
+    const opts = h('div', 'opts');
+    if (q.opts.length > 5) opts.classList.add('cols2');
+    if (q.opts.some(o => o.length > 70)) opts.classList.add('long');
+    const hitIdx = q.answer ? LETTERS.indexOf(String(q.answer).toUpperCase()) : -1;
+    q.opts.forEach((o, i) => {
+      const row = h('div', i === hitIdx ? 'opt hit' : 'opt');
+      row.appendChild(h('span', 'tag', LETTERS[i]));
+      row.appendChild(h('span', '', o));
+      opts.appendChild(cas(row));
+    });
+    fx.appendChild(opts);
+    if (hitIdx < 0) fx.appendChild(cas(h('p', 'silence-hint', 'answer not set in quiz.html: improvise, examiner')));
+    addEvidence(slide, q);
+  }
+
+  else if (d.type === 'break') {
+    fx.classList.add('t-center');
+    fx.appendChild(cas(h('div', 'kicker', 'Scheduled intermission')));
+    fx.appendChild(cas(h('h2', 'qtext', d.title)));
+    d.lines.forEach(l => fx.appendChild(cas(h('p', 'sub', l))));
+    fx.appendChild(cas(h('div', 'silence-count mono', '30')));
+    fx.appendChild(cas(h('p', 'silence-hint', d.hint)));
+    slide.dataset.silence = '1';
+  }
+
+  else if (d.type === 'tb') {
+    fx.classList.add('t-center');
+    fx.appendChild(cas(h('div', 'kicker', 'Tie breaker · open answer')));
+    fx.appendChild(cas(h('p', 'giant-q', '?')));
+    fx.appendChild(cas(h('h2', 'qtext', d.text)));
+    fx.appendChild(cas(h('p', 'sub', d.sub)));
+  }
+
+  else if (d.type === 'end') {
+    fx.classList.add('t-center');
+    fx.appendChild(cas(h('div', 'kicker', 'End of examination')));
+    const head = h('h1', 'headline');
+    head.innerHTML = chars('PENS ') + `<em>${chars('DOWN')}</em>`;
+    fx.appendChild(head);
+    fx.appendChild(cas(h('p', 'sub', 'Swap sheets with a neighbour you do not fully trust.<br>Correction follows. So do consequences.')));
+    slide.dataset.confetti = 'small';
+  }
+
+  else if (d.type === 'key') {
+    fx.appendChild(cas(h('div', 'kicker', 'Official answer key')));
+    fx.appendChild(cas(h('h2', 'qtext', 'The truth, notarised')));
+    const grid = h('div', 'keygrid');
+    let qn = 0;
+    DECK.forEach(dd => {
+      if (dd.type !== 'q' && dd.type !== 'video') return;
+      qn += 1;
+      const cell = h('div', 'keycell');
+      cell.appendChild(h('span', 'kq', 'Q' + pad(qn)));
+      cell.appendChild(h('span', 'ka', dd.answer || '—'));
+      grid.appendChild(cas(cell));
+    });
+    const tbCell = h('div', 'keycell');
+    tbCell.appendChild(h('span', 'kq', 'TB'));
+    tbCell.appendChild(h('span', 'ka', DECK.find(dd => dd.type === 'tb').answer ?? '—'));
+    grid.appendChild(cas(tbCell));
+    fx.appendChild(grid);
+  }
+
+  else if (d.type === 'outro') {
+    fx.classList.add('t-center');
+    fx.appendChild(cas(h('div', 'kicker', 'Course 31026 · concluded')));
+    const head = h('h1', 'headline');
+    head.innerHTML = `<em>${chars('EXAM')}</em>` + chars(' OVER');
+    fx.appendChild(head);
+    fx.appendChild(cas(h('p', 'sub', 'Everyone passes. One of you passes <b>harder</b>.<br>The bar has reopened. Dismissed.')));
+    slide.dataset.confetti = 'big';
+  }
+
+  stage.appendChild(slide);
+});
+
+const slides = [...stage.children];
+
+/* ---- Sound -------------------------------------------------------------- */
+let audioCtx = null;
+let soundOn = true;
+function beep(freq, dur = 0.12, type = 'sine', gain = 0.08, when = 0) {
+  if (!soundOn) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t = audioCtx.currentTime + when;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+  } catch (e) { /* a silent quiz is still a quiz */ }
+}
+const sfx = {
+  next:   () => beep(340, 0.07, 'triangle', 0.045),
+  reveal: () => { beep(523, 0.14, 'sine', 0.09); beep(784, 0.3, 'sine', 0.09, 0.11); },
+  tick:   () => beep(1000, 0.03, 'square', 0.028),
+  gong:   () => { beep(196, 0.7, 'sawtooth', 0.1); beep(98, 0.9, 'sine', 0.12, 0.02); },
+};
+const sndEl = document.getElementById('snd');
+function setSound(v) { soundOn = v; sndEl.classList.toggle('off', !v); }
+sndEl.addEventListener('click', () => setSound(!soundOn));
+
+/* ---- Confetti ------------------------------------------------------------ */
+const canvas = document.getElementById('confetti');
+const ctx2d = canvas.getContext('2d');
+let particles = [];
+let confettiRaf = null;
+function sizeCanvas() { canvas.width = innerWidth; canvas.height = innerHeight; }
+addEventListener('resize', sizeCanvas); sizeCanvas();
+function fireConfetti(count) {
+  if (reduceMotion) return;
+  const colors = ['#990000', '#E83F48', '#F4F4F5', '#A1A1A6'];
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: innerWidth * (0.2 + Math.random() * 0.6),
+      y: innerHeight + 10,
+      vx: (Math.random() - 0.5) * 14,
+      vy: -(11 + Math.random() * 13),
+      w: 5 + Math.random() * 7, h: 8 + Math.random() * 8,
+      rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3,
+      c: colors[i % colors.length], life: 1,
+    });
+  }
+  if (!confettiRaf) tickConfetti();
+}
+function tickConfetti() {
+  ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+  particles = particles.filter(p => p.life > 0 && p.y < innerHeight + 40);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.32; p.vx *= 0.99;
+    p.rot += p.vr; p.life -= 0.004;
+    ctx2d.save();
+    ctx2d.translate(p.x, p.y); ctx2d.rotate(p.rot);
+    ctx2d.globalAlpha = Math.max(0, Math.min(1, p.life * 1.4));
+    ctx2d.fillStyle = p.c;
+    ctx2d.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    ctx2d.restore();
+  });
+  confettiRaf = particles.length ? requestAnimationFrame(tickConfetti) : null;
+  if (!particles.length) ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+/* ---- Timer --------------------------------------------------------------- */
+const ring = document.getElementById('ring');
+const ringNum = document.getElementById('ringNum');
+let timer = null;
+function stopTimer() {
+  if (timer) { clearInterval(timer); timer = null; }
+  ring.classList.remove('on', 'warn');
+  const big = currentBigCount();
+  if (big) { big.textContent = '30'; big.classList.remove('warn'); }
+}
+function currentBigCount() {
+  const s = slides[state.i];
+  return s.dataset.silence ? s.querySelector('.silence-count') : null;
+}
+function startTimer(seconds = 30) {
+  stopTimer();
+  let left = seconds;
+  const big = currentBigCount();
+  const paint = () => {
+    if (big) { big.textContent = left; big.classList.toggle('warn', left <= 5); }
+    else {
+      ring.classList.add('on');
+      ring.style.setProperty('--p', left / seconds);
+      ringNum.textContent = left;
+      ring.classList.toggle('warn', left <= 5);
+    }
+  };
+  paint();
+  timer = setInterval(() => {
+    left -= 1;
+    if (left <= 5 && left > 0) sfx.tick();
+    if (left <= 0) {
+      paint();
+      stopTimer();
+      sfx.gong();
+      if (!reduceMotion) {
+        document.body.classList.add('shake');
+        setTimeout(() => document.body.classList.remove('shake'), 450);
+      }
+      return;
+    }
+    paint();
+  }, 1000);
+}
+
+/* ---- Film handling -------------------------------------------------------- */
+let filmOk = null;
+qvideo.addEventListener('error', () => {
+  filmOk = false;
+  document.getElementById('filmMissing').hidden = false;
+});
+qvideo.addEventListener('loadedmetadata', () => { filmOk = true; });
+
+function openFilm() {
+  document.body.classList.add('film-open');
+  document.body.classList.remove('film-dim');
+  if (filmOk !== false) { qvideo.currentTime = 0; qvideo.play().catch(() => {}); }
+}
+function dimFilm() {
+  document.body.classList.add('film-dim');
+  qvideo.pause();
+}
+function closeFilm() {
+  document.body.classList.remove('film-open', 'film-dim');
+  qvideo.pause();
+}
+
+/* ---- Navigation ----------------------------------------------------------- */
+const state = {
+  i: 0,
+  steps: DECK.map(() => 0),
+  /* correction slides are born revealed, when they know their answer */
+  revealed: DECK.map(d => d.type === 'answer' && !!d.src.answer),
+};
+
+const fill = document.getElementById('fill');
+const where = document.getElementById('where');
+
+function slideLabel(i) {
+  const d = DECK[i];
+  if (d.type === 'q') return `Q ${pad(meta[i].n)}/${pad(TOTAL_Q)}`;
+  if (d.type === 'video') return `Q ${pad(meta[i].n)}/${pad(TOTAL_Q)} · FILM`;
+  if (d.type === 'answer') return `ANS ${pad(meta[i].n)}/${pad(TOTAL_Q)}`;
+  if (d.type === 'break') return 'SILENCE';
+  if (d.type === 'tb') return 'TIE BREAK';
+  if (d.type === 'key') return 'ANSWER KEY';
+  return `${pad(i + 1)}/${pad(DECK.length)}`;
+}
+
+function applyVideoStep(i) {
+  const d = DECK[i];
+  if (d.type !== 'video') { closeFilm(); return; }
+  const step = state.steps[i];
+  const opts = slides[i].querySelector('.opts');
+  const hint = slides[i].querySelector('.silence-hint');
+  if (step === 0) { closeFilm(); opts.style.display = 'none'; if (hint) hint.style.visibility = 'visible'; }
+  if (step === 1) { openFilm(); }
+  if (step === 2) {
+    /* keep the dimmed reel behind the options, also when arriving from a
+       later slide, where goTo has just closed the film entirely */
+    document.body.classList.add('film-open');
+    dimFilm();
+    opts.style.display = '';
+    if (hint) hint.style.visibility = 'hidden';
+    /* replay the cascade on the options now that they exist */
+    [...opts.children].forEach(o => { o.style.transition = 'none'; });
+    requestAnimationFrame(() => requestAnimationFrame(() =>
+      [...opts.children].forEach(o => { o.style.transition = ''; })));
+  }
+}
+
+function goTo(next, dir) {
+  next = Math.max(0, Math.min(DECK.length - 1, next));
+  if (next === state.i && slides[next].classList.contains('is-active')) return;
+  const prev = state.i;
+  slides[prev].classList.remove('is-active');
+  slides[prev].classList.toggle('went-back', dir < 0);
+  stopTimer();
+  closeFilm();
+  state.i = next;
+  const s = slides[next];
+  s.classList.toggle('went-back', dir < 0);
+  /* force a clean restart of the entrance transition */
+  void s.offsetWidth;
+  s.classList.add('is-active');
+  s.classList.toggle('is-revealed', state.revealed[next]);
+  applyVideoStep(next);
+  if (s.dataset.confetti === 'small') fireConfetti(90);
+  if (s.dataset.confetti === 'big') { fireConfetti(160); setTimeout(() => fireConfetti(160), 500); }
+  fill.style.width = (next / (DECK.length - 1)) * 100 + '%';
+  where.textContent = slideLabel(next);
+  location.replace('#' + next);
+}
+
+function nextStep() {
+  const i = state.i;
+  const d = DECK[i];
+  if (d.type === 'video' && state.steps[i] < 2) {
+    state.steps[i] += 1;
+    applyVideoStep(i);
+    sfx.next();
+    return;
+  }
+  if (i < DECK.length - 1) { sfx.next(); goTo(i + 1, +1); }
+}
+function prevStep() {
+  const i = state.i;
+  const d = DECK[i];
+  if (d.type === 'video' && state.steps[i] > 0) {
+    state.steps[i] -= 1;
+    applyVideoStep(i);
+    return;
+  }
+  if (i > 0) goTo(i - 1, -1);
+}
+
+function reveal() {
+  const i = state.i;
+  const d = DECK[i];
+  if (d.type !== 'q' && d.type !== 'video') return;
+  if (d.type === 'video' && state.steps[i] < 2) return;  /* not before the film */
+  const s = slides[i];
+  if (state.revealed[i]) {   /* toggle back off, useful when re-walking */
+    state.revealed[i] = false;
+    s.classList.remove('is-revealed');
+    return;
+  }
+  if (!d.answer) {
+    const na = s.querySelector('.no-answer');
+    na.classList.add('show');
+    setTimeout(() => na.classList.remove('show'), 2200);
+    return;
+  }
+  const idx = LETTERS.indexOf(String(d.answer).toUpperCase());
+  const opt = s.querySelectorAll('.opt')[idx];
+  if (!opt) return;
+  s.querySelectorAll('.opt').forEach(o => o.classList.remove('hit'));
+  opt.classList.add('hit');
+  state.revealed[i] = true;
+  s.classList.add('is-revealed');
+  sfx.reveal();
+  fireConfetti(26);
+}
+
+/* ---- Input ---------------------------------------------------------------- */
+const startOverlay = document.getElementById('startOverlay');
+const helpOverlay = document.getElementById('helpOverlay');
+
+function begin(fullscreen) {
+  startOverlay.classList.add('hidden');
+  if (fullscreen) document.documentElement.requestFullscreen?.().catch(() => {});
+  if (!slides.some(s => s.classList.contains('is-active'))) goTo(startAt, +1);
+}
+document.getElementById('startBtn').addEventListener('click', () => begin(true));
+
+document.addEventListener('keydown', (e) => {
+  if (!startOverlay.classList.contains('hidden')) {
+    begin(e.key === 'F' || e.key === 'f');
+    e.preventDefault();
+    return;
+  }
+  if (!helpOverlay.classList.contains('hidden')) {
+    helpOverlay.classList.add('hidden');
+    return;
+  }
+  switch (e.key) {
+    case 'ArrowRight': case ' ': case 'PageDown': case 'ArrowDown':
+      e.preventDefault(); nextStep(); break;
+    case 'ArrowLeft': case 'PageUp': case 'ArrowUp':
+      e.preventDefault(); prevStep(); break;
+    case 'Enter': case 'r': case 'R':
+      e.preventDefault(); reveal(); break;
+    case 't': case 'T': timer ? stopTimer() : startTimer(30); break;
+    case 'f': case 'F':
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.().catch(() => {});
+      break;
+    case 'm': case 'M': setSound(!soundOn); break;
+    case '?': helpOverlay.classList.remove('hidden'); break;
+    case 'Home': goTo(0, -1); break;
+    case 'End': goTo(DECK.length - 1, +1); break;
+  }
+});
+
+/* Click: right side forward, left fifth back. Ignore clicks on the HUD. */
+document.addEventListener('click', (e) => {
+  if (!startOverlay.classList.contains('hidden')) return;
+  if (!helpOverlay.classList.contains('hidden')) return;
+  if (e.target.closest('.hud') || e.target.closest('.panel')) return;
+  (e.clientX < innerWidth * 0.2) ? prevStep() : nextStep();
+});
+
+/* Touch swipe */
+let touchX = null;
+addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+addEventListener('touchend', (e) => {
+  if (touchX == null) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx) > 50) (dx < 0 ? nextStep() : prevStep());
+  touchX = null;
+}, { passive: true });
+
+/* Cursor + HUD fade when idle, presentation style. */
+let idleT = null;
+function poke() {
+  document.body.classList.remove('no-cursor', 'hud-hidden');
+  clearTimeout(idleT);
+  idleT = setTimeout(() => document.body.classList.add('no-cursor', 'hud-hidden'), 3000);
+}
+addEventListener('mousemove', poke);
+addEventListener('keydown', poke);
+poke();
+
+/* Deep link: reload lands on the same slide. */
+const startAt = Math.max(0, Math.min(DECK.length - 1, parseInt(location.hash.slice(1), 10) || 0));
+fill.style.width = '0%';
+where.textContent = slideLabel(startAt);
+</script>
+
+</body>
+</html>

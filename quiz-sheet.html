@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>31026 · Exam answer sheet</title>
+<link rel="icon" href="assets/favicon.svg?v=25" type="image/svg+xml">
+
+<!-- ==========================================================================
+     THE ANSWER SHEET
+     ==========================================================================
+     One page, one job: an A4 portrait sheet guests write their quiz answers
+     on. Printed in a stack the night before, one per guest, driven from the
+     deck in quiz.html. Self contained like qr.html: no styles.css, no app.js,
+     nothing that can fail between the owner and a printer at 23:40.
+
+     The rows here MUST match the DECK in quiz.html: fifteen lettered
+     questions, question 7 is the film, then the tie breaker as a written
+     number. If a question is added or reordered there, it is added or
+     reordered here by hand. Two files, one truth, checked by eye: that is
+     the deal that keeps both pages free of a build step.
+
+     The bubbles are also tappable, so the same page on a phone screen works
+     as a digital sheet for anyone who refuses paper. Taps are remembered by
+     the browser (localStorage) and survive an accidental reload. That is a
+     courtesy, not a backend: nothing leaves the phone, and the phone's owner
+     still has to shout their own score like everyone else.
+
+     ?key=1 turns the same page into the HOST KEY: correct bubbles pre-filled
+     in red, taps disabled, headline changed so it cannot be mistaken for a
+     blank and handed to a guest. Print exactly one. The letters live in the
+     ROWS array below and must match the DECK in quiz.html by hand, same as
+     the row order itself.
+     ========================================================================== -->
+
+<style>
+  :root {
+    --accent: #990000;
+    --accent-lit: #E83F48;
+    --ink: #131315;
+    --ink-dim: #5b5b63;
+    --rule: #d8d8dc;
+    --paper: #ffffff;
+  }
+  body.bw {
+    --accent: #000000;
+    --accent-lit: #000000;
+    --ink: #000000;
+    --ink-dim: #333333;
+    --rule: #bbbbbb;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #1a1a1e;
+    font-family: "IBM Plex Sans", "Segoe UI", -apple-system, system-ui, sans-serif;
+    color: var(--ink);
+    display: flex; flex-direction: column; align-items: center;
+    gap: 18px; padding: 28px 12px 60px;
+  }
+  .mono { font-family: "IBM Plex Mono", "Cascadia Mono", ui-monospace, Consolas, monospace; }
+
+  /* Screen-only controls. Gone entirely in print. */
+  .tools { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .tools button, .tools a {
+    appearance: none; cursor: pointer; text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font: 500 14px/1 "Segoe UI", system-ui, sans-serif;
+    padding: 12px 18px; border-radius: 999px;
+  }
+  .tools button:hover, .tools a:hover { background: rgba(255,255,255,0.16); }
+  .tools .hint {
+    flex-basis: 100%; text-align: center;
+    color: rgba(255,255,255,0.55); font-size: 12.5px; margin-top: 2px;
+  }
+
+  /* The sheet. Fixed at A4 so what is on screen is what lands on paper. */
+  .sheet {
+    width: 210mm; min-height: 297mm;
+    background: var(--paper);
+    padding: 13mm 16mm 11mm;
+    display: flex; flex-direction: column;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.55);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  @media (max-width: 840px) {
+    .sheet { transform: scale(0.44); transform-origin: top center; margin-bottom: calc(-297mm * 0.56); }
+  }
+
+  .head { display: flex; align-items: center; gap: 5mm; }
+  .badge {
+    display: grid; place-items: center;
+    width: 17mm; height: 12mm;
+    background: var(--accent); color: #fff;
+    font-size: 15pt; letter-spacing: 0.02em;
+    border-radius: 1.2mm;
+  }
+  .head__t { line-height: 1.25; }
+  .head__t b { display: block; font-size: 12.5pt; font-weight: 600; }
+  .head__t span { display: block; font-size: 9pt; color: var(--ink-dim); }
+  .head__ects { margin-left: auto; text-align: right; font-size: 9pt; color: var(--ink-dim); line-height: 1.45; }
+
+  .rule { border: 0; border-top: 0.6mm solid var(--accent); margin: 5mm 0 0; }
+
+  .headline {
+    margin: 6mm 0 0;
+    font-size: 26pt; font-weight: 750; letter-spacing: 0.01em;
+    line-height: 1.04; text-transform: uppercase;
+  }
+  .headline em { font-style: normal; color: var(--accent); }
+  .sub { margin: 2.5mm 0 0; font-size: 10pt; color: var(--ink-dim); line-height: 1.4; }
+
+  /* Candidate line */
+  .cand {
+    display: flex; gap: 8mm; margin-top: 6mm; align-items: flex-end;
+  }
+  .cand .field { flex: 1; }
+  .cand .field.small { flex: 0 0 38mm; }
+  .cand label {
+    display: block; font-size: 7.5pt; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-dim); margin-bottom: 1mm;
+  }
+  .cand .line { border-bottom: 0.35mm solid var(--ink); height: 7mm; }
+
+  /* The grid of questions */
+  .qrows { margin-top: 5mm; }
+  .qrow {
+    display: flex; align-items: center; gap: 4mm;
+    padding: 1.85mm 0;
+    border-bottom: 0.2mm solid var(--rule);
+  }
+  .qrow:last-child { border-bottom: 0; }
+  .qrow .n {
+    flex: 0 0 9mm;
+    font-size: 10.5pt; font-weight: 600; color: var(--accent);
+  }
+  .qrow .topic {
+    flex: 1;
+    font-size: 8.5pt; color: var(--ink-dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .qrow .bubbles { display: flex; gap: 1.8mm; }
+  .bubble {
+    width: 6.2mm; height: 6.2mm; border-radius: 50%;
+    border: 0.4mm solid var(--ink);
+    display: grid; place-items: center;
+    font-size: 7.5pt; font-weight: 500; color: var(--ink);
+    cursor: pointer; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bubble.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .qrow.tb .topic { color: var(--ink); font-size: 9.5pt; font-weight: 600; }
+  .qrow.tb .writein {
+    flex: 0 0 44mm; height: 8mm;
+    border: 0.4mm solid var(--ink); border-radius: 1.2mm;
+    display: flex; align-items: center; justify-content: flex-end;
+    padding: 0 2mm;
+    font-size: 7.5pt; color: var(--ink-dim);
+  }
+
+  /* Scoring strip */
+  .score {
+    margin-top: 5mm; padding-top: 4mm;
+    border-top: 0.3mm solid var(--rule);
+    display: flex; gap: 8mm; align-items: flex-end;
+  }
+  .score .box { flex: 0 0 34mm; }
+  .score label {
+    display: block; font-size: 7.5pt; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-dim); margin-bottom: 1mm;
+  }
+  .score .cell {
+    border: 0.4mm solid var(--ink); border-radius: 1.2mm; height: 9mm;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10pt;
+  }
+  .score .cell.fixed { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .score p { flex: 1; margin: 0; font-size: 8pt; color: var(--ink-dim); line-height: 1.45; }
+
+  .foot {
+    margin-top: auto; padding-top: 4mm;
+    border-top: 0.3mm solid var(--rule);
+    display: flex; align-items: baseline; gap: 6mm;
+    font-size: 8pt; color: var(--ink-dim); line-height: 1.45;
+  }
+  .foot .fine { flex: 1; }
+  .foot .id { white-space: nowrap; }
+
+  @page { size: A4 portrait; margin: 0; }
+  @media print {
+    body { background: #fff; padding: 0; display: block; }
+    .tools { display: none; }
+    .sheet { box-shadow: none; width: auto; min-height: 0; transform: none; margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="tools">
+  <button type="button" onclick="printAs(false)">🖨&nbsp; Print in colour</button>
+  <button type="button" onclick="printAs(true)">🖨&nbsp; Print black &amp; white</button>
+  <a href="quiz.html">Open the exam deck →</a>
+  <a href="quiz-sheet.html?key=1" id="modeLink">Open the host key →</a>
+  <p class="hint">A4 portrait, margins none, one sheet per guest. On a phone, the bubbles are tappable and remembered.</p>
+</div>
+
+<div class="sheet">
+
+  <div class="head">
+    <span class="badge mono">31026</span>
+    <span class="head__t">
+      <b>Introduction to Applied Celebration</b>
+      <span>Department of Graduation Studies · Final examination</span>
+    </span>
+    <span class="head__ects">5 ECTS<br>03 October 2026</span>
+  </div>
+  <hr class="rule">
+
+  <h1 class="headline" id="headline">Answer <em>sheet</em></h1>
+  <p class="sub" id="subline">Fifteen questions, one letter each. Question 07 is answered after the
+  film screening. The tie breaker is a number, and being close counts.
+  Aids permitted: none. Aids expected: several.</p>
+
+  <div class="cand">
+    <div class="field">
+      <label>Candidate name</label>
+      <div class="line"></div>
+    </div>
+    <div class="field small">
+      <label>Drinks so far (honesty clause)</label>
+      <div class="line"></div>
+    </div>
+  </div>
+
+  <!-- Rows mirror the DECK in quiz.html. Letters per row = options per
+       question. Change one, change the other. -->
+  <div class="qrows" id="rows"></div>
+
+  <div class="score">
+    <div class="box">
+      <label>Score (peer corrected)</label>
+      <div class="cell mono">&nbsp;/ 15</div>
+    </div>
+    <div class="box">
+      <label>Grade awarded</label>
+      <div class="cell fixed mono">12</div>
+    </div>
+    <p>Corrected by a neighbour under the honour system, which at this hour is a
+    formality. Disputes are settled by the course responsible, who is also the
+    subject, the examiner and the prize.</p>
+  </div>
+
+  <div class="foot">
+    <span class="fine">Handing in this sheet earns 0 ECTS. Knowing the man earns all 5.
+    The tie breaker is counted in <i>bestemmie</i>, a unit recognised by no institution and by every Italian.</span>
+    <span class="id mono">31026 · Applied Celebration · exam form: written, then loud</span>
+  </div>
+
+</div>
+
+<script>
+  /* Options per question, topic hint, and the correct LETTER (null while
+     undecided). MUST match the DECK in quiz.html, by hand, both ways. */
+  const ROWS = [
+    [4, 'notoriously famous for',          'B'],
+    [4, 'the martial art',                 'B'],
+    [5, 'favourite AI model, 100€/month',  'C'],
+    [4, 'the landlord did NOT',            'D'],
+    [4, 'the biotech competition',         'B'],
+    [4, 'warm sun, one thought',           'B'],
+    [4, 'the film: when was it recorded?', 'C'],
+    [9, 'the one I don’t really mind',     null],
+    [4, 'best-to-worst ranking',           null],
+    [4, 'go-to breakfast',                 'A'],
+    [5, 'Denmark: NOT true',               'D'],
+    [4, 'most repeated sentence',          'A'],
+    [5, 'hours at DTU, daily',             'D'],
+    [4, 'thesis AI model',                 'B'],
+    [4, 'Vinted purchases',                'C'],
+  ];
+  const TB_ANSWER = null;   /* the real bestemmie count, once counted */
+
+  const KEY = new URLSearchParams(location.search).get('key') === '1';
+  const LETTERS = 'ABCDEFGHI';
+  const rows = document.getElementById('rows');
+  const saved = (() => {
+    if (KEY) return {};
+    try { return JSON.parse(localStorage.getItem('c03102.quizSheet') || '{}'); }
+    catch (e) { return {}; }
+  })();
+
+  ROWS.forEach(([count, topic, ans], qi) => {
+    const row = document.createElement('div');
+    row.className = 'qrow';
+    const keyTopic = KEY && !ans ? topic + ' (not set)' : topic;
+    row.innerHTML = `<span class="n mono">${String(qi + 1).padStart(2, '0')}</span>` +
+                    `<span class="topic">${keyTopic}</span>`;
+    const bubbles = document.createElement('div');
+    bubbles.className = 'bubbles';
+    for (let i = 0; i < count; i++) {
+      const b = document.createElement('span');
+      b.className = 'bubble mono';
+      b.textContent = LETTERS[i];
+      if (KEY ? (ans != null && LETTERS.indexOf(ans) === i) : saved[qi] === i) b.classList.add('on');
+      if (!KEY) b.addEventListener('click', () => {
+        const on = b.classList.contains('on');
+        [...bubbles.children].forEach(x => x.classList.remove('on'));
+        if (!on) { b.classList.add('on'); saved[qi] = i; } else { delete saved[qi]; }
+        try { localStorage.setItem('c03102.quizSheet', JSON.stringify(saved)); } catch (e) {}
+      });
+      bubbles.appendChild(b);
+    }
+    row.appendChild(bubbles);
+    rows.appendChild(row);
+  });
+
+  const tb = document.createElement('div');
+  tb.className = 'qrow tb';
+  tb.innerHTML = `<span class="n mono">TB</span>` +
+                 `<span class="topic">bestemmie, last month of thesis</span>` +
+                 `<span class="writein mono">${KEY && TB_ANSWER != null ? 'n = ' + TB_ANSWER : 'n ='}</span>`;
+  rows.appendChild(tb);
+
+  if (KEY) {
+    document.getElementById('headline').innerHTML = 'Host <em>key</em>';
+    document.getElementById('subline').textContent =
+      'The examiner’s copy. Correct bubbles pre-filled. Print one, guard it ' +
+      'with your life, and do not lay it face up next to the wine.';
+    const link = document.getElementById('modeLink');
+    link.href = 'quiz-sheet.html';
+    link.textContent = 'Open the blank sheet →';
+    document.querySelector('.cand .line').textContent = 'The examiner';
+  }
+
+  function printAs(bw) {
+    document.body.classList.toggle('bw', bw);
+    window.print();
+  }
+</script>
+
+</body>
+</html>
