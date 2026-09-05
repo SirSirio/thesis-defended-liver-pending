@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>31026 · Final Exam</title>
-<link rel="icon" href="assets/favicon.svg?v=26" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=27" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -352,6 +352,29 @@
   .silence-count.warn { color: var(--accent-lit); }
   .silence-hint { font-family: var(--mono); font-size: clamp(12px, 1.7vh, 16px); color: var(--ink-faint); letter-spacing: 0.12em; text-transform: uppercase; }
 
+  /* The memorial. A round portrait sharp in the middle of its own blurred
+     enlargement, and a name set at headline size, because respect scales. */
+  .memorial-bg {
+    position: absolute; inset: -40px; z-index: 0;
+    background-size: cover; background-position: center 18%;
+    filter: blur(34px) brightness(0.32) saturate(0.9);
+    transform: scale(1.08);
+  }
+  .memorial-img {
+    width: clamp(170px, 32vh, 330px); aspect-ratio: 1/1;
+    border-radius: 50%;
+    background-size: cover; background-position: center 12%;
+    margin: 0 auto clamp(12px, 2.2vh, 24px);
+    box-shadow: 0 30px 90px rgba(0,0,0,0.75), 0 0 0 4px rgba(255,255,255,0.16), 0 0 80px rgba(153,0,0,0.35);
+  }
+  .memorial-name {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(44px, 10vh, 100px); line-height: 1;
+    text-transform: uppercase; letter-spacing: 0.01em;
+    margin: 0 0 clamp(6px, 1.2vh, 14px);
+    text-shadow: 0 6px 40px rgba(0,0,0,0.8);
+  }
+
   /* --- Tie breaker / end ---------------------------------------------------- */
   .giant-q {
     font-family: var(--display); font-weight: 800;
@@ -520,7 +543,7 @@
   <div class="panel">
     <span class="badge mono">31026</span>
     <h2>Final examination</h2>
-    <p>Fifteen questions, one film screening, one tie breaker, two scheduled
+    <p>Thirteen questions, one film screening, one tie breaker, two scheduled
        silences. Sheets out, pens ready, phones on airplane mode or on
        quiz-sheet duty.</p>
     <div class="keys">
@@ -572,9 +595,15 @@ const DECK = [
     opts: ['Taekwondo', 'Viet Vo Dao', 'Vovinam Kiem Quyen', 'Quan Ki Do'],
     answer: 'B' },
 
+  { type: 'q', text: 'Which AI model was I using during my thesis, at ~100€ a month?',
+    opts: ['DeepSeek', 'Claude', 'Gemini', 'ChatGPT'],
+    answer: 'B' },
+
+  /* RETIRED 2026-09-05, owner call: two AI questions was one too many, the
+     thesis one above took this slot.
   { type: 'q', text: 'My favourite AI model, 100€ a month for the last 3 months:',
     opts: ['Gemini', 'ChatGPT', 'Claude', 'Grok', 'DeepSeek'],
-    answer: 'C' },
+    answer: 'C' }, */
 
   { type: 'q', text: 'My first Copenhagen landlord was just crazy. She did many things. She did <em>NOT</em>:',
     opts: [
@@ -601,7 +630,7 @@ const DECK = [
   { type: 'video', text: 'When was this video recorded?',
     opts: [
       'Bachelor’s graduation, 8 PM',
-      'Erasmus farewell party, 2 AM',
+      'Me in 2 hours',
       'New Year’s Eve, 11:58 PM',
       'A completely ordinary Tuesday, 9 AM',
     ],
@@ -615,6 +644,7 @@ const DECK = [
     ],
     answer: null },
 
+  /* RETIRED 2026-09-05, owner call: out for now, may return.
   { type: 'q', text: 'From best (I don’t mind) to worst (I f***ing hate it), which ranking is most accurate?',
     opts: [
       'Windy weather → Cold water → Techno music → Balaton lake → Biotechnology → Beer',
@@ -622,10 +652,12 @@ const DECK = [
       'Techno music → Cold water → Beer → Windy weather → Balaton lake → Biotechnology',
       'Balaton lake → Techno music → Biotechnology → Cold water → Beer → Windy weather',
     ],
-    answer: null },
+    answer: null }, */
 
   { type: 'break',
     title: 'A moment of silence',
+    name: 'Oliver Tree',
+    img: 'assets/oliver-tree.jpg',
     lines: ['Thirty seconds of respect for the death of <b>Oliver Tree</b>.'],
     hint: 'Press T. Nobody speaks.' },
 
@@ -655,10 +687,6 @@ const DECK = [
   { type: 'q', text: 'Lately I became a workaholic. On average, how many hours was I at DTU every day, weekends included?',
     opts: ['8', '9', '10', '12', '14'],
     answer: 'D' },
-
-  { type: 'q', text: 'Which AI model was I using during my thesis, at ~100€ a month?',
-    opts: ['DeepSeek', 'Claude', 'Gemini', 'ChatGPT'],
-    answer: 'B' },
 
   { type: 'q', text: 'How many purchases did I make on Vinted in the past 6 months?',
     opts: ['8', '15', '26', '35'],
@@ -753,7 +781,7 @@ DECK.forEach((d, idx) => {
     fx.appendChild(cas(h('div', 'kicker', 'Examination rules')));
     const rules = h('div', 'rules');
     [
-      ['§1', '<b>15 questions</b>, one film screening, one tie breaker. <span>Write the letter on your sheet.</span>'],
+      ['§1', '<b>13 questions</b>, one film screening, one tie breaker. <span>Write the letter on your sheet.</span>'],
       ['§2', 'Phones allowed <span>only for writing answers. The examiner sees everything. He always has.</span>'],
       ['§3', 'Cheating is <b>permitted</b> <span>but will be read aloud and mocked.</span>'],
       ['§4', 'Grading follows the Danish scale: <b>everyone gets a 12</b>, <span>but only one of you gets the glory.</span>'],
@@ -815,8 +843,19 @@ DECK.forEach((d, idx) => {
 
   else if (d.type === 'break') {
     fx.classList.add('t-center');
-    fx.appendChild(cas(h('div', 'kicker', 'Scheduled intermission')));
-    fx.appendChild(cas(h('h2', 'qtext', d.title)));
+    if (d.img) {
+      const mbg = h('div', 'memorial-bg');
+      mbg.style.backgroundImage = 'url(' + d.img + ')';
+      slide.insertBefore(mbg, fx);
+      fx.appendChild(cas(h('div', 'kicker', 'Scheduled intermission · ' + d.title.toLowerCase())));
+      const mimg = h('div', 'memorial-img');
+      mimg.style.backgroundImage = 'url(' + d.img + ')';
+      fx.appendChild(cas(mimg));
+      fx.appendChild(cas(h('h2', 'memorial-name', d.name)));
+    } else {
+      fx.appendChild(cas(h('div', 'kicker', 'Scheduled intermission')));
+      fx.appendChild(cas(h('h2', 'qtext', d.title)));
+    }
     d.lines.forEach(l => fx.appendChild(cas(h('p', 'sub', l))));
     fx.appendChild(cas(h('div', 'silence-count mono', '30')));
     fx.appendChild(cas(h('p', 'silence-hint', d.hint)));

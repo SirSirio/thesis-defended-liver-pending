@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>31026 · Live Exam · Examiner</title>
-<link rel="icon" href="assets/favicon.svg?v=26" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=27" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -349,6 +349,29 @@
   .silence-count.warn { color: var(--accent-lit); }
   .silence-hint { font-family: var(--mono); font-size: clamp(12px, 1.7vh, 16px); color: var(--ink-faint); letter-spacing: 0.12em; text-transform: uppercase; }
 
+  /* The memorial. A round portrait sharp in the middle of its own blurred
+     enlargement, and a name set at headline size, because respect scales. */
+  .memorial-bg {
+    position: absolute; inset: -40px; z-index: 0;
+    background-size: cover; background-position: center 18%;
+    filter: blur(34px) brightness(0.32) saturate(0.9);
+    transform: scale(1.08);
+  }
+  .memorial-img {
+    width: clamp(170px, 32vh, 330px); aspect-ratio: 1/1;
+    border-radius: 50%;
+    background-size: cover; background-position: center 12%;
+    margin: 0 auto clamp(12px, 2.2vh, 24px);
+    box-shadow: 0 30px 90px rgba(0,0,0,0.75), 0 0 0 4px rgba(255,255,255,0.16), 0 0 80px rgba(153,0,0,0.35);
+  }
+  .memorial-name {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(44px, 10vh, 100px); line-height: 1;
+    text-transform: uppercase; letter-spacing: 0.01em;
+    margin: 0 0 clamp(6px, 1.2vh, 14px);
+    text-shadow: 0 6px 40px rgba(0,0,0,0.8);
+  }
+
   .ring {
     position: fixed; top: clamp(16px, 3vh, 34px); right: clamp(18px, 3vw, 40px); z-index: 60;
     width: 76px; height: 76px; border-radius: 50%;
@@ -531,8 +554,8 @@
   </div>
 </div>
 
-<script src="config.js?v=26"></script>
-<script src="quiz-data.js?v=26"></script>
+<script src="config.js?v=27"></script>
+<script src="quiz-data.js?v=27"></script>
 <script>
 (function () {
   'use strict';
@@ -542,11 +565,12 @@
      quiz-data.js option order; TB truth is asked for live at reveal time,
      so the number does not need to exist before the night.
      ========================================================================= */
+  /* Renumbered 2026-09-05: the favourite-AI question retired (the thesis one
+     took slot 3), the ranking retired outright. Thirteen questions remain. */
   var ANSWERS = {
-    1: 'B', 2: 'B', 3: 'C', 4: 'D', 5: 'B', 6: 'B', 7: 'C',
+    1: 'B', 2: 'B', 3: 'B', 4: 'D', 5: 'B', 6: 'B', 7: 'C',
     8: null,   /* the one he does not really mind: STILL UNSET */
-    9: null,   /* the ranking: STILL UNSET */
-    10: 'A', 11: 'D', 12: 'A', 13: 'D', 14: 'B', 15: 'C',
+    9: 'A', 10: 'D', 11: 'A', 12: 'D', 13: 'C',
   };
 
   var P = (window.PARTY_CONFIG && window.PARTY_CONFIG.photos) || {};
@@ -595,7 +619,9 @@
   var SLIDES = [{ t: 'lobby' }];
   QUIZ.questions.forEach(function (q) {
     SLIDES.push({ t: 'q', q: q });
-    if (q.n === 9) SLIDES.push({ t: 'break', title: 'A moment of silence', line: 'Thirty seconds of respect for the death of <b>Oliver Tree</b>.' });
+    if (q.n === 8) SLIDES.push({ t: 'break', title: 'A moment of silence',
+      name: 'Oliver Tree', img: 'assets/oliver-tree.jpg',
+      line: 'Thirty seconds of respect for the death of <b>Oliver Tree</b>.' });
   });
   SLIDES.push({ t: 'break', title: 'A second silence', line: 'Thirty seconds of respect for <b>me</b>, who will never get to see him live. Like, ever.' });
   SLIDES.push({ t: 'tb' });
@@ -640,7 +666,7 @@
       var q = d.q;
       fx.appendChild(h('div', 'ghost mono', pad(q.n)));
       fx.appendChild(cas(h('div', 'kicker',
-        'Question ' + pad(q.n) + ' / 15' + (q.film ? ' · film screening' : ''))));
+        'Question ' + pad(q.n) + ' / ' + pad(QUIZ.questions.length) + (q.film ? ' · film screening' : ''))));
       fx.appendChild(cas(h('h2', 'qtext', esc(q.text))));
       var opts = h('div', 'opts');
       if (q.opts.length > 5) opts.classList.add('cols2');
@@ -662,8 +688,19 @@
 
     else if (d.t === 'break') {
       fx.classList.add('t-center');
-      fx.appendChild(cas(h('div', 'kicker', 'Scheduled intermission')));
-      fx.appendChild(cas(h('h2', 'qtext', d.title)));
+      if (d.img) {
+        var mbg = h('div', 'memorial-bg');
+        mbg.style.backgroundImage = 'url(' + d.img + ')';
+        slide.insertBefore(mbg, fx);
+        fx.appendChild(cas(h('div', 'kicker', 'Scheduled intermission · ' + d.title.toLowerCase())));
+        var mimg = h('div', 'memorial-img');
+        mimg.style.backgroundImage = 'url(' + d.img + ')';
+        fx.appendChild(cas(mimg));
+        fx.appendChild(cas(h('h2', 'memorial-name', esc(d.name))));
+      } else {
+        fx.appendChild(cas(h('div', 'kicker', 'Scheduled intermission')));
+        fx.appendChild(cas(h('h2', 'qtext', d.title)));
+      }
       fx.appendChild(cas(h('p', 'sub', d.line)));
       fx.appendChild(cas(h('div', 'silence-count mono', '30')));
       fx.appendChild(cas(h('p', 'silence-hint', 'Press T. Nobody speaks.')));
@@ -685,7 +722,7 @@
     else if (d.t === 'ans') {
       var aq = d.q;
       fx.appendChild(h('div', 'ghost mono', pad(aq.n)));
-      fx.appendChild(cas(h('div', 'kicker', 'Correction · question ' + pad(aq.n) + ' / 15')));
+      fx.appendChild(cas(h('div', 'kicker', 'Correction · question ' + pad(aq.n) + ' / ' + pad(QUIZ.questions.length))));
       fx.appendChild(cas(h('h2', 'qtext', esc(aq.text))));
       var aopts = h('div', 'opts');
       if (aq.opts.length > 5) aopts.classList.add('cols2');

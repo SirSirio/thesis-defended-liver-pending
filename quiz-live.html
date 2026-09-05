@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0B0B0C">
 <title>31026 · Live Exam</title>
-<link rel="icon" href="assets/favicon.svg?v=26" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=27" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -287,8 +287,8 @@
 <div class="stamp mono" id="stamp">NOTED</div>
 <canvas id="confetti"></canvas>
 
-<script src="config.js?v=26"></script>
-<script src="quiz-data.js?v=26"></script>
+<script src="config.js?v=27"></script>
+<script src="quiz-data.js?v=27"></script>
 <script>
 (function () {
   'use strict';
@@ -466,7 +466,7 @@
     var long = q.opts.length > 5 || q.opts.some(function (o) { return o.length > 70; });
     var html =
       '<div class="qhead">' +
-      '  <p class="kicker">Question ' + String(q.n).padStart(2, '0') + ' / 15</p>' +
+      '  <p class="kicker">Question ' + String(q.n).padStart(2, '0') + ' / ' + String(QUIZ.questions.length).padStart(2, '0') + '</p>' +
       '  <h2>' + esc(q.text) + '</h2>' +
       '</div>' +
       '<div class="tiles" id="tiles">' +

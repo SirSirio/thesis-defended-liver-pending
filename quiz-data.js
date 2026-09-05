@@ -22,8 +22,13 @@ window.QUIZ_LIVE = {
     { n: 2, text: 'The martial art I have been practicing for many years is called:',
       opts: ['Taekwondo', 'Viet Vo Dao', 'Vovinam Kiem Quyen', 'Quan Ki Do'] },
 
-    { n: 3, text: 'My favourite AI model, 100€ a month for the last 3 months:',
-      opts: ['Gemini', 'ChatGPT', 'Claude', 'Grok', 'DeepSeek'] },
+    { n: 3, text: 'Which AI model was I using during my thesis, at ~100€ a month?',
+      opts: ['DeepSeek', 'Claude', 'Gemini', 'ChatGPT'] },
+
+    /* RETIRED 2026-09-05, owner call: two AI questions was one too many.
+       The thesis one above took this slot; this stays for a possible return.
+    { text: 'My favourite AI model, 100€ a month for the last 3 months:',
+      opts: ['Gemini', 'ChatGPT', 'Claude', 'Grok', 'DeepSeek'] },   answer was C */
 
     { n: 4, text: 'My first Copenhagen landlord was just crazy. She did many things. She did NOT:',
       opts: [
@@ -42,7 +47,7 @@ window.QUIZ_LIVE = {
     { n: 7, film: true, text: 'When was this video recorded?',
       opts: [
         'Bachelor’s graduation, 8 PM',
-        'Erasmus farewell party, 2 AM',
+        'Me in 2 hours',
         'New Year’s Eve, 11:58 PM',
         'A completely ordinary Tuesday, 9 AM',
       ] },
@@ -54,15 +59,16 @@ window.QUIZ_LIVE = {
         'People driving slowly (THOSE F***ING BASTARDS SHOULD JUST F***ING WALK!!!)',
       ] },
 
-    { n: 9, text: 'From best (I don’t mind) to worst (I f***ing hate it), which ranking is most accurate?',
+    /* RETIRED 2026-09-05, owner call: out for now, may return.
+    { text: 'From best (I don’t mind) to worst (I f***ing hate it), which ranking is most accurate?',
       opts: [
         'Windy weather → Cold water → Techno music → Balaton lake → Biotechnology → Beer',
         'Cold water → Techno music → Biotechnology → Beer → Windy weather → Balaton lake',
         'Techno music → Cold water → Beer → Windy weather → Balaton lake → Biotechnology',
         'Balaton lake → Techno music → Biotechnology → Cold water → Beer → Windy weather',
-      ] },
+      ] },  answer was never set */
 
-    { n: 10, text: 'My go-to breakfast is:',
+    { n: 9, text: 'My go-to breakfast is:',
       opts: [
         'Broccoli / carrot / cauliflower + almond milk + oats',
         'Avocado toast',
@@ -70,7 +76,7 @@ window.QUIZ_LIVE = {
         'Protein banana bread',
       ] },
 
-    { n: 11, text: 'Crazy things that happened during my stay in Denmark. Which one is NOT true?',
+    { n: 10, text: 'Crazy things that happened during my stay in Denmark. Which one is NOT true?',
       opts: [
         'A besty set off the fire alarm cooking a burger at 3 AM while I slept',
         'I have carried weapons across a border',
@@ -79,16 +85,13 @@ window.QUIZ_LIVE = {
         'I calmly walked through a city centre at −27°C in a swimming costume and sunglasses, drinking wine',
       ] },
 
-    { n: 12, text: 'The sentence I have said most often, with the most emphasis, in the past 2 years:',
+    { n: 11, text: 'The sentence I have said most often, with the most emphasis, in the past 2 years:',
       opts: ['VEERY NIIIICEEE', 'Porco dio', 'Buongiornoooooo', 'Whaaaat?'] },
 
-    { n: 13, text: 'Lately I became a workaholic. On average, how many hours was I at DTU every day, weekends included?',
+    { n: 12, text: 'Lately I became a workaholic. On average, how many hours was I at DTU every day, weekends included?',
       opts: ['8', '9', '10', '12', '14'] },
 
-    { n: 14, text: 'Which AI model was I using during my thesis, at ~100€ a month?',
-      opts: ['DeepSeek', 'Claude', 'Gemini', 'ChatGPT'] },
-
-    { n: 15, text: 'How many purchases did I make on Vinted in the past 6 months?',
+    { n: 13, text: 'How many purchases did I make on Vinted in the past 6 months?',
       opts: ['8', '15', '26', '35'] },
   ],
 
