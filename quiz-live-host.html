@@ -336,6 +336,7 @@
   }
   body.film-dim .film { opacity: 0.18; transform: scale(0.98); pointer-events: none; z-index: 1; }
   .film video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .film .missing[hidden] { display: none; }   /* the hidden attribute must actually win over display:grid */
   .film .missing { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 40px; }
   .film .missing div { border: 1px dashed var(--rule-lit); border-radius: 16px; padding: 40px 50px; max-width: 560px; }
   .film .missing b { font-family: var(--display); font-size: clamp(22px, 4vh, 34px); display: block; }
