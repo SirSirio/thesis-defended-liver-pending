@@ -46,9 +46,9 @@ window.QUIZ_LIVE = {
 
     { n: 7, film: true, text: 'When was this video recorded?',
       opts: [
-        'Bachelor’s graduation, 8 PM',
-        'Me in 2 hours',
         'New Year’s Eve, 11:58 PM',
+        'Me in 2 hours',
+        'Bachelor’s graduation, 8 PM',
         'A completely ordinary Tuesday, 9 AM',
       ] },
 
