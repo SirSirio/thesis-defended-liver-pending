@@ -386,6 +386,12 @@
   .ring.on { opacity: 1; transform: none; }
   .ring.warn { color: var(--accent-lit); }
 
+  .nextcue {
+    position: fixed; right: clamp(18px, 3vw, 40px); bottom: 46px; z-index: 61;
+    font-size: 11.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-faint); opacity: 0.7;
+  }
+
   body.shake .stage { animation: quake .4s linear; }
   @keyframes quake {
     0%,100% { transform: translate(0,0); }
@@ -476,7 +482,7 @@
 <div class="boardwrap" id="board"></div>
 
 <div class="film" id="film">
-  <video id="qvideo" src="assets/quiz-video.mp4" preload="metadata" playsinline></video>
+  <video id="qvideo" src="assets/quiz-video.mp4?v=27" preload="metadata" playsinline></video>
   <div class="missing" id="filmMissing" hidden>
     <div>
       <b>Reel missing</b>
@@ -488,6 +494,8 @@
 
 <canvas id="confetti"></canvas>
 <div class="ring" id="ring"><span id="ringNum">30</span></div>
+
+<div class="nextcue mono" id="nextCue" hidden></div>
 
 <div class="hud" id="hud">
   <span class="chip">31026 · LIVE EXAM · EXAMINER</span>
@@ -947,6 +955,15 @@
     push(target.phase, target.q);
 
     fill.style.width = (i / (SLIDES.length - 1)) * 100 + '%';
+    /* the examiner's whisper: a corner note only the host is looking for,
+       shown solely when the next slide is the reel or a silence */
+    var up = SLIDES[i + 1];
+    var cue = !up ? ''
+      : up.t === 'break' ? 'next: the silence'
+      : (up.t === 'q' && up.q.film) ? 'next: the reel' : '';
+    var cueEl = document.getElementById('nextCue');
+    cueEl.textContent = cue;
+    cueEl.hidden = !cue;
     location.replace('#' + i);
   }
 
@@ -977,12 +994,21 @@
 
   /* ---- film --------------------------------------------------------------- */
   var qvideo = document.getElementById('qvideo');
+  var filmOk = null;
   qvideo.addEventListener('error', function () {
+    filmOk = false;
     document.getElementById('filmMissing').hidden = false;
+  });
+  /* a late success clears an early failure (a cached 404 from before the
+     file existed used to pin the missing panel over a perfectly good reel) */
+  qvideo.addEventListener('loadedmetadata', function () {
+    filmOk = true;
+    document.getElementById('filmMissing').hidden = true;
   });
   function openFilm() {
     document.body.classList.add('film-open');
     document.body.classList.remove('film-dim');
+    if (filmOk === false) { filmOk = null; qvideo.load(); }  /* one more chance */
     try { qvideo.currentTime = 0; } catch (e) {}
     qvideo.play().catch(function () {});
   }

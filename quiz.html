@@ -452,6 +452,12 @@
     25% { transform: translateX(-2px); } 75% { transform: translateX(2px); }
   }
 
+  .nextcue {
+    position: fixed; right: clamp(18px, 3vw, 40px); bottom: 46px; z-index: 61;
+    font-size: 11.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-faint); opacity: 0.7;
+  }
+
   body.shake .stage { animation: quake .4s linear; }
   @keyframes quake {
     0%,100% { transform: translate(0,0); }
@@ -516,7 +522,7 @@
 
 <!-- Full-screen film layer for question 7 -->
 <div class="film" id="film">
-  <video id="qvideo" src="assets/quiz-video.mp4" preload="metadata" playsinline></video>
+  <video id="qvideo" src="assets/quiz-video.mp4?v=27" preload="metadata" playsinline></video>
   <div class="missing" id="filmMissing" hidden>
     <div>
       <b>Reel missing</b>
@@ -531,6 +537,8 @@
 <canvas id="confetti"></canvas>
 
 <div class="ring" id="ring"><span id="ringNum">30</span></div>
+
+<div class="nextcue mono" id="nextCue" hidden></div>
 
 <div class="hud" id="hud">
   <span class="id">31026 · FINAL EXAM · AIDS PERMITTED: NONE</span>
@@ -1034,12 +1042,19 @@ qvideo.addEventListener('error', () => {
   filmOk = false;
   document.getElementById('filmMissing').hidden = false;
 });
-qvideo.addEventListener('loadedmetadata', () => { filmOk = true; });
+/* A late success clears an early failure: a browser that once cached a 404
+   for the reel showed the missing panel forever, even after the file
+   arrived. Now the panel only stands while the video is actually absent. */
+qvideo.addEventListener('loadedmetadata', () => {
+  filmOk = true;
+  document.getElementById('filmMissing').hidden = true;
+});
 
 function openFilm() {
   document.body.classList.add('film-open');
   document.body.classList.remove('film-dim');
-  if (filmOk !== false) { qvideo.currentTime = 0; qvideo.play().catch(() => {}); }
+  if (filmOk === false) { filmOk = null; qvideo.load(); }  /* one more chance */
+  if (filmOk !== false) { try { qvideo.currentTime = 0; } catch (e) {} qvideo.play().catch(() => {}); }
 }
 function dimFilm() {
   document.body.classList.add('film-dim');
@@ -1114,6 +1129,15 @@ function goTo(next, dir) {
   if (s.dataset.confetti === 'big') { fireConfetti(160); setTimeout(() => fireConfetti(160), 500); }
   fill.style.width = (next / (DECK.length - 1)) * 100 + '%';
   where.textContent = slideLabel(next);
+  /* the examiner's whisper: a corner note only the host is looking for,
+     shown solely when the next slide is the reel or a silence */
+  const up = DECK[next + 1];
+  const cue = !up ? ''
+    : up.type === 'break' ? 'next: the silence'
+    : up.type === 'video' ? 'next: the reel' : '';
+  const cueEl = document.getElementById('nextCue');
+  cueEl.textContent = cue;
+  cueEl.hidden = !cue;
   location.replace('#' + next);
 }
 
