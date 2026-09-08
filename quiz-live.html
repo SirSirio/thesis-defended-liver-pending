@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0B0B0C">
 <title>31026 · Live Exam</title>
-<link rel="icon" href="assets/favicon.svg?v=28" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=29" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -287,8 +287,8 @@
 <div class="stamp mono" id="stamp">NOTED</div>
 <canvas id="confetti"></canvas>
 
-<script src="config.js?v=28"></script>
-<script src="quiz-data.js?v=28"></script>
+<script src="config.js?v=29"></script>
+<script src="quiz-data.js?v=29"></script>
 <script>
 (function () {
   'use strict';
@@ -445,12 +445,20 @@
     );
   }
 
+  /* 'film' now means "the wall is performing": the reel on the film
+     question, the options being dealt one by one on every other. Tiles
+     stay away until the host opens the floor. */
   function viewFilm() {
+    var q = question(room.q);
+    var isReel = !!(q && q.film);
     show(
-      '<p class="kicker">Question 07 · film screening</p>' +
-      '<div class="giant">🎬</div>' +
+      '<p class="kicker">' + (q ? 'Question ' + String(q.n).padStart(2, '0') + ' / ' + QUIZ.questions.length : 'Interlude') +
+      (isReel ? ' · film screening' : '') + '</p>' +
+      '<div class="giant">' + (isReel ? '🎬' : '👀') + '</div>' +
       '<h2>Eyes on the wall</h2>' +
-      '<p class="dim">The evidence plays once. The options come after.</p>',
+      '<p class="dim">' + (isReel
+        ? 'The evidence plays once. The options come after.'
+        : 'The options are being dealt. Answering opens in a moment.') + '</p>',
       'center'
     );
   }

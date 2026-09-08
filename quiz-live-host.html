@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>31026 · Live Exam · Examiner</title>
-<link rel="icon" href="assets/favicon.svg?v=28" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=29" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -220,6 +220,54 @@
   .is-revealed .opt.hit .cnt { color: #fff; }
   @keyframes punch { 0% { transform: scale(0.97); } 45% { transform: scale(1.05); } 100% { transform: scale(1.02); } }
 
+  /* Dealt one at a time: veiled elements wait for the examiner's hand.
+     .veil beats the .cas entrance because it is the more specific selector. */
+  .is-active .cas.veil { opacity: 0; transform: translateY(34px) scale(0.97); pointer-events: none; }
+  .opt.dealt { animation: dealt .55s var(--ease-out); }
+  @keyframes dealt {
+    0%   { opacity: 0; transform: translateY(34px) scale(0.94) rotate(0.6deg); }
+    55%  { opacity: 1; transform: translateY(-5px) scale(1.03); }
+    100% { opacity: 1; transform: none; }
+  }
+  .opt.dealt .tag { animation: tagflash .7s var(--ease-out); }
+  @keyframes tagflash {
+    0%, 35% { background: var(--accent); color: #fff; border-color: var(--accent-lit); transform: scale(1.15) rotate(-4deg); }
+    100%    { background: transparent; transform: none; }
+  }
+
+  /* the split of the room, before the verdict: bars and numbers, no dimming */
+  .is-counted .opt .bar { transform: scaleX(var(--w, 0)); }
+  .is-counted .opt .cnt { opacity: 1; }
+
+  /* the corner standings: top five, unveiled with the verdict */
+  .miniboard {
+    position: fixed; top: clamp(16px, 3vh, 34px); right: clamp(18px, 3vw, 40px);
+    z-index: 62; width: clamp(250px, 23vw, 340px);
+    background: rgba(20,20,22,0.94); border: 1px solid var(--rule-lit);
+    border-radius: 14px; padding: 15px 15px 9px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    opacity: 0; transform: translateX(36px) rotate(1deg) scale(0.95);
+    pointer-events: none;
+    transition: opacity .45s var(--ease-out), transform .55s var(--ease-out);
+  }
+  .miniboard.on { opacity: 1; transform: none; }
+  .miniboard .mtitle {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-faint); margin: 0 0 9px;
+  }
+  .mrow {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 5px 4px; font-size: 15px;
+    opacity: 0; transform: translateX(20px);
+  }
+  .miniboard.on .mrow { animation: mIn .45s var(--ease-out) forwards; animation-delay: calc(var(--i) * 0.1s + 0.2s); }
+  @keyframes mIn { to { opacity: 1; transform: none; } }
+  .mrow .mr { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); width: 1.7em; flex: none; }
+  .mrow .mn { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink-dim); }
+  .mrow .mp { font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint); }
+  .mrow.top .mn { color: var(--ink); font-weight: 600; }
+  .mrow.top .mr, .mrow.top .mp { color: var(--accent-lit); }
+
   /* answered-so-far chip on question slides */
   .answering {
     margin-top: clamp(14px, 2.6vh, 24px);
@@ -365,6 +413,8 @@
     margin: 0 auto clamp(12px, 2.2vh, 24px);
     box-shadow: 0 30px 90px rgba(0,0,0,0.75), 0 0 0 4px rgba(255,255,255,0.16), 0 0 80px rgba(153,0,0,0.35);
   }
+  .memorial-bg { transition: opacity .9s var(--ease-out); }
+  .memorial-bg.veil { opacity: 0; }
   .memorial-name {
     font-family: var(--display); font-weight: 800;
     font-size: clamp(44px, 10vh, 100px); line-height: 1;
@@ -483,7 +533,7 @@
 <div class="boardwrap" id="board"></div>
 
 <div class="film" id="film">
-  <video id="qvideo" src="assets/quiz-video.mp4?v=28" preload="metadata" playsinline></video>
+  <video id="qvideo" src="assets/quiz-video.mp4?v=29" preload="metadata" playsinline></video>
   <div class="missing" id="filmMissing" hidden>
     <div>
       <b>Reel missing</b>
@@ -497,6 +547,7 @@
 <div class="ring" id="ring"><span id="ringNum">30</span></div>
 
 <div class="nextcue mono" id="nextCue" hidden></div>
+<div class="miniboard" id="miniBoard"></div>
 
 <div class="hud" id="hud">
   <span class="chip">31026 · LIVE EXAM · EXAMINER</span>
@@ -548,23 +599,24 @@
   <div class="panel">
     <h2>Controls</h2>
     <div class="keys">
-      <kbd>→ · space · click</kbd><span>next (opens the question to the room)</span>
-      <kbd>←</kbd><span>back</span>
-      <kbd>enter / R</kbd><span>reveal the answer</span>
+      <kbd>→ · space · click</kbd><span>one act at a time: deal each option, open the floor, show the split, then the truth</span>
+      <kbd>enter / R</kbd><span>skip ahead one act (deals the rest at once)</span>
+      <kbd>←</kbd><span>previous slide</span>
       <kbd>L</kbd><span>leaderboard on / off</span>
       <kbd>T</kbd><span>30 second countdown</span>
       <kbd>F</kbd><span>fullscreen</span>
       <kbd>M</kbd><span>sound on / off</span>
       <kbd>delete · RESET</kbd><span>wipe the whole game (always asks first)</span>
     </div>
-    <p>After the podium, → keeps going: the correction round walks every
-    question again with the truth lit and the room's votes as bars.</p>
+    <p>The silences take two presses: first the bare 30, then the reason and
+    the count together. After the podium, → keeps going: the correction round
+    walks every question with the truth lit and the room's votes as bars.</p>
     <button type="button" onclick="document.getElementById('helpOverlay').classList.add('hidden')">Back to the exam</button>
   </div>
 </div>
 
-<script src="config.js?v=28"></script>
-<script src="quiz-data.js?v=28"></script>
+<script src="config.js?v=29"></script>
+<script src="quiz-data.js?v=29"></script>
 <script>
 (function () {
   'use strict';
@@ -682,7 +734,7 @@
       if (q.opts.length > 5) opts.classList.add('cols2');
       if (q.opts.some(function (o) { return o.length > 70; })) opts.classList.add('long');
       q.opts.forEach(function (o, i) {
-        var r = h('div', 'opt');
+        var r = h('div', 'opt veil');   /* dealt one keypress at a time */
         r.dataset.l = LETTERS[i];
         r.appendChild(h('div', 'bar'));
         r.appendChild(h('span', 'tag', LETTERS[i]));
@@ -691,29 +743,33 @@
         opts.appendChild(cas(r));
       });
       fx.appendChild(opts);
-      var live = h('div', 'answering');
+      var live = h('div', 'answering veil');   /* appears when the floor opens */
       live.innerHTML = '<span class="pulse"></span><span><span class="n" id="ans-' + q.n + '">0</span> answered</span>';
       fx.appendChild(cas(live));
     }
 
     else if (d.t === 'break') {
+      /* Two acts. First the sentence with no verdict: a bare 30 on the wall
+         while the host builds the suspense. Then one keypress unveils the
+         reason and starts the count in the same breath. */
       fx.classList.add('t-center');
+      fx.appendChild(cas(h('div', 'kicker', 'Scheduled intermission · ' + d.title.toLowerCase())));
       if (d.img) {
-        var mbg = h('div', 'memorial-bg');
+        var mbg = h('div', 'memorial-bg veil');
         mbg.style.backgroundImage = 'url(' + d.img + ')';
         slide.insertBefore(mbg, fx);
-        fx.appendChild(cas(h('div', 'kicker', 'Scheduled intermission · ' + d.title.toLowerCase())));
-        var mimg = h('div', 'memorial-img');
+        var mimg = h('div', 'memorial-img veil');
+        mimg.classList.add('cas');
         mimg.style.backgroundImage = 'url(' + d.img + ')';
-        fx.appendChild(cas(mimg));
-        fx.appendChild(cas(h('h2', 'memorial-name', esc(d.name))));
+        fx.appendChild(mimg);
+        var mname = h('h2', 'memorial-name veil cas', esc(d.name));
+        fx.appendChild(mname);
       } else {
-        fx.appendChild(cas(h('div', 'kicker', 'Scheduled intermission')));
         fx.appendChild(cas(h('h2', 'qtext', d.title)));
       }
-      fx.appendChild(cas(h('p', 'sub', d.line)));
+      fx.appendChild(h('p', 'sub veil cas', d.line));
       fx.appendChild(cas(h('div', 'silence-count mono', '30')));
-      fx.appendChild(cas(h('p', 'silence-hint', 'Press T. Nobody speaks.')));
+      fx.appendChild(cas(h('p', 'silence-hint', 'Thirty seconds are owed. → names the debtor.')));
       slide.dataset.silence = '1';
     }
 
@@ -796,6 +852,9 @@
     tick: function () { beep(1000, 0.03, 'square', 0.028); },
     gong: function () { beep(196, 0.7, 'sawtooth', 0.1); beep(98, 0.9, 'sine', 0.12, 0.02); },
     join: function () { beep(660, 0.06, 'triangle', 0.03); },
+    deal: function () { beep(220, 0.05, 'triangle', 0.06); beep(440, 0.08, 'triangle', 0.045, 0.04); },
+    open: function () { beep(392, 0.09, 'sine', 0.07); beep(523, 0.11, 'sine', 0.07, 0.09); beep(659, 0.2, 'sine', 0.08, 0.18); },
+    drum: function () { for (var i = 0; i < 8; i++) beep(170 + i * 14, 0.04, 'square', 0.05, i * 0.075); },
   };
   var sndEl = document.getElementById('snd');
   function setSound(v) { soundOn = v; sndEl.classList.toggle('off', !v); }
@@ -906,13 +965,17 @@
   }
 
   /* ---- navigation -------------------------------------------------------- */
-  function phaseForSlide(i, filmStep) {
+  /* Every question slide is now a little play in acts, one keypress each:
+       film q:  text → reel → options dealt one by one → floor opens →
+                the split of the room (bars, no verdict) → the truth
+       plain q: same, minus the reel.
+     Phones follow: 'film' phase means "eyes on the wall" while the host
+     performs; 'question' opens their tiles and the clock; a bare 'reveal'
+     (no letter written yet) freezes answers while the wall shows only the
+     bars; the letter lands one press later. Steps live on SLIDES[i].step. */
+  function phaseForSlide(i) {
     var d = SLIDES[i];
     if (d.t === 'lobby') return { phase: 'lobby', q: null };
-    if (d.t === 'q') {
-      if (d.q.film && filmStep) return { phase: 'film', q: d.q.n };
-      return { phase: 'question', q: d.q.n };
-    }
     if (d.t === 'break') return { phase: 'break', q: null };
     if (d.t === 'tb') return { phase: 'tb', q: TB_N };
     if (d.t === 'podium' || d.t === 'fin') return { phase: 'end', q: null };
@@ -920,41 +983,65 @@
     return { phase: 'lobby', q: null };
   }
 
-  var filmPending = false;   /* on the film slide: true until the reel has rolled */
-
   function closeBoard() { document.body.classList.remove('board-open'); }
   function closeFilm() { document.body.classList.remove('film-open', 'film-dim'); qvideo.pause(); }
+  function hideMiniBoard() { document.getElementById('miniBoard').classList.remove('on'); }
+
+  /* Arrange a question slide for arrival and say which phase the room needs.
+     Returns null when nothing should be pushed (resuming a live question). */
+  function initQuestionSlide(d, s) {
+    var opts = s.querySelectorAll('.opt');
+    var chip = s.querySelector('.answering');
+    if (revealedMap[d.q.n]) {
+      /* replayed: the whole hand on the table, verdict standing */
+      opts.forEach(function (o) { o.classList.remove('veil', 'dealt'); });
+      chip.classList.add('veil');
+      d.step = 'done';
+      paintReveal(s, d.q, null);
+      return { phase: 'reveal', q: d.q.n };
+    }
+    if (room && room.phase === 'question' && room.q === d.q.n) {
+      /* a reload mid-question: do not touch the clock, just catch up */
+      opts.forEach(function (o) { o.classList.remove('veil', 'dealt'); });
+      chip.classList.remove('veil');
+      s.classList.remove('is-revealed', 'is-counted');
+      d.step = 'open';
+      return null;
+    }
+    opts.forEach(function (o) { o.classList.add('veil'); o.classList.remove('dealt', 'hit'); });
+    chip.classList.add('veil');
+    s.classList.remove('is-revealed', 'is-counted');
+    d.step = d.q.film ? 'prefilm' : 'deal';
+    d.dealt = 0;
+    return { phase: 'film', q: d.q.n };
+  }
 
   function goTo(i, dir) {
     i = Math.max(0, Math.min(SLIDES.length - 1, i));
     if (i === cur && slides[i].classList.contains('is-active')) return;
     if (cur >= 0) slides[cur].classList.remove('is-active');
-    stopTimer(); closeFilm(); closeBoard();
+    stopTimer(); closeFilm(); closeBoard(); hideMiniBoard();
     cur = i;
     var d = SLIDES[i];
     var s = slides[i];
     void s.offsetWidth;
     s.classList.add('is-active');
 
-    filmPending = !!(d.t === 'q' && d.q.film && !revealedMap[d.q.n]);
-    var target = phaseForSlide(i, filmPending);
-    if (target.phase === 'film') openFilm();
-    if (d.t === 'q' && revealedMap[d.q.n]) {
-      paintReveal(s, d.q, null);        /* re-entering a revealed question: keep it revealed */
-      target = { phase: 'reveal', q: d.q.n };
-    } else if (d.t === 'q') {
-      s.classList.remove('is-revealed');
+    var target;
+    if (d.t === 'q') {
+      target = initQuestionSlide(d, s);
+    } else {
+      target = phaseForSlide(i);
     }
+    if (d.t === 'break') { d.step = 0; resetBreak(s); }
     if (d.t === 'ans') {
-      /* the truth pre-lit: from the game's own reveal, or straight from the
-         key when a question was skipped during play */
       var letter = (revealedMap[d.q.n] && revealedMap[d.q.n].a) || ANSWERS[d.q.n] || null;
       paintReveal(s, d.q, null, letter);
     }
     if (d.t === 'podium') { finishGame(); return; }
     if (d.t === 'fin') { fireConfetti(140); setTimeout(function () { fireConfetti(120); }, 600); }
     if (d.t === 'tb' && revealedMap[TB_N]) target = { phase: 'reveal', q: TB_N };
-    push(target.phase, target.q);
+    if (target) push(target.phase, target.q);
 
     fill.style.width = (i / (SLIDES.length - 1)) * 100 + '%';
     /* the examiner's whisper: a corner note only the host is looking for,
@@ -969,28 +1056,92 @@
     location.replace('#' + i);
   }
 
-  function nextStep() {
-    var d = SLIDES[cur];
-    if (d && d.t === 'q' && d.q.film && filmPending) {
-      /* the reel has rolled (or been skipped): open the options and the clock */
-      filmPending = false;
-      document.body.classList.add('film-open');
-      document.body.classList.add('film-dim');
+  function resetBreak(s) {
+    s.querySelector('.silence-hint').textContent = 'Thirty seconds are owed. → names the debtor.';
+    var mb = s.querySelector('.memorial-bg');
+    if (mb) mb.classList.add('veil');
+    s.querySelectorAll('.memorial-img, .memorial-name, .sub').forEach(function (el) {
+      el.classList.add('veil');
+    });
+  }
+
+  function advanceBreak(d, s) {
+    if (d.step === 0) {
+      /* act two: the reason appears and the count starts in the same breath */
+      var mb = s.querySelector('.memorial-bg');
+      if (mb) mb.classList.remove('veil');
+      s.querySelectorAll('.memorial-img, .memorial-name, .sub').forEach(function (el) {
+        el.classList.remove('veil');
+      });
+      s.querySelector('.silence-hint').textContent = 'Nobody speaks. Not even you.';
+      startTimer(30);
+      sfx.gong();
+      d.step = 1;
+      return true;
+    }
+    return false;
+  }
+
+  function dealNext(d, s) {
+    var opts = s.querySelectorAll('.opt');
+    var o = opts[d.dealt];
+    if (!o) { d.step = 'ready'; return; }
+    o.classList.remove('veil');
+    o.classList.add('dealt');
+    sfx.deal();
+    d.dealt += 1;
+    if (d.dealt >= opts.length) d.step = 'ready';
+  }
+
+  function openFloor(d, s) {
+    var chip = s.querySelector('.answering');
+    chip.style.setProperty('--i', 0);       /* no cascade debt: appear now */
+    chip.classList.remove('veil');
+    d.step = 'open';
+    push('question', d.q.n).then(function (ok) {
+      if (ok) setTimeout(poll, 350);   /* fetch the server's started_at promptly */
+    });
+    sfx.open();
+    if (!reduceMotion) {
+      document.body.classList.add('shake');
+      setTimeout(function () { document.body.classList.remove('shake'); }, 450);
+    }
+  }
+
+  function showBars(d, s) {
+    d.step = 'bars';
+    push('reveal', d.q.n);   /* freezes the answers; the letter comes one press later */
+    fetchCounts(d.q.n).then(function (counts) {
+      d.counts = counts;
+      paintCounts(s, counts);
+      s.classList.add('is-counted');
+      sfx.drum();
+    });
+  }
+
+  function advanceQuestion(d, s) {
+    if (d.step === 'prefilm') { openFilm(); d.step = 'film'; sfx.next(); return; }
+    if (d.step === 'film') {
+      document.body.classList.add('film-open', 'film-dim');
       qvideo.pause();
-      push('question', d.q.n);
+      d.step = 'deal';
       sfx.next();
       return;
     }
+    if (d.step === 'deal') { dealNext(d, s); return; }
+    if (d.step === 'ready') { openFloor(d, s); return; }
+    if (d.step === 'open') { showBars(d, s); return; }
+    if (d.step === 'bars') { doReveal(d, s); return; }
+    goTo(cur + 1, +1);
+  }
+
+  function nextStep() {
+    var d = SLIDES[cur];
+    if (d && d.t === 'q' && d.step !== 'done') { advanceQuestion(d, slides[cur]); return; }
+    if (d && d.t === 'break' && advanceBreak(d, slides[cur])) return;
     if (cur < SLIDES.length - 1) { sfx.next(); goTo(cur + 1, +1); }
   }
   function prevStep() {
-    var d = SLIDES[cur];
-    if (d && d.t === 'q' && d.q.film && !filmPending && !revealedMap[d.q.n]) {
-      filmPending = true;
-      openFilm();
-      push('film', d.q.n);
-      return;
-    }
     if (cur > 0) goTo(cur - 1, -1);
   }
 
@@ -1016,7 +1167,7 @@
   }
   qvideo.addEventListener('ended', function () {
     var d = SLIDES[cur];
-    if (d && d.t === 'q' && d.q.film && filmPending) nextStep();
+    if (d && d.t === 'q' && d.step === 'film') nextStep();   /* the reel bows out, dealing begins */
   });
 
   /* ---- reveal ------------------------------------------------------------- */
@@ -1051,14 +1202,39 @@
     s.classList.add('is-revealed');
   }
 
-  function reveal() {
-    var d = SLIDES[cur];
-    if (!d) return;
-    if (d.t === 'tb') { revealTB(); return; }
-    if (d.t !== 'q') return;
-    if (d.q.film && filmPending) return;      /* not before the reel */
+  function fetchCounts(qn) {
+    return api('quiz_answers?select=answer&q=eq.' + qn + '&limit=500')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        var counts = {};
+        rows.forEach(function (row) {
+          var l = String(row.answer || '').toUpperCase();
+          counts[l] = (counts[l] || 0) + 1;
+        });
+        return counts;
+      });
+  }
+
+  /* bars rise and the numbers tick up to their totals, verdict withheld */
+  function paintCounts(s, counts) {
+    var max = 1;
+    for (var k in counts) { max = Math.max(max, counts[k]); }
+    s.querySelectorAll('.opt').forEach(function (r) {
+      var n = counts[r.dataset.l] || 0;
+      r.style.setProperty('--w', (n / max).toFixed(3));
+      var cnt = r.querySelector('.cnt');
+      if (reduceMotion || n === 0) { cnt.textContent = n; return; }
+      var t0 = performance.now();
+      (function tickUp(now) {
+        var p = Math.min(1, (now - t0) / 750);
+        cnt.textContent = Math.round(n * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(tickUp);
+      })(t0);
+    });
+  }
+
+  function doReveal(d, s) {
     var qn = d.q.n;
-    if (revealedMap[qn]) return;              /* already revealed */
     var a = ANSWERS[qn];
     if (!a) {
       /* no key: ask on the spot rather than dying on stage */
@@ -1067,20 +1243,50 @@
       a = typed.trim().toUpperCase().slice(0, 1);
       if (LETTERS.indexOf(a) < 0) return;
     }
-    api('quiz_answers?select=answer&q=eq.' + qn + '&limit=500')
-      .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (rows) {
-        var counts = {};
-        rows.forEach(function (row) {
-          var l = String(row.answer || '').toUpperCase();
-          counts[l] = (counts[l] || 0) + 1;
-        });
-        revealedMap[qn] = { a: a, t: (room && room.started_at) || new Date().toISOString() };
-        push('reveal', qn, revealedMap);
-        paintReveal(slides[cur], d.q, counts);
-        sfx.reveal();
-        fireConfetti(40);
-      });
+    revealedMap[qn] = { a: a, t: (room && room.started_at) || new Date().toISOString() };
+    push('reveal', qn, revealedMap);
+    paintReveal(s, d.q, d.counts || null);
+    d.step = 'done';
+    sfx.reveal();
+    fireConfetti(50);
+    showMiniBoard();
+  }
+
+  /* the corner standings: top five at the moment of truth, champions lit */
+  function showMiniBoard() {
+    fetchScores().then(function (list) {
+      var el = document.getElementById('miniBoard');
+      var top = list.slice(0, 5).filter(function (p) { return p.pts > 0 || list.length <= 5; });
+      if (!top.length) return;
+      el.innerHTML = '<p class="mtitle">Standings</p>' +
+        top.map(function (p, i) {
+          return '<div class="mrow' + (i < 3 ? ' top' : '') + '" style="--i:' + i + '">' +
+            '<span class="mr">' + (i === 0 ? '👑' : (i + 1)) + '</span>' +
+            '<span class="mn">' + esc(p.name) + '</span>' +
+            '<span class="mp">' + p.pts + '</span></div>';
+        }).join('');
+      el.classList.remove('on');
+      void el.offsetWidth;
+      el.classList.add('on');
+    });
+  }
+
+  /* Enter is the impatient examiner: it fast-forwards to the next act
+     (deal everything and open, or close and show bars, or the truth). */
+  function reveal() {
+    var d = SLIDES[cur];
+    if (!d) return;
+    if (d.t === 'tb') { revealTB(); return; }
+    if (d.t !== 'q') return;
+    var s = slides[cur];
+    if (d.step === 'prefilm' || d.step === 'film') return;    /* not before the reel */
+    if (d.step === 'deal' || d.step === 'ready') {
+      while (d.step === 'deal') dealNext(d, s);               /* the rest of the hand at once */
+      openFloor(d, s);
+      return;
+    }
+    if (d.step === 'open') { showBars(d, s); return; }
+    if (d.step === 'bars') { doReveal(d, s); return; }
   }
 
   /* ---- tie breaker -------------------------------------------------------- */
@@ -1159,9 +1365,15 @@
   function toggleBoard() {
     if (document.body.classList.contains('board-open')) {
       closeBoard();
-      var t = phaseForSlide(cur, filmPending);
       var d = SLIDES[cur];
-      if (d.t === 'q' && revealedMap[d.q.n]) t = { phase: 'reveal', q: d.q.n };
+      var t;
+      if (d.t === 'q') {
+        t = d.step === 'open' ? { phase: 'question', q: d.q.n }
+          : (d.step === 'bars' || d.step === 'done') ? { phase: 'reveal', q: d.q.n }
+          : { phase: 'film', q: d.q.n };
+      } else {
+        t = phaseForSlide(cur);
+      }
       push(t.phase, t.q);
       return;
     }
