@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>31026 · Live Exam · Examiner</title>
-<link rel="icon" href="assets/favicon.svg?v=30" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=31" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -533,7 +533,7 @@
 <div class="boardwrap" id="board"></div>
 
 <div class="film" id="film">
-  <video id="qvideo" src="assets/quiz-video.mp4?v=30" preload="metadata" playsinline></video>
+  <video id="qvideo" src="assets/quiz-video.mp4?v=31" preload="metadata" playsinline></video>
   <div class="missing" id="filmMissing" hidden>
     <div>
       <b>Reel missing</b>
@@ -591,6 +591,7 @@
     <p>Every player, every answer, back to the lobby. For dry runs, and once before doors. There is no undo.</p>
     <button type="button" id="resetGo">Wipe it</button>
     <button type="button" class="ghostbtn" id="resetCancel">Keep it</button>
+    <p class="perr" id="resetErr" style="min-height:1.2em;margin:12px 0 0;color:var(--accent-lit);font-size:14px"></p>
   </div>
 </div>
 
@@ -615,8 +616,8 @@
   </div>
 </div>
 
-<script src="config.js?v=30"></script>
-<script src="quiz-data.js?v=30"></script>
+<script src="config.js?v=31"></script>
+<script src="quiz-data.js?v=31"></script>
 <script>
 (function () {
   'use strict';
@@ -1524,23 +1525,49 @@
   });
 
   /* ---- reset -------------------------------------------------------------- */
+  /* The wipe is observable and self-verifying. It used to hide the dialog and
+     fire the RPC with no catch, so any hiccup looked like "nothing happened".
+     Now it shows progress, reports failure out loud, and only declares
+     victory once the register actually reads empty, then burns the page down
+     and boots fresh into the lobby. */
   var resetOverlay = document.getElementById('resetOverlay');
-  document.getElementById('resetGo').addEventListener('click', function () {
-    resetOverlay.classList.add('hidden');
-    rpc('quiz_reset', { p_pin: pin }).then(function (n) {
-      if (n < 0) { needPin('The database refused that PIN.'); return; }
-      /* Everything in memory belongs to the dead game: steps, bars, counts,
-         the revealed map, the joiner chips. Rather than un-painting each
-         one, burn the page down and boot fresh from the empty register,
-         straight back to the lobby. */
-      location.hash = '#0';
-      location.reload();
-    });
+  var resetGoBtn = document.getElementById('resetGo');
+  function resetErr(msg) {
+    var e = document.getElementById('resetErr');
+    if (e) e.textContent = msg || '';
+  }
+  resetGoBtn.addEventListener('click', function () {
+    if (resetGoBtn.disabled) return;
+    if (!pin) { resetOverlay.classList.add('hidden'); needPin('Enter the PIN, then wipe.'); return; }
+    resetGoBtn.disabled = true;
+    resetGoBtn.textContent = 'Wiping…';
+    resetErr('');
+    rpc('quiz_reset', { p_pin: pin })
+      .then(function (n) {
+        if (n < 0) return Promise.reject('pin');
+        /* trust, then verify: the register must actually be empty */
+        return api('quiz_players?select=id&limit=1')
+          .then(function (r) { return r.ok ? r.json() : Promise.reject('read'); })
+          .then(function (rows) {
+            if (rows.length) return Promise.reject('stuck');
+            location.hash = '#0';
+            location.reload();
+          });
+      })
+      .catch(function (why) {
+        resetGoBtn.disabled = false;
+        resetGoBtn.textContent = 'Wipe it';
+        if (why === 'pin') { resetOverlay.classList.add('hidden'); needPin('The database refused that PIN.'); }
+        else if (why === 'stuck') resetErr('The database kept the players. Tell Sirio: quiz_reset did not delete.');
+        else resetErr('The wipe did not go through. Check the connection and try again.');
+      });
   });
   document.getElementById('resetCancel').addEventListener('click', function () {
     resetOverlay.classList.add('hidden');
+    resetGoBtn.disabled = false; resetGoBtn.textContent = 'Wipe it'; resetErr('');
   });
   document.getElementById('resetBtn').addEventListener('click', function () {
+    resetGoBtn.disabled = false; resetGoBtn.textContent = 'Wipe it'; resetErr('');
     resetOverlay.classList.remove('hidden');
   });
 
