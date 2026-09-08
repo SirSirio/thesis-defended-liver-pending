@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>31026 · Live Exam · Examiner</title>
-<link rel="icon" href="assets/favicon.svg?v=29" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=30" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -533,7 +533,7 @@
 <div class="boardwrap" id="board"></div>
 
 <div class="film" id="film">
-  <video id="qvideo" src="assets/quiz-video.mp4?v=29" preload="metadata" playsinline></video>
+  <video id="qvideo" src="assets/quiz-video.mp4?v=30" preload="metadata" playsinline></video>
   <div class="missing" id="filmMissing" hidden>
     <div>
       <b>Reel missing</b>
@@ -615,8 +615,8 @@
   </div>
 </div>
 
-<script src="config.js?v=29"></script>
-<script src="quiz-data.js?v=29"></script>
+<script src="config.js?v=30"></script>
+<script src="quiz-data.js?v=30"></script>
 <script>
 (function () {
   'use strict';
@@ -1529,13 +1529,12 @@
     resetOverlay.classList.add('hidden');
     rpc('quiz_reset', { p_pin: pin }).then(function (n) {
       if (n < 0) { needPin('The database refused that PIN.'); return; }
-      revealedMap = {};
-      knownJoiners = {};
-      players = [];
-      var box = document.getElementById('joiners');
-      if (box) box.innerHTML = '';
-      slides.forEach(function (s) { s.classList.remove('is-revealed'); });
-      goTo(0, -1);
+      /* Everything in memory belongs to the dead game: steps, bars, counts,
+         the revealed map, the joiner chips. Rather than un-painting each
+         one, burn the page down and boot fresh from the empty register,
+         straight back to the lobby. */
+      location.hash = '#0';
+      location.reload();
     });
   });
   document.getElementById('resetCancel').addEventListener('click', function () {

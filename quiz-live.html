@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0B0B0C">
 <title>31026 · Live Exam</title>
-<link rel="icon" href="assets/favicon.svg?v=29" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=30" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -287,8 +287,8 @@
 <div class="stamp mono" id="stamp">NOTED</div>
 <canvas id="confetti"></canvas>
 
-<script src="config.js?v=29"></script>
-<script src="quiz-data.js?v=29"></script>
+<script src="config.js?v=30"></script>
+<script src="quiz-data.js?v=30"></script>
 <script>
 (function () {
   'use strict';
@@ -744,6 +744,15 @@
           playerCount = rows.length;
           var chip = document.getElementById('lobbyCount');
           if (chip) chip.textContent = playerCount + ' enrolled';
+          /* The register is the only identity that counts. A wipe on the
+             host erases every player, so a phone whose id is no longer on
+             the list goes back to the door and enrols again, within one
+             poll, no reload needed. The length guard keeps a truncated
+             list from booting innocents. */
+          if (me.id && rows.length < 200 &&
+              !rows.some(function (p) { return p.id === me.id; })) {
+            resetIdentity();
+          }
         }));
     }
     if (room && (room.phase === 'reveal' || room.phase === 'end')) jobs.push(fetchMine());
