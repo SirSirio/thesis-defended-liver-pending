@@ -211,9 +211,13 @@ begin
   if not public.admin_ok(p_pin) then
     return -1;
   end if;
-  delete from public.quiz_answers;
-  delete from public.quiz_players;
-  get diagnostics removed = row_count;
+  /* TRUNCATE, not DELETE (2026-09-08): the row-by-row delete left players
+     standing on the night of the first real dry run while the state row
+     happily reset, and the owner could not see why from outside. TRUNCATE
+     is owner-only and ignores row security entirely, so nothing can keep
+     the rows quietly. The count is taken first, for the return value. */
+  select count(*) into removed from public.quiz_players;
+  truncate public.quiz_answers, public.quiz_players;
   update public.quiz_state set
     phase = 'lobby', q = null, started_at = null,
     revealed = '{}'::jsonb, updated_at = now()
