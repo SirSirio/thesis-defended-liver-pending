@@ -94,17 +94,55 @@ to build or log into.
 
 ### The quiz
 
-```js
-quiz: {
-  url: 'https://kahoot.it/...',
-  unlockAt: '2026-10-03T20:00:00+02:00',
-  eggClicks: 7,
-},
-```
+Two versions exist, and they share the questions but not the plumbing.
 
-Hidden until the clock reaches `unlockAt`, or until someone clicks the course
-number badge `eggClicks` times. This is a party quiz, not a state secret:
-anyone who opens the page source can find the link, and that is fine.
+**Live (the plan).** Phones answer, the wall keeps score.
+
+| Page | Who | What |
+|---|---|---|
+| `quiz-live.html` | guests | The QR points here. State a name, tap answers, change your mind until the reveal. |
+| `quiz-live-host.html` | you, laptop | The projector. Same PIN as `admin.html`. Drives everything. |
+| `quiz-data.js` | both | The questions. **No answers in this file**, on purpose: phones load it. |
+| `supabase/quiz-schema.sql` | database | Three tables, RLS, two PIN-gated functions. Already applied. |
+
+The answer key lives in `quiz-live-host.html` only (`ANSWERS`), and reaches the
+database one letter at a time, at each reveal.
+
+Driving it, one keypress per act: `→` deals the options one by one, opens the
+floor (phones unlock, clock starts), shows the split of the room as bars, then
+the truth with the top five in the corner. `Enter` skips ahead an act. The two
+silences take two presses each: a bare 30, then the reason and the count
+together. After the podium `→` keeps going into the correction round. `?` on
+the page lists every key.
+
+**Wiping a game.** `RESET` in the bottom-right corner (or `Delete`), then
+*Wipe it*. It asks first, then empties the register, reloads the host into the
+lobby, and every open phone drops back to "State your name" within a poll.
+The button re-reads the register before declaring victory, so a failed wipe
+says so in red rather than pretending. History, for the next person who
+touches `quiz_reset`: it originally used `DELETE` and silently kept every
+player while the state row reset; it now uses `TRUNCATE`, which the function
+owner can always run and which row security cannot block. The schema file is
+the version that works.
+
+Before doors on the night: wipe once, then let people scan.
+
+**Paper (the fallback).** No wifi, no Supabase, no phones required.
+
+| Page | What |
+|---|---|
+| `quiz.html` | The projected deck. `Enter` reveals, `T` counts thirty, `F` fullscreen. |
+| `quiz-sheet.html` | A4 answer sheet, one per guest. `?key=1` prints the host key. |
+
+Answers here are in `quiz.html` (`DECK`) and `quiz-sheet.html` (`ROWS`), by
+hand, and must agree with the host page's key. Three copies, one truth,
+checked by eye. Question 7 is the film in every version: `assets/quiz-video.mp4`.
+
+Every link, including these, is in `LINKS.md`.
+
+The old `quiz.url` field in `config.js` still gates a link on the main page at
+`unlockAt` (or after `eggClicks` taps on the course badge); point it at
+`quiz-live.html` if you want the site itself to hand guests the door.
 
 ### Photos
 
@@ -199,7 +237,9 @@ sized exactly 1200 by 630 and save a screenshot over the existing PNG.
 | `index.html` | Page structure. |
 | `styles.css` | Design tokens and all styling. |
 | `app.js` | Countdown, language switching, interaction. |
-| `assets/` | Favicon, link preview image, and the door video once it exists. |
+| `assets/` | Favicon, link preview image, the door video, the quiz film, Oliver Tree. |
+| `quiz*.html`, `quiz-data.js` | The quiz, live and paper. See The quiz above. |
+| `supabase/` | `schema.sql` (run once) and `quiz-schema.sql` (the quiz tables). |
 | `.planning/` | Project and design documents. Not part of the site. |
 
 ## Languages
