@@ -2154,6 +2154,15 @@ body[data-nudge="1"] .toast { bottom: calc(var(--s-5) + var(--nudge-h, 76px)); }
 
 .field__control { min-width: 0; }
 
+/* A row that states instead of asks. Body ink, like a .facts__row dd, since
+   it is information rather than a hint about a control. */
+.field__notice {
+  color: var(--ink);
+  font-size: 15.5px;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
 .field__hint {
   font-size: 13px;
   line-height: 1.5;

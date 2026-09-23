@@ -2638,6 +2638,31 @@
     return wrap;
   }
 
+  /* A form row with nothing to fill in: the same two column grid as a field,
+     with a statement where the control would be. No label element and no
+     describedby, because there is no input for either to point at. */
+  function buildNoticeRow(labelKey, bodyKey) {
+    var wrap = document.createElement('div');
+    wrap.className = 'field field--notice';
+
+    var label = document.createElement('p');
+    label.className = 'field__label';
+    label.setAttribute('data-i18n', labelKey);
+    label.textContent = t(labelKey);
+    wrap.appendChild(label);
+
+    var control = document.createElement('div');
+    control.className = 'field__control';
+    var body = document.createElement('p');
+    body.className = 'field__notice';
+    body.setAttribute('data-i18n', bodyKey);
+    body.textContent = t(bodyKey);
+    control.appendChild(body);
+
+    wrap.appendChild(control);
+    return wrap;
+  }
+
   /* Zero placeholder attributes anywhere in this phase, and that is a decision
      rather than an omission: a placeholder is not a label, it vanishes the
      moment somebody types, and it is one more string whose contrast has to be
@@ -2799,9 +2824,12 @@
       control: buildNameInput(ident.name || '')
     }));
 
-    // Zero extra guests permitted: the whole field is absent rather than a one
-    // option control, and the request sends zero.
-    if (max > 0) {
+    // Zero extra guests permitted: no control at all, and the request sends
+    // zero. A plain line says so in the row where the choice used to be, so a
+    // guest who remembers the option is not left wondering where it went.
+    if (max === 0) {
+      form.appendChild(buildNoticeRow('enrol.form.noplus.label', 'enrol.form.noplus.body'));
+    } else {
       form.appendChild(buildField({
         id: 'enrol-guests',
         // Only the radiogroup branch is labelled by reference. The select
@@ -2995,11 +3023,15 @@
     list.appendChild(recordRow('enrol.record.name', rec.name));
 
     // A bare 0 in a receipt reads as a missing value. facts.location.tbd
-    // already set the precedent for a worded value in this table.
-    list.appendChild(recordRow(
-      'enrol.record.guests',
-      rec.extra_guests > 0 ? String(rec.extra_guests) : t('enrol.record.guests.none')
-    ));
+    // already set the precedent for a worded value in this table. With plus
+    // ones closed the row only appears for a registration that still has one:
+    // "Additional guests: None" on a form that never offered any is noise.
+    if (maxGuests() > 0 || rec.extra_guests > 0) {
+      list.appendChild(recordRow(
+        'enrol.record.guests',
+        rec.extra_guests > 0 ? String(rec.extra_guests) : t('enrol.record.guests.none')
+      ));
+    }
 
     // The count says how many, this row says who. Absent when unnamed,
     // matching the note's discipline below.

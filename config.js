@@ -143,7 +143,7 @@ window.PARTY_CONFIG = {
 
   enrollment: {
     deadline: '2026-09-26T23:59:00+02:00',
-    maxGuestsPerPerson: 1,   // one named plus one. The owner removed the +2 option on 2026-08-31
+    maxGuestsPerPerson: 0,   // no plus ones. +2 went on 2026-08-31, +1 on 2026-09-23: the venue is full
     showCountFrom: 8,        // hide the running total until it looks healthy
     showAttendeeList: true,  // first names only, never full names
   },

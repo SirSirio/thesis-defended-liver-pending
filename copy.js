@@ -161,6 +161,8 @@ window.PARTY_COPY = {
     'enrol.form.plusone.hint': 'Their full name, so they appear on the participant list too.',
     'enrol.form.note.label': 'Note to the host (optional)',
     'enrol.form.note.hint': 'Allergies, arrival time, anything else. Only the host reads this, and you can change it later.',
+    'enrol.form.noplus.label': 'Plus ones',
+    'enrol.form.noplus.body': 'Not admitted this semester. The venue has reached capacity, so registration is individual and non-transferable.',
 
     /* Every one of these is 36 characters or fewer in every language. Not a
        style preference: at 320px a two line error would defeat the reserved
@@ -478,6 +480,8 @@ window.PARTY_COPY = {
     'enrol.form.plusone.hint': 'Nome e cognome, così compare anche nell’elenco dei partecipanti.',
     'enrol.form.note.label': 'Nota per il festeggiato (facoltativa)',
     'enrol.form.note.hint': 'Allergie, orario di arrivo, qualsiasi altra cosa. La legge solo il festeggiato, e puoi modificarla più tardi.',
+    'enrol.form.noplus.label': 'Accompagnatori',
+    'enrol.form.noplus.body': 'Non ammessi in questo semestre. L’aula ha raggiunto la capienza massima, quindi l’iscrizione è individuale e non cedibile.',
 
     'enrol.err.nameRequired': 'Inserisci il tuo nome.',
     'enrol.err.nameLong': 'Usa al massimo 60 caratteri.',
@@ -790,6 +794,8 @@ window.PARTY_COPY = {
     'enrol.form.plusone.hint': 'Fulde navn, så vedkommende også står på deltagerlisten.',
     'enrol.form.note.label': 'Besked til værten (valgfri)',
     'enrol.form.note.hint': 'Allergier, ankomsttidspunkt eller andet. Kun værten læser den, og du kan ændre den senere.',
+    'enrol.form.noplus.label': 'Ledsagere',
+    'enrol.form.noplus.body': 'Optages ikke dette semester. Lokalet har nået sin kapacitet, så tilmeldingen er personlig og kan ikke overdrages.',
 
     'enrol.err.nameRequired': 'Skriv dit navn.',
     'enrol.err.nameLong': 'Brug højst 60 tegn.',
