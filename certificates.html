@@ -6,6 +6,8 @@
 <meta name="robots" content="noindex">
 <title>31026 · Certificates</title>
 <link rel="icon" href="assets/favicon.svg?v=31" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pinyon+Script&display=swap">
 
 <!-- ==========================================================================
      THE CERTIFICATES
@@ -38,8 +40,10 @@
      before printing the stack; if the name rides high or low, nudge
      --plate-top below, one millimetre at a time.
 
-     Self contained like qr.html: no styles.css, no app.js, nothing that can
-     fail between the owner and a printer the night before.
+     Self contained like qr.html, with one exception: the signature's
+     copperplate face (Pinyon Script) comes from Google Fonts. Offline it
+     falls back to whatever formal script Windows has, and nothing else on
+     the sheet moves, so the exception cannot cost more than the flourish.
      ========================================================================== -->
 
 <style>
@@ -145,9 +149,14 @@
     display: block; font-size: 10pt; font-style: italic;
     color: var(--ink-dim); margin-bottom: 1mm;
   }
+  /* The hand of an eighteenth-century lord: Pinyon Script is copperplate,
+     the engraver's hand of that exact era, fetched from Google Fonts. If
+     the printer's machine is offline it falls through to whatever formal
+     script Windows has on board, and only then to the casual one. */
   .sig__hand {
-    font-family: "Segoe Script", "Bradley Hand", cursive;
-    font-size: 20pt; color: var(--ink);
+    font-family: "Pinyon Script", "Edwardian Script ITC", "Kunstler Script",
+                 "Palace Script MT", "Monotype Corsiva", "Segoe Script", cursive;
+    font-size: 27pt; color: var(--ink);
     transform: rotate(-3deg); display: block; margin-bottom: 1mm;
   }
   .sig__rule { border-top: 0.3mm solid var(--ink); padding-top: 1.5mm;
@@ -365,7 +374,7 @@
   function footHTML() {
     return '<div class="foot">' +
       '<span class="sig"><span class="sig__pre">Your beloved friend,</span>' +
-        '<span class="sig__hand">Sirio</span>' +
+        '<span class="sig__hand">SirSirio</span>' +
         '<span class="sig__rule">Course responsible · Kgs. Lyngby</span></span>' +
       '<span class="qr"></span>' +
     '</div>';
