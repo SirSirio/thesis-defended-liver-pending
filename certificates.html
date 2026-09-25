@@ -7,7 +7,7 @@
 <title>31026 · Certificates</title>
 <link rel="icon" href="assets/favicon.svg?v=31" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pinyon+Script&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Mrs+Saint+Delafield&family=Monsieur+La+Doulaise&family=Herr+Von+Muellerhoff&family=Great+Vibes&family=Tangerine:wght@700&display=swap">
 
 <!-- ==========================================================================
      THE CERTIFICATES
@@ -144,21 +144,29 @@
     position: absolute; left: 22mm; right: 22mm; bottom: 16mm;
     display: flex; align-items: flex-end; justify-content: space-between;
   }
+  .foot--center { justify-content: center; }
   .sig { text-align: center; }
   .sig__pre {
     display: block; font-size: 10pt; font-style: italic;
     color: var(--ink-dim); margin-bottom: 1mm;
   }
-  /* The hand of an eighteenth-century lord: Pinyon Script is copperplate,
-     the engraver's hand of that exact era, fetched from Google Fonts. If
-     the printer's machine is offline it falls through to whatever formal
-     script Windows has on board, and only then to the casual one. */
+  /* The hand of an eighteenth-century lord, in six candidate scripts from
+     Google Fonts, picked live from the toolbar and printed as chosen. The
+     owner found Pinyon's capital S illegible, hence the parade. Each hand
+     gets its own size because script faces disagree wildly about how big
+     a point is. Offline, everything falls through to whatever formal
+     script Windows has on board. */
   .sig__hand {
-    font-family: "Pinyon Script", "Edwardian Script ITC", "Kunstler Script",
+    font-family: "Mrs Saint Delafield", "Edwardian Script ITC", "Kunstler Script",
                  "Palace Script MT", "Monotype Corsiva", "Segoe Script", cursive;
-    font-size: 27pt; color: var(--ink);
+    font-size: 31pt; color: var(--ink);
     transform: rotate(-3deg); display: block; margin-bottom: 1mm;
   }
+  body[data-sig="monsieur"]    .sig__hand { font-family: "Monsieur La Doulaise", "Edwardian Script ITC", cursive; font-size: 30pt; }
+  body[data-sig="muellerhoff"] .sig__hand { font-family: "Herr Von Muellerhoff", "Edwardian Script ITC", cursive; font-size: 31pt; }
+  body[data-sig="greatvibes"]  .sig__hand { font-family: "Great Vibes", "Edwardian Script ITC", cursive; font-size: 26pt; }
+  body[data-sig="tangerine"]   .sig__hand { font-family: "Tangerine", "Edwardian Script ITC", cursive; font-size: 36pt; font-weight: 700; }
+  body[data-sig="pinyon"]      .sig__hand { font-family: "Pinyon Script", "Edwardian Script ITC", cursive; font-size: 27pt; }
   .sig__rule { border-top: 0.3mm solid var(--ink); padding-top: 1.5mm;
     font-size: 8.5pt; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim);
     min-width: 52mm; }
@@ -318,6 +326,14 @@
   </select>
   <select id="pick-group" aria-label="Group"></select>
   <label><input type="checkbox" id="pick-unconfirmed"> include not-yet-confirmed</label>
+  <select id="pick-sig" aria-label="Signature style">
+    <option value="delafield">Signature 1 · Mrs Saint Delafield</option>
+    <option value="monsieur">Signature 2 · Monsieur La Doulaise</option>
+    <option value="muellerhoff">Signature 3 · Herr Von Muellerhoff</option>
+    <option value="greatvibes">Signature 4 · Great Vibes</option>
+    <option value="tangerine">Signature 5 · Tangerine</option>
+    <option value="pinyon">Signature 6 · Pinyon (the old one)</option>
+  </select>
   <button type="button" onclick="window.print()">🖨&nbsp; Print</button>
   <p class="hint" id="count-hint"></p>
   <p class="hint">A4 portrait, margins none. Print ONE first and try it in a real envelope before running the whole stack.</p>
@@ -354,29 +370,37 @@
       ['Dali', 1], ['Fernando', 1], ['Samer', 1], ['Mado', 1], ['Leo', 1], ['Theo', 1] ] },
     { g: 'iGEM',            c: '#157F3D', names: [
       ['Reinis', 1], ['Mikkel', 1], ['Georgios', 1], ['Konstantinos', 1] ] },
-    { g: 'UniTn',           c: '#7A1F3D', names: [
+    /* Not party guests. UniTn comes to visit but skips both the party and
+       the defense; Famiglia comes for the thesis defense itself, in
+       Italian. Both keep the measured plate, because the envelopes are the
+       same, and both always print in the formal layout whatever the design
+       dropdown says, because a stamp saying PASSED on a family certificate
+       would be the wrong joke. */
+    { g: 'UniTn',           c: '#7A1F3D', kind: 'visita', names: [
       ['Fralf', 1], ['Edo', 1, 'a.k.a. Porselon'] ] },
+    { g: 'Famiglia',        c: '#A26A21', kind: 'famiglia', names: [
+      ['Liliana', 1], ['Wiz', 1], ['Adri', 1], ['Renata', 1] ] },
   ];
 
   var stack = document.getElementById('stack');
   var qrTpl = document.getElementById('qr-tpl');
 
   /* The parts every design shares, built the same way each time. */
-  function plateHTML(grp, row) {
+  function plateHTML(grp, row, certify) {
     var name = (row[3] ? '<span class="oops">' + row[3] + '</span>' : '') + row[0];
-    return '<p class="certify">This is to certify that</p>' +
+    return '<p class="certify">' + (certify || 'This is to certify that') + '</p>' +
       '<div class="plate">' +
         '<span class="plate__group">' + grp.g + '</span>' +
         '<span class="plate__name">' + name + '</span>' +
         (row[2] ? '<span class="plate__alias">' + row[2] + '</span>' : '') +
       '</div>';
   }
-  function footHTML() {
-    return '<div class="foot">' +
-      '<span class="sig"><span class="sig__pre">Your beloved friend,</span>' +
+  function footHTML(pre, rule, noQr) {
+    return '<div class="foot' + (noQr ? ' foot--center' : '') + '">' +
+      '<span class="sig"><span class="sig__pre">' + (pre || 'Your beloved friend,') + '</span>' +
         '<span class="sig__hand">SirSirio</span>' +
-        '<span class="sig__rule">Course responsible · Kgs. Lyngby</span></span>' +
-      '<span class="qr"></span>' +
+        '<span class="sig__rule">' + (rule || 'Course responsible · Kgs. Lyngby') + '</span></span>' +
+      (noQr ? '' : '<span class="qr"></span>') +
     '</div>';
   }
 
@@ -391,6 +415,38 @@
         '<p class="f-body">having attended course 31026 and endured its practical component,<br>' +
         'is awarded all five ECTS, with distinction.</p>' +
         '<p class="f-given">Given at Kgs. Lyngby, this third day of October, 2026</p>' +
+        '<p class="fine">Presented together with one engraved instrument,<br>' +
+        'certified unsharpened and cleared for air travel.</p>' +
+        footHTML();
+    },
+    /* Famiglia: the thesis defense, in Italian, and nothing of the party
+       on the sheet, no course number and no QR. */
+    famiglia: function (grp, row) {
+      return '<div class="f-head">' +
+          '<b>Discussione della Tesi Magistrale</b>' +
+          '<span>Dipartimento di Studi Post Laurea</span>' +
+        '</div>' +
+        plateHTML(grp, row, 'Si certifica che') +
+        '<h1 class="f-title">Certificato di Presenza</h1>' +
+        '<p class="f-body">per aver presenziato alla discussione della tesi magistrale di Sirio,<br>' +
+        'resistendo a slide, domande e commissione fino alla fine.</p>' +
+        '<p class="f-given">Rilasciato a Kgs. Lyngby, ottobre 2026</p>' +
+        '<p class="fine">Consegnato insieme a un utensile inciso,<br>' +
+        'certificato non affilato e ammesso nel bagaglio a mano.</p>' +
+        footHTML('Con tutto l\'affetto,', 'Il laureando · Kgs. Lyngby', true);
+    },
+    /* UniTn: in town for the host, present at neither the party nor the
+       defense, honoured all the same. */
+    visita: function (grp, row) {
+      return '<div class="f-head">' +
+          '<b>31026 · Introduction to Applied Celebration</b>' +
+          '<span>Department of Graduation Studies</span>' +
+        '</div>' +
+        plateHTML(grp, row) +
+        '<h1 class="f-title">Certificate of Visitation</h1>' +
+        '<p class="f-body">having skipped party and defense alike, and come for the host,<br>' +
+        'is awarded all five ECTS, honoris causa.</p>' +
+        '<p class="f-given">Given at Kgs. Lyngby, October 2026</p>' +
         '<p class="fine">Presented together with one engraved instrument,<br>' +
         'certified unsharpened and cleared for air travel.</p>' +
         footHTML();
@@ -430,14 +486,17 @@
     GROUPS.forEach(function (grp) {
       grp.names.forEach(function (row) {
         var cert = document.createElement('div');
-        cert.className = 'cert cert--' + design;
+        // The special kinds are formal whatever the dropdown says.
+        cert.className = 'cert cert--' + (grp.kind ? 'formal' : design);
         cert.dataset.group = grp.g;
         cert.dataset.ok = row[1];
         cert.style.setProperty('--gcolor', grp.c);
-        cert.innerHTML = DESIGNS[design](grp, row);
+        cert.innerHTML = DESIGNS[grp.kind || design](grp, row);
         var qr = cert.querySelector('.qr');
-        qr.appendChild(qrTpl.content.firstElementChild.cloneNode(true));
-        qr.insertAdjacentHTML('beforeend', '<span>Scan · hand in<br>your evidence</span>');
+        if (qr) {
+          qr.appendChild(qrTpl.content.firstElementChild.cloneNode(true));
+          qr.insertAdjacentHTML('beforeend', '<span>Scan · hand in<br>your evidence</span>');
+        }
         stack.appendChild(cert);
       });
     });
@@ -478,6 +537,9 @@
     hint.textContent = shown + ' sheet' + (shown === 1 ? '' : 's') + ' will print.';
   }
   pickDesign.onchange = function () { render(pickDesign.value); };
+  document.getElementById('pick-sig').onchange = function () {
+    document.body.dataset.sig = this.value;
+  };
   pickGroup.onchange = applyFilter;
   pickUnconfirmed.onchange = applyFilter;
 
