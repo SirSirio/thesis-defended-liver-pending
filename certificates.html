@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>31026 · Certificates</title>
+<link rel="icon" href="assets/favicon.svg?v=31" type="image/svg+xml">
+
+<!-- ==========================================================================
+     THE CERTIFICATES
+     ==========================================================================
+     One A4 sheet per guest, slid unfolded into the DTU C4 window envelope.
+     The name has to land behind the window, so its position is not taste but
+     measurement, taken off a photograph of the envelope with a ruler on it:
+
+       window on the envelope: 19mm from the left, 53mm from the top,
+       101mm wide, 38mm tall.
+
+     A C4 envelope is 229x324 and the sheet is 210x297, so the paper can
+     drift 19mm sideways and 27mm down. The band of the sheet that stays
+     visible in EVERY position is x 19..101mm, y 53..64mm, and the name is
+     centred in exactly that band, in every design. The group chip sits just
+     above it and can lose its top edge if the sheet sits at the very bottom
+     of the envelope, which is why the plate also carries the group's colour:
+     the group survives as a colour even when its label is half hidden.
+
+     THREE DESIGNS, one dropdown, same guests: Formal (serif, double frame,
+     reads like a real diploma), Stamped (the site's parody voice, PASSED in
+     red ink), Modern (red bar and the faint maths watermark the DTU paper
+     itself wears). Whatever the dropdown shows is what prints.
+
+     Yana's sheet spells her name J-crossed-out-Yana on purpose. The engraved
+     blade carries the typo, so the certificate honours it rather than
+     correcting the record.
+
+     Print with margins none, A4 portrait. Test ONE sheet in a real envelope
+     before printing the stack; if the name rides high or low, nudge
+     --plate-top below, one millimetre at a time.
+
+     Self contained like qr.html: no styles.css, no app.js, nothing that can
+     fail between the owner and a printer the night before.
+     ========================================================================== -->
+
+<style>
+  :root {
+    --accent: #990000;
+    --ink: #131315;
+    --ink-dim: #5b5b63;
+    --rule: #d8d8dc;
+    --paper: #ffffff;
+    --plate-top: 45mm;   /* nudge this if a test print sits high or low */
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #1a1a1e;
+    font-family: "Segoe UI", -apple-system, system-ui, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    display: flex; flex-direction: column; align-items: center;
+    gap: 18px; padding: 28px 12px 60px;
+  }
+  .mono { font-family: "Cascadia Mono", ui-monospace, "SF Mono", Consolas, monospace; }
+
+  /* Screen-only controls. Gone entirely in print. */
+  .tools {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    justify-content: center; align-items: center;
+    position: sticky; top: 10px; z-index: 2;
+  }
+  .tools button, .tools select, .tools label {
+    font: 500 14px/1 "Segoe UI", system-ui, sans-serif;
+    color: #fff;
+  }
+  .tools button, .tools select {
+    appearance: none; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(26,26,30,0.92);
+    padding: 12px 18px; border-radius: 999px;
+  }
+  .tools select option { color: #000; }
+  .tools button:hover { background: rgba(255,255,255,0.16); }
+  .tools label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  .tools .hint {
+    flex-basis: 100%; text-align: center;
+    color: rgba(255,255,255,0.55); font-size: 12.5px; margin: 2px 0 0;
+  }
+
+  .cert {
+    position: relative;
+    width: 210mm; height: 297mm;
+    background: var(--paper);
+    box-shadow: 0 24px 70px rgba(0,0,0,0.55);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    overflow: hidden;
+  }
+  .cert[hidden] { display: none; }
+  @media (max-width: 840px) {
+    .cert { transform: scale(0.44); transform-origin: top center; margin-bottom: calc(-297mm * 0.56); }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Shared bones: plate, crossed J, footer, QR seal.                   */
+  /* ------------------------------------------------------------------ */
+
+  .plate {
+    position: absolute; top: var(--plate-top); left: 19mm; width: 82mm; height: 27mm;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    padding: 2mm 4mm 2.5mm;
+  }
+  .plate__group {
+    font-size: 8.5pt; font-weight: 600;
+    letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--gcolor);
+  }
+  .plate__name {
+    font-size: 34pt; font-weight: 750; line-height: 1.06;
+    white-space: nowrap; max-width: 74mm;
+  }
+  .plate__alias { font-size: 9pt; color: var(--ink-dim); margin-top: 0.5mm; }
+
+  /* The honoured typo: a J with the correction drawn over it in red ink. */
+  .oops { position: relative; display: inline-block; }
+  .oops::before, .oops::after {
+    content: ''; position: absolute; left: -12%; right: -8%; top: 52%;
+    border-top: 1mm solid var(--accent);
+  }
+  .oops::before { transform: rotate(26deg); }
+  .oops::after  { transform: rotate(-26deg); }
+
+  .certify {
+    position: absolute; top: 36.5mm; left: 19mm; width: 82mm; margin: 0;
+    text-align: center;
+    font-size: 10pt; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+
+  .foot {
+    position: absolute; left: 22mm; right: 22mm; bottom: 16mm;
+    display: flex; align-items: flex-end; justify-content: space-between;
+  }
+  .sig { text-align: center; }
+  .sig__hand {
+    font-family: "Segoe Script", "Bradley Hand", cursive;
+    font-size: 20pt; color: var(--ink);
+    transform: rotate(-3deg); display: block; margin-bottom: 1mm;
+  }
+  .sig__rule { border-top: 0.3mm solid var(--ink); padding-top: 1.5mm;
+    font-size: 8.5pt; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim);
+    min-width: 52mm; }
+  .qr { width: 24mm; text-align: center; }
+  .qr svg { display: block; width: 24mm; height: 24mm; }
+  .qr span { font-size: 7pt; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); }
+
+  .fine {
+    position: absolute; left: 25mm; right: 25mm; bottom: 56mm; margin: 0;
+    text-align: center;
+    font-size: 9.5pt; color: var(--ink-dim); line-height: 1.5;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* DESIGN: FORMAL. Serif, a double frame, restraint.                  */
+  /* ------------------------------------------------------------------ */
+
+  .cert--formal { font-family: Georgia, "Times New Roman", serif; }
+  .cert--formal::before {
+    content: ''; position: absolute; inset: 7mm;
+    border: 0.7mm solid var(--accent); pointer-events: none;
+  }
+  .cert--formal::after {
+    content: ''; position: absolute; inset: 8.6mm;
+    border: 0.2mm solid var(--accent); pointer-events: none;
+  }
+  .cert--formal .f-head {
+    position: absolute; top: 14mm; left: 0; right: 0;
+    text-align: center; line-height: 1.6;
+  }
+  .cert--formal .f-head b {
+    display: block; font-size: 12pt; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .cert--formal .f-head span {
+    font-size: 9pt; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .cert--formal .certify { font-style: italic; text-transform: none; letter-spacing: 0.06em; font-size: 11.5pt; }
+  .cert--formal .plate { border-bottom: 0.5mm double var(--gcolor); }
+  .cert--formal .plate__name { font-weight: 600; }
+  .cert--formal .f-title {
+    position: absolute; top: 108mm; left: 0; right: 0; margin: 0;
+    text-align: center;
+    font-size: 27pt; font-weight: 500; letter-spacing: 0.1em;
+    font-variant: small-caps;
+  }
+  .cert--formal .f-title::after {
+    content: ''; display: block; width: 34mm; margin: 5mm auto 0;
+    border-top: 0.5mm solid var(--accent);
+  }
+  .cert--formal .f-body {
+    position: absolute; top: 136mm; left: 34mm; right: 34mm; margin: 0;
+    text-align: center; font-size: 13pt; line-height: 1.75;
+  }
+  .cert--formal .f-given {
+    position: absolute; top: 178mm; left: 0; right: 0; margin: 0;
+    text-align: center; font-style: italic; font-size: 11pt; color: var(--ink-dim);
+  }
+  .cert--formal .fine { font-style: italic; }
+
+  /* ------------------------------------------------------------------ */
+  /* DESIGN: STAMPED. The site's own voice, ink first, straight never.  */
+  /* ------------------------------------------------------------------ */
+
+  .cert--stamped .s-head {
+    position: absolute; top: 10mm; left: 16mm; right: 16mm;
+    display: flex; align-items: center; gap: 4mm;
+  }
+  .cert--stamped .badge {
+    display: grid; place-items: center;
+    width: 14mm; height: 9.5mm;
+    background: var(--accent); color: #fff;
+    font-size: 11.5pt; border-radius: 1mm;
+  }
+  .cert--stamped .s-head__t { font-size: 10.5pt; font-weight: 600; }
+  .cert--stamped .s-head__d { margin-left: auto; font-size: 9.5pt; color: var(--ink-dim); }
+  .cert--stamped .plate {
+    border: 0.4mm solid var(--gcolor); border-radius: 2mm;
+    background: color-mix(in srgb, var(--gcolor) 7%, #fff);
+  }
+  .cert--stamped .s-body {
+    position: absolute; top: 112mm; left: 25mm; right: 25mm;
+    text-align: center;
+  }
+  .cert--stamped .s-body p { margin: 0; font-size: 13.5pt; line-height: 1.55; }
+  .cert--stamped .s-body b { white-space: nowrap; }
+  .cert--stamped .stamp {
+    margin: 20mm auto 0;
+    width: 96mm; padding: 5mm 2mm;
+    border: 1.1mm solid var(--accent); border-radius: 3mm;
+    color: var(--accent);
+    font-size: 21pt; font-weight: 750; letter-spacing: 0.14em;
+    text-transform: uppercase;
+    transform: rotate(-6deg);
+    opacity: 0.92;
+  }
+  .cert--stamped .stamp small { display: block; font-size: 9.5pt; letter-spacing: 0.3em; margin-top: 1.5mm; }
+
+  /* ------------------------------------------------------------------ */
+  /* DESIGN: MODERN. The stationery the envelope already is.            */
+  /* ------------------------------------------------------------------ */
+
+  .cert--modern .m-bar {
+    position: absolute; top: 10mm; left: 16mm; right: 16mm; height: 12mm;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; gap: 4mm;
+    padding: 0 5mm;
+  }
+  .cert--modern .m-bar b { font-size: 11pt; font-weight: 600; letter-spacing: 0.04em; }
+  .cert--modern .m-bar .mono { margin-left: auto; font-size: 10pt; }
+  .cert--modern .plate { border-left: 1.2mm solid var(--gcolor); align-items: flex-start; text-align: left; }
+  .cert--modern .certify { text-align: left; padding-left: 5mm; }
+  .cert--modern .plate__name { font-weight: 700; }
+  .cert--modern .m-title {
+    position: absolute; top: 116mm; left: 24mm; right: 24mm; margin: 0;
+    font-size: 30pt; font-weight: 750; line-height: 1.08;
+    letter-spacing: 0.01em; text-transform: uppercase;
+  }
+  .cert--modern .m-title em { font-style: normal; color: var(--accent); }
+  .cert--modern .m-body {
+    position: absolute; top: 152mm; left: 24mm; right: 60mm; margin: 0;
+    font-size: 12pt; line-height: 1.6; color: var(--ink);
+  }
+  .cert--modern .m-math {
+    position: absolute; right: -6mm; bottom: 50mm;
+    font-family: Georgia, serif; font-size: 74pt; line-height: 1.02;
+    color: #ededf0; text-align: right;
+    letter-spacing: 0.02em;
+    user-select: none; z-index: 0;
+  }
+  .cert--modern .fine { text-align: left; left: 24mm; right: 60mm; }
+  .cert--modern .foot, .cert--modern .m-body, .cert--modern .fine { z-index: 1; }
+
+  @page { size: A4 portrait; margin: 0; }
+  @media print {
+    body { background: #fff; padding: 0; display: block; }
+    .tools { display: none; }
+    .cert { box-shadow: none; margin: 0; break-after: page; transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="tools">
+  <select id="pick-design" aria-label="Design">
+    <option value="formal">Design A · Formal</option>
+    <option value="stamped">Design B · Stamped</option>
+    <option value="modern">Design C · Modern</option>
+  </select>
+  <select id="pick-group" aria-label="Group"></select>
+  <label><input type="checkbox" id="pick-unconfirmed"> include not-yet-confirmed</label>
+  <button type="button" onclick="window.print()">🖨&nbsp; Print</button>
+  <p class="hint" id="count-hint"></p>
+  <p class="hint">A4 portrait, margins none. Print ONE first and try it in a real envelope before running the whole stack.</p>
+</div>
+
+<div id="stack"></div>
+
+<!-- The QR from qr.html, reused at seal size: error correction H reads fine
+     at 24mm. Regenerate rather than edit if the address ever changes. -->
+<template id="qr-tpl">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 45 45" shape-rendering="crispEdges" role="img" aria-label="QR code opening the party site"><path fill="#ffffff" d="M-2 -2h45v45H-2z"/><path stroke="#000000" d="M0 0.5h7m1 0h2m1 0h1m4 0h2m1 0h5m2 0h1m2 0h2m3 0h7M0 1.5h1m5 0h1m2 0h2m1 0h3m3 0h2m1 0h1m1 0h1m1 0h2m1 0h1m3 0h1m1 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h2m2 0h1m3 0h2m1 0h1m1 0h2m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m2 0h1m2 0h4m1 0h2m2 0h1m1 0h2m2 0h3m2 0h1m1 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h1m2 0h2m1 0h1m2 0h2m1 0h1m1 0h4m2 0h1m1 0h2m2 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m2 0h1m3 0h2m1 0h1m1 0h1m1 0h1m3 0h1m1 0h1m2 0h2m3 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M8 7.5h1m2 0h2m6 0h1m1 0h4m3 0h1m2 0h1M5 8.5h2m2 0h2m3 0h1m2 0h2m1 0h1m1 0h1m1 0h1m1 0h4m2 0h1m1 0h1m1 0h1m1 0h1m1 0h1M0 9.5h3m1 0h1m2 0h2m2 0h1m2 0h2m1 0h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h3m3 0h2m2 0h1M1 10.5h3m1 0h4m2 0h1m1 0h2m2 0h3m3 0h1m1 0h5m2 0h1m1 0h3M0 11.5h2m2 0h2m1 0h1m1 0h2m2 0h1m1 0h1m3 0h2m3 0h2m4 0h4m1 0h1m1 0h1m1 0h1M0 12.5h1m3 0h3m4 0h2m1 0h3m1 0h9m1 0h1m3 0h1m1 0h1m4 0h1M0 13.5h1m1 0h1m1 0h1m4 0h3m1 0h2m1 0h5m1 0h2m2 0h1m2 0h12M0 14.5h1m5 0h1m1 0h1m7 0h1m3 0h1m1 0h1m1 0h2m1 0h3m3 0h1m1 0h4M1 15.5h1m5 0h1m2 0h1m2 0h1m1 0h4m1 0h3m4 0h1m2 0h2m1 0h1m4 0h3M3 16.5h2m1 0h2m3 0h5m1 0h4m2 0h2m4 0h1m1 0h1m1 0h1m1 0h1m2 0h1M4 17.5h1m3 0h1m3 0h9m1 0h1m2 0h3m1 0h8m3 0h1M6 18.5h1m1 0h1m1 0h1m2 0h1m1 0h1m1 0h3m1 0h1m2 0h2m1 0h6m1 0h3m3 0h1M0 19.5h1m2 0h1m1 0h1m1 0h1m4 0h2m4 0h1m2 0h3m2 0h1m1 0h1m2 0h2m3 0h2m1 0h1M0 20.5h2m2 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h2m3 0h5m8 0h3M0 21.5h1m1 0h1m5 0h1m1 0h1m2 0h5m3 0h1m4 0h2m1 0h3m4 0h3M0 22.5h2m1 0h1m2 0h1m1 0h2m2 0h2m1 0h7m1 0h1m1 0h4m1 0h1m1 0h1m5 0h1M0 23.5h1m2 0h2m2 0h1m1 0h2m2 0h1m1 0h2m2 0h3m1 0h2m2 0h2m3 0h1m3 0h2m1 0h1M0 24.5h4m2 0h1m1 0h1m2 0h1m1 0h3m2 0h1m2 0h1m1 0h2m3 0h1m2 0h2m1 0h2m1 0h1m1 0h1M0 25.5h1m1 0h3m2 0h4m3 0h1m1 0h3m3 0h3m1 0h4m1 0h1m2 0h1m1 0h2m2 0h1M0 26.5h1m5 0h2m1 0h4m2 0h3m1 0h4m4 0h2m1 0h1m1 0h2m1 0h1M0 27.5h1m2 0h3m2 0h2m1 0h1m1 0h1m3 0h1m4 0h1m1 0h1m2 0h2m2 0h1m2 0h1m1 0h3m1 0h1M1 28.5h6m2 0h1m2 0h1m2 0h3m1 0h3m1 0h1m2 0h2m1 0h1m1 0h1m5 0h2m1 0h1M0 29.5h2m5 0h2m2 0h2m1 0h1m2 0h1m1 0h1m1 0h2m4 0h1m2 0h3m1 0h5m1 0h1M0 30.5h2m2 0h6m1 0h1m4 0h1m3 0h1m1 0h1m1 0h1m2 0h1m1 0h1m1 0h1m1 0h1m3 0h1m2 0h1M0 31.5h1m1 0h1m2 0h1m1 0h1m2 0h1m1 0h2m2 0h1m1 0h2m1 0h1m1 0h1m1 0h4m1 0h1m1 0h1m1 0h4M0 32.5h1m1 0h1m1 0h1m1 0h1m1 0h2m2 0h1m6 0h1m1 0h3m1 0h1m1 0h1m1 0h1m2 0h5m1 0h3M8 33.5h1m2 0h1m1 0h1m2 0h2m1 0h1m1 0h7m1 0h2m1 0h1m3 0h1M0 34.5h7m2 0h2m1 0h4m3 0h2m2 0h2m2 0h3m1 0h2m1 0h1m1 0h2M0 35.5h1m5 0h1m1 0h1m1 0h1m2 0h2m2 0h5m1 0h4m1 0h1m1 0h3m3 0h2m2 0h1M0 36.5h1m1 0h3m1 0h1m2 0h1m1 0h3m1 0h1m1 0h2m1 0h2m1 0h6m2 0h6m2 0h2M0 37.5h1m1 0h3m1 0h1m2 0h1m1 0h4m1 0h1m1 0h3m4 0h1m1 0h1m2 0h2m3 0h1m1 0h1m1 0h2M0 38.5h1m1 0h3m1 0h1m2 0h1m2 0h1m2 0h2m3 0h5m2 0h5m1 0h5m1 0h1M0 39.5h1m5 0h1m10 0h1m1 0h1m3 0h1m1 0h3m2 0h2m4 0h3m1 0h1M0 40.5h7m2 0h1m1 0h2m2 0h5m1 0h2m1 0h3m1 0h2m1 0h1m1 0h1m1 0h4"/></svg>
+</template>
+
+<script>
+  /* One colour per friend group, chosen apart from each other and from the
+     DTU red the rest of the sheet already wears.
+
+     A name row is [name, confirmed, alias, crossedPrefix]. Yana's crossed J
+     is the engraving typo, honoured on purpose. */
+  var GROUPS = [
+    { g: 'Housewarming',    c: '#C2571A', names: [
+      ['Kristóf', 1], ['Rebi', 1], ['Natalia', 1], ['Kacper', 1], ['Luc', 1], ['Andris', 0] ] },
+    { g: 'AGC',             c: '#6A4C93', names: [
+      ['Marina', 1], ['Paula', 1], ['Raquel', 1], ['Rhishi', 1], ['Marcel', 1], ['Lucrezia', 1],
+      ['Laura', 1], ['Yana', 1, null, 'J'], ['Salma', 1], ['Lucia', 0], ['Aisha', 0] ] },
+    { g: 'Pokerino',        c: '#1F7A5C', names: [
+      ['Pantsera', 0], ['Campe', 0], ['Goli', 0], ['Csgrnd', 0], ['Andrea', 0], ['Ditu', 0], ['Bonny', 0] ] },
+    { g: 'Fortunkollegiet', c: '#1D6FB8', names: [
+      ['Aryan', 1], ['Gabriel', 1], ['Mikki', 1], ['Niko', 1], ['Kushagra', 1], ['Snehil', 1],
+      ['Kåre', 1], ['Bjarki', 1], ['Pilutaq', 1], ['Arjun', 1], ['Gergő', 1], ['Ian', 1],
+      ['Klara', 1], ['Zita', 1], ['Veldemar', 1], ['Birgitta', 1], ['Manoj', 1], ['Nikita', 1],
+      ['Christian', 1], ['Vinit', 1] ] },
+    { g: 'Uni',             c: '#8A6D1B', names: [
+      ['Dali', 1], ['Fernando', 1], ['Samer', 1], ['Riccardo', 1], ['Leo', 1], ['Theo', 1] ] },
+    { g: 'iGEM',            c: '#157F3D', names: [
+      ['Reinis', 1], ['Mikkel', 1], ['Georgios', 1], ['Konstantinos', 1] ] },
+    { g: 'UniTn',           c: '#7A1F3D', names: [
+      ['Fralf', 1], ['Edo', 1, 'a.k.a. Porselon'] ] },
+  ];
+
+  var stack = document.getElementById('stack');
+  var qrTpl = document.getElementById('qr-tpl');
+
+  /* The parts every design shares, built the same way each time. */
+  function plateHTML(grp, row) {
+    var name = (row[3] ? '<span class="oops">' + row[3] + '</span>' : '') + row[0];
+    return '<p class="certify">This is to certify that</p>' +
+      '<div class="plate">' +
+        '<span class="plate__group">' + grp.g + '</span>' +
+        '<span class="plate__name">' + name + '</span>' +
+        (row[2] ? '<span class="plate__alias">' + row[2] + '</span>' : '') +
+      '</div>';
+  }
+  function footHTML() {
+    return '<div class="foot">' +
+      '<span class="sig"><span class="sig__hand">Sirio</span>' +
+        '<span class="sig__rule">Course responsible · Kgs. Lyngby</span></span>' +
+      '<span class="qr"></span>' +
+    '</div>';
+  }
+
+  var DESIGNS = {
+    formal: function (grp, row) {
+      return '<div class="f-head">' +
+          '<b>31026 · Introduction to Applied Celebration</b>' +
+          '<span>Department of Graduation Studies</span>' +
+        '</div>' +
+        plateHTML(grp, row) +
+        '<h1 class="f-title">Certificate of Completion</h1>' +
+        '<p class="f-body">having attended course 31026 and endured its practical component,<br>' +
+        'is awarded all five ECTS, with distinction.</p>' +
+        '<p class="f-given">Given at Kgs. Lyngby, this third day of October, 2026</p>' +
+        '<p class="fine">Presented together with one engraved instrument, certified sharp.</p>' +
+        footHTML();
+    },
+    stamped: function (grp, row) {
+      return '<div class="s-head">' +
+          '<span class="badge mono">31026</span>' +
+          '<span class="s-head__t">Introduction to Applied Celebration</span>' +
+          '<span class="s-head__d">5 ECTS · 03.10.2026</span>' +
+        '</div>' +
+        plateHTML(grp, row) +
+        '<div class="s-body">' +
+          '<p>attended course <b>31026, Introduction to Applied Celebration</b>,<br>' +
+          'and survived the practical part.</p>' +
+          '<div class="stamp">Passed<small>All five ECTS awarded</small></div>' +
+        '</div>' +
+        '<p class="fine">The enclosed instrument is certified sharp and answers to the name above.<br>' +
+        'The Department accepts no liability after the third toast.</p>' +
+        footHTML();
+    },
+    modern: function (grp, row) {
+      return '<div class="m-bar">' +
+          '<b>Introduction to Applied Celebration</b>' +
+          '<span class="mono">31026 · 5 ECTS</span>' +
+        '</div>' +
+        plateHTML(grp, row) +
+        '<h1 class="m-title">Course completed.<br><em>Blade earned.</em></h1>' +
+        '<p class="m-body">All five ECTS awarded, 03.10.2026.<br>' +
+        'The enclosed instrument is certified sharp and answers to the name above.</p>' +
+        '<div class="m-math" aria-hidden="true">√17 ∑<br>∫ χ² Ω</div>' +
+        footHTML();
+    },
+  };
+
+  function render(design) {
+    stack.textContent = '';
+    GROUPS.forEach(function (grp) {
+      grp.names.forEach(function (row) {
+        var cert = document.createElement('div');
+        cert.className = 'cert cert--' + design;
+        cert.dataset.group = grp.g;
+        cert.dataset.ok = row[1];
+        cert.style.setProperty('--gcolor', grp.c);
+        cert.innerHTML = DESIGNS[design](grp, row);
+        var qr = cert.querySelector('.qr');
+        qr.appendChild(qrTpl.content.firstElementChild.cloneNode(true));
+        qr.insertAdjacentHTML('beforeend', '<span>The archive</span>');
+        stack.appendChild(cert);
+      });
+    });
+    fitNames();
+    applyFilter();
+  }
+
+  /* Shrink any name that does not fit its 74mm. Widths only settle once the
+     font is in, hence the pass repeated when fonts finish loading. */
+  function fitNames() {
+    document.querySelectorAll('.plate__name').forEach(function (el) {
+      var size = 34;
+      el.style.fontSize = size + 'pt';
+      while (el.scrollWidth > el.clientWidth && size > 14) {
+        size -= 1;
+        el.style.fontSize = size + 'pt';
+      }
+    });
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitNames);
+
+  /* Filtering: hidden certificates do not print. */
+  var pickDesign = document.getElementById('pick-design');
+  var pickGroup = document.getElementById('pick-group');
+  var pickUnconfirmed = document.getElementById('pick-unconfirmed');
+  var hint = document.getElementById('count-hint');
+
+  pickGroup.add(new Option('All groups', ''));
+  GROUPS.forEach(function (grp) { pickGroup.add(new Option(grp.g, grp.g)); });
+
+  function applyFilter() {
+    var g = pickGroup.value, un = pickUnconfirmed.checked, shown = 0;
+    document.querySelectorAll('.cert').forEach(function (c) {
+      var hide = (g && c.dataset.group !== g) || (!un && c.dataset.ok === '0');
+      c.hidden = hide;
+      if (!hide) shown++;
+    });
+    hint.textContent = shown + ' sheet' + (shown === 1 ? '' : 's') + ' will print.';
+  }
+  pickDesign.onchange = function () { render(pickDesign.value); };
+  pickGroup.onchange = applyFilter;
+  pickUnconfirmed.onchange = applyFilter;
+
+  render(pickDesign.value);
+</script>
+
+</body>
+</html>
