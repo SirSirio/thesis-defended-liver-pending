@@ -149,9 +149,16 @@
   .sig__rule { border-top: 0.3mm solid var(--ink); padding-top: 1.5mm;
     font-size: 8.5pt; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim);
     min-width: 52mm; }
-  .qr { width: 24mm; text-align: center; }
-  .qr svg { display: block; width: 24mm; height: 24mm; }
-  .qr span { font-size: 7pt; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); }
+  /* The seal. Grown from an afterthought to a proper closing act on the
+     owner's request: the code is the way the evening gets documented, so
+     it earns its size and its red caption. */
+  .qr { width: 34mm; text-align: center; }
+  .qr svg { display: block; width: 34mm; height: 34mm; margin-bottom: 1.5mm; }
+  .qr span {
+    display: block; font-size: 8pt; font-weight: 600;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--accent); line-height: 1.5;
+  }
 
   .fine {
     position: absolute; left: 25mm; right: 25mm; bottom: 56mm; margin: 0;
@@ -370,7 +377,8 @@
         '<p class="f-body">having attended course 31026 and endured its practical component,<br>' +
         'is awarded all five ECTS, with distinction.</p>' +
         '<p class="f-given">Given at Kgs. Lyngby, this third day of October, 2026</p>' +
-        '<p class="fine">Presented together with one engraved instrument, certified sharp.</p>' +
+        '<p class="fine">Presented together with one engraved instrument,<br>' +
+        'certified unsharpened and cleared for air travel.</p>' +
         footHTML();
     },
     stamped: function (grp, row) {
@@ -385,7 +393,7 @@
           'and survived the practical part.</p>' +
           '<div class="stamp">Passed<small>All five ECTS awarded</small></div>' +
         '</div>' +
-        '<p class="fine">The enclosed instrument is certified sharp and answers to the name above.<br>' +
+        '<p class="fine">The enclosed instrument is certified unsharpened and cleared for air travel.<br>' +
         'The Department accepts no liability after the third toast.</p>' +
         footHTML();
     },
@@ -397,7 +405,7 @@
         plateHTML(grp, row) +
         '<h1 class="m-title">Course completed.<br><em>Blade earned.</em></h1>' +
         '<p class="m-body">All five ECTS awarded, 03.10.2026.<br>' +
-        'The enclosed instrument is certified sharp and answers to the name above.</p>' +
+        'The enclosed instrument is certified unsharpened and cleared for air travel.</p>' +
         '<div class="m-math" aria-hidden="true">√17 ∑<br>∫ χ² Ω</div>' +
         footHTML();
     },
@@ -415,7 +423,7 @@
         cert.innerHTML = DESIGNS[design](grp, row);
         var qr = cert.querySelector('.qr');
         qr.appendChild(qrTpl.content.firstElementChild.cloneNode(true));
-        qr.insertAdjacentHTML('beforeend', '<span>The archive</span>');
+        qr.insertAdjacentHTML('beforeend', '<span>Scan · hand in<br>your evidence</span>');
         stack.appendChild(cert);
       });
     });
