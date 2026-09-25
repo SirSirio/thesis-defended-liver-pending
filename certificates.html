@@ -141,6 +141,10 @@
     display: flex; align-items: flex-end; justify-content: space-between;
   }
   .sig { text-align: center; }
+  .sig__pre {
+    display: block; font-size: 10pt; font-style: italic;
+    color: var(--ink-dim); margin-bottom: 1mm;
+  }
   .sig__hand {
     font-family: "Segoe Script", "Bradley Hand", cursive;
     font-size: 20pt; color: var(--ink);
@@ -338,7 +342,7 @@
       ['Klara', 1], ['Zita', 1], ['Veldemar', 1], ['Birgitta', 1], ['Manoj', 1], ['Nikita', 1],
       ['Christian', 1], ['Vinit', 1] ] },
     { g: 'Uni',             c: '#8A6D1B', names: [
-      ['Dali', 1], ['Fernando', 1], ['Samer', 1], ['Riccardo', 1], ['Leo', 1], ['Theo', 1] ] },
+      ['Dali', 1], ['Fernando', 1], ['Samer', 1], ['Mado', 1], ['Leo', 1], ['Theo', 1] ] },
     { g: 'iGEM',            c: '#157F3D', names: [
       ['Reinis', 1], ['Mikkel', 1], ['Georgios', 1], ['Konstantinos', 1] ] },
     { g: 'UniTn',           c: '#7A1F3D', names: [
@@ -360,7 +364,8 @@
   }
   function footHTML() {
     return '<div class="foot">' +
-      '<span class="sig"><span class="sig__hand">Sirio</span>' +
+      '<span class="sig"><span class="sig__pre">Your beloved friend,</span>' +
+        '<span class="sig__hand">Sirio</span>' +
         '<span class="sig__rule">Course responsible · Kgs. Lyngby</span></span>' +
       '<span class="qr"></span>' +
     '</div>';
