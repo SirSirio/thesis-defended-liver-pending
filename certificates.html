@@ -7,7 +7,7 @@
 <title>31026 · Certificates</title>
 <link rel="icon" href="assets/favicon.svg?v=31" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Mrs+Saint+Delafield&family=Monsieur+La+Doulaise&family=Herr+Von+Muellerhoff&family=Great+Vibes&family=Tangerine:wght@700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Monsieur+La+Doulaise&display=swap">
 
 <!-- ==========================================================================
      THE CERTIFICATES
@@ -41,7 +41,7 @@
      --plate-top below, one millimetre at a time.
 
      Self contained like qr.html, with one exception: the signature's
-     copperplate face (Pinyon Script) comes from Google Fonts. Offline it
+     copperplate face (Monsieur La Doulaise) comes from Google Fonts. Offline it
      falls back to whatever formal script Windows has, and nothing else on
      the sheet moves, so the exception cannot cost more than the flourish.
      ========================================================================== -->
@@ -123,6 +123,13 @@
     white-space: nowrap; max-width: 74mm;
   }
   .plate__alias { font-size: 9pt; color: var(--ink-dim); margin-top: 0.5mm; }
+  /* A group's second line, e.g. the Italian Delegation. Below the chip and
+     above the name, so the name keeps its measured seat in the window. */
+  .plate__sub {
+    font-size: 7pt; font-weight: 500;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--gcolor); opacity: 0.85;
+  }
 
   /* The honoured typo: a J with the correction drawn over it in red ink. */
   .oops { position: relative; display: inline-block; }
@@ -150,23 +157,16 @@
     display: block; font-size: 10pt; font-style: italic;
     color: var(--ink-dim); margin-bottom: 1mm;
   }
-  /* The hand of an eighteenth-century lord, in six candidate scripts from
-     Google Fonts, picked live from the toolbar and printed as chosen. The
-     owner found Pinyon's capital S illegible, hence the parade. Each hand
-     gets its own size because script faces disagree wildly about how big
-     a point is. Offline, everything falls through to whatever formal
-     script Windows has on board. */
+  /* The hand of an eighteenth-century lord. Six candidates paraded here
+     once; the owner chose Monsieur La Doulaise (2026-09-26), so the others
+     went home. Offline it falls through to whatever formal script Windows
+     has on board. */
   .sig__hand {
-    font-family: "Mrs Saint Delafield", "Edwardian Script ITC", "Kunstler Script",
+    font-family: "Monsieur La Doulaise", "Edwardian Script ITC", "Kunstler Script",
                  "Palace Script MT", "Monotype Corsiva", "Segoe Script", cursive;
-    font-size: 31pt; color: var(--ink);
+    font-size: 30pt; color: var(--ink);
     transform: rotate(-3deg); display: block; margin-bottom: 1mm;
   }
-  body[data-sig="monsieur"]    .sig__hand { font-family: "Monsieur La Doulaise", "Edwardian Script ITC", cursive; font-size: 30pt; }
-  body[data-sig="muellerhoff"] .sig__hand { font-family: "Herr Von Muellerhoff", "Edwardian Script ITC", cursive; font-size: 31pt; }
-  body[data-sig="greatvibes"]  .sig__hand { font-family: "Great Vibes", "Edwardian Script ITC", cursive; font-size: 26pt; }
-  body[data-sig="tangerine"]   .sig__hand { font-family: "Tangerine", "Edwardian Script ITC", cursive; font-size: 36pt; font-weight: 700; }
-  body[data-sig="pinyon"]      .sig__hand { font-family: "Pinyon Script", "Edwardian Script ITC", cursive; font-size: 27pt; }
   .sig__rule { border-top: 0.3mm solid var(--ink); padding-top: 1.5mm;
     font-size: 8.5pt; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim);
     min-width: 52mm; }
@@ -326,14 +326,6 @@
   </select>
   <select id="pick-group" aria-label="Group"></select>
   <label><input type="checkbox" id="pick-unconfirmed"> include not-yet-confirmed</label>
-  <select id="pick-sig" aria-label="Signature style">
-    <option value="delafield">Signature 1 · Mrs Saint Delafield</option>
-    <option value="monsieur">Signature 2 · Monsieur La Doulaise</option>
-    <option value="muellerhoff">Signature 3 · Herr Von Muellerhoff</option>
-    <option value="greatvibes">Signature 4 · Great Vibes</option>
-    <option value="tangerine">Signature 5 · Tangerine</option>
-    <option value="pinyon">Signature 6 · Pinyon (the old one)</option>
-  </select>
   <button type="button" onclick="window.print()">🖨&nbsp; Print</button>
   <p class="hint" id="count-hint"></p>
   <p class="hint">A4 portrait, margins none. Print ONE first and try it in a real envelope before running the whole stack.</p>
@@ -351,25 +343,35 @@
   /* One colour per friend group, chosen apart from each other and from the
      DTU red the rest of the sheet already wears.
 
-     A name row is [name, confirmed, alias, crossedPrefix]. Yana's crossed J
-     is the engraving typo, honoured on purpose. */
+     A name row is [name, confirmed, alias, crossedPrefix, batch]. Yana's
+     crossed J is the engraving typo, honoured on purpose. `batch` marks the
+     26 September print run: the sheets that came in, or came back, after
+     the first full stack was printed, reachable in one go from the group
+     dropdown. */
   var GROUPS = [
     { g: 'Housewarming',    c: '#C2571A', names: [
-      ['Kristóf', 1], ['Rebi', 1], ['Natalia', 1], ['Kacper', 1], ['Luc', 1], ['Andris', 0] ] },
+      ['Kristóf', 1], ['Rebi', 1], ['Natalia', 1], ['Kacper', 1], ['Luc', 1],
+      ['Andris', 1, null, null, 1] ] },
     { g: 'AGC',             c: '#6A4C93', names: [
       ['Marina', 1], ['Paula', 1], ['Raquel', 1], ['Rhishi', 1], ['Marcel', 1], ['Lucrezia', 1],
-      ['Laura', 1], ['Yana', 1, null, 'J'], ['Salma', 1], ['Lucia', 0], ['Aisha', 0] ] },
-    { g: 'Pokerino',        c: '#1F7A5C', names: [
-      ['Pantsera', 0], ['Campe', 0], ['Goli', 0], ['Csgrnd', 0], ['Andrea', 0], ['Ditu', 0], ['Bonny', 0] ] },
+      ['Laura', 1], ['Yana', 1, null, 'J'], ['Salma', 1],
+      ['Viktor', 1, null, null, 1], ['Lucia', 1, null, null, 1], ['Aisha', 1, null, null, 1] ] },
+    /* The Italian delegation, confirmed on 2026-09-26, tilde and all. */
+    { g: 'Pokeriño',        c: '#1F7A5C', sub: 'Italian Delegation', names: [
+      ['Pantsera', 1, null, null, 1], ['Campe', 1, null, null, 1], ['Goli', 1, null, null, 1],
+      ['Csgrnd', 1, null, null, 1], ['Andrea', 1, null, null, 1], ['Ditu', 1, null, null, 1],
+      ['Bonny', 1, null, null, 1] ] },
     { g: 'Fortunkollegiet', c: '#1D6FB8', names: [
       ['Aryan', 1], ['Gabriel', 1], ['Mikki', 1], ['Niko', 1], ['Kushagra', 1], ['Snehil', 1],
       ['Kåre', 1], ['Bjarki', 1], ['Pilutaq', 1], ['Arjun', 1], ['Gergő', 1], ['Ian', 1],
       ['Klara', 1], ['Zita', 1], ['Valdemar', 1], ['Birgitta', 1], ['Manoj', 1], ['Nikita', 1],
       ['Christian', 1], ['Vinit', 1] ] },
     { g: 'Uni',             c: '#8A6D1B', names: [
-      ['Dali', 1], ['Fernando', 1], ['Samer', 1], ['Mado', 1], ['Leo', 1], ['Theo', 1] ] },
+      ['Dali', 1], ['Fernando', 1], ['Samer', 1], ['Mado', 1], ['Leo', 1], ['Theo', 1],
+      ['Majo', 1, null, null, 1] ] },
     { g: 'iGEM',            c: '#157F3D', names: [
-      ['Reinis', 1], ['Mikkel', 1], ['Georgios', 1], ['Konstantinos', 1] ] },
+      ['Reinis', 1], ['Mikkel', 1], ['Georgios', 1],
+      ['Konstantinos', 1, null, null, 1] /* reprint */ ] },
     /* Not party guests. UniTn comes to visit but skips both the party and
        the defense; Famiglia comes for the thesis defense itself, in
        Italian. Both keep the measured plate, because the envelopes are the
@@ -391,6 +393,7 @@
     return '<p class="certify">' + (certify || 'This is to certify that') + '</p>' +
       '<div class="plate">' +
         '<span class="plate__group">' + grp.g + '</span>' +
+        (grp.sub ? '<span class="plate__sub">' + grp.sub + '</span>' : '') +
         '<span class="plate__name">' + name + '</span>' +
         (row[2] ? '<span class="plate__alias">' + row[2] + '</span>' : '') +
       '</div>';
@@ -490,6 +493,7 @@
         cert.className = 'cert cert--' + (grp.kind ? 'formal' : design);
         cert.dataset.group = grp.g;
         cert.dataset.ok = row[1];
+        cert.dataset.batch = row[4] ? '1' : '0';
         cert.style.setProperty('--gcolor', grp.c);
         cert.innerHTML = DESIGNS[grp.kind || design](grp, row);
         var qr = cert.querySelector('.qr');
@@ -525,21 +529,23 @@
   var hint = document.getElementById('count-hint');
 
   pickGroup.add(new Option('All groups', ''));
+  pickGroup.add(new Option('Print batch · 26 Sep', '__batch'));
   GROUPS.forEach(function (grp) { pickGroup.add(new Option(grp.g, grp.g)); });
+  // The batch is what the owner is printing today, so it is where the page opens.
+  pickGroup.value = '__batch';
 
   function applyFilter() {
     var g = pickGroup.value, un = pickUnconfirmed.checked, shown = 0;
     document.querySelectorAll('.cert').forEach(function (c) {
-      var hide = (g && c.dataset.group !== g) || (!un && c.dataset.ok === '0');
+      var hide = g === '__batch'
+        ? c.dataset.batch !== '1'
+        : (g && c.dataset.group !== g) || (!un && c.dataset.ok === '0');
       c.hidden = hide;
       if (!hide) shown++;
     });
     hint.textContent = shown + ' sheet' + (shown === 1 ? '' : 's') + ' will print.';
   }
   pickDesign.onchange = function () { render(pickDesign.value); };
-  document.getElementById('pick-sig').onchange = function () {
-    document.body.dataset.sig = this.value;
-  };
   pickGroup.onchange = applyFilter;
   pickUnconfirmed.onchange = applyFilter;
 
