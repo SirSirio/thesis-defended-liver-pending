@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0B0B0C">
 <title>31026 · Live Exam</title>
-<link rel="icon" href="assets/favicon.svg?v=32" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=33" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -315,8 +315,8 @@
 <div class="stamp mono" id="stamp">NOTED</div>
 <canvas id="confetti"></canvas>
 
-<script src="config.js?v=32"></script>
-<script src="quiz-data.js?v=32"></script>
+<script src="config.js?v=33"></script>
+<script src="quiz-data.js?v=33"></script>
 <script>
 (function () {
   'use strict';
@@ -378,7 +378,11 @@
     var rev = (room && room.revealed) || {};
     var total = 0;
     for (var q in rev) {
-      if (q === String(QUIZ.tb.n) || q === '_final') continue;
+      if (q === '_final') continue;
+      if (q === String(QUIZ.tb.n)) {
+        if (rev[q].n != null && myAnswers[q]) total += QUIZ.tbPoints(rev[q].n, myAnswers[q].answer);
+        continue;
+      }
       total += QUIZ.points(rev[q], myAnswers[q]);
     }
     return total;
@@ -686,7 +690,7 @@
       '<button class="btn" id="tbBtn" type="button">' + (mine ? 'Change it' : 'Lock it in') + '</button>' +
       '<p class="err" id="tbErr"></p>' +
       '<p class="scoreline" id="tbNote">' +
-      (mine ? 'On the record: <b>' + esc(mine.answer) + '</b>. Changeable until the count is read.' : 'Closest wins 150. This one is genuinely open book.') +
+      (mine ? 'On the record: <b>' + esc(mine.answer) + '</b>. Changeable until the count is read.' : 'Paid by distance: 150 for the exact number, less the further off, nothing at double. Genuinely open book.') +
       '</p>'
     );
     document.getElementById('tbBtn').addEventListener('click', function () {
@@ -766,7 +770,9 @@
     show(
       '<p class="kicker">Tie breaker · the truth</p>' +
       '<div class="giant mono" style="color:var(--accent-lit)">' + esc(rev && rev.n != null ? rev.n : '?') + '</div>' +
-      '<p class="dim">' + (mine ? 'You said ' + esc(mine.answer) + '. Closest wins 150, and the count is official.' : 'No guess on record. Bold strategy.') + '</p>',
+      '<p class="dim">' + (mine
+        ? 'You said ' + esc(mine.answer) + '. That is worth <b>+' + (rev && rev.n != null ? QUIZ.tbPoints(rev.n, mine.answer) : 0) + '</b> pts.'
+        : 'No guess on record. Bold strategy.') + '</p>',
       'center'
     );
   }

@@ -138,7 +138,9 @@ Answers here are in `quiz.html` (`DECK`) and `quiz-sheet.html` (`ROWS`), by
 hand, and must agree with the host page's key. Question 8 is a sort: its
 answer is the six letters in the true order, and phones arrange the items
 with arrows; 25 points per item in its right slot, no speed bonus. Question
-11 has two right letters. Three copies, one truth,
+11 has two right letters. The tie breaker
+is paid by distance: 150 for the exact number, shrinking in a straight line
+to nothing at double the truth or at zero, so every guess scores differently. Three copies, one truth,
 checked by eye. Question 7 is the film in every version: `assets/quiz-video.mp4`.
 
 Every link, including these, is in `LINKS.md`.

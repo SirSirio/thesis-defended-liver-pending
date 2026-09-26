@@ -97,7 +97,7 @@ window.QUIZ_LIVE = {
   ],
 
   /* The tie breaker is question 16 in the database and a number, not a
-     letter. Closest guess earns 150 points at the podium. */
+     letter. Scored by distance, see tbPoints below. */
   tb: { n: 16, text: 'How many bestemmie did I say in the last month of thesis?' },
 
   /* Scoring, identical on every phone and on the projector, so nobody can
@@ -118,6 +118,17 @@ window.QUIZ_LIVE = {
     var dt = (new Date(answerRow.created_at) - new Date(rev.t)) / 1000;
     if (!(dt >= 0)) return 100;
     return 100 + Math.max(0, Math.round(50 * (1 - Math.min(dt, 20) / 20)));
+  },
+
+  /* The tie breaker pays by distance, not by rank: 150 for the exact
+     number, shrinking in a straight line to 0 at twice the truth (or at
+     zero). Every guess scores differently, and the room can do the maths.
+       points = 150 * (1 - |guess - truth| / truth), never below 0 */
+  tbPoints: function (truth, guess) {
+    var t = Number(truth), g = parseInt(guess, 10);
+    if (!isFinite(t) || isNaN(g)) return 0;
+    if (t === 0) return g === 0 ? 150 : 0;
+    return Math.max(0, Math.round(150 * (1 - Math.abs(g - t) / t)));
   },
 
   /* how many of a sort answer's items sit in their true slot */

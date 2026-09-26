@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>31026 · Live Exam · Examiner</title>
-<link rel="icon" href="assets/favicon.svg?v=32" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=33" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -545,7 +545,7 @@
 <div class="boardwrap" id="board"></div>
 
 <div class="film" id="film">
-  <video id="qvideo" src="assets/quiz-video.mp4?v=32" preload="metadata" playsinline></video>
+  <video id="qvideo" src="assets/quiz-video.mp4?v=33" preload="metadata" playsinline></video>
   <div class="missing" id="filmMissing" hidden>
     <div>
       <b>Reel missing</b>
@@ -588,7 +588,7 @@
 <div class="overlay hidden" id="tbOverlay">
   <div class="panel">
     <h2>The official count</h2>
-    <p>How many bestemmie, really? The number goes on the wall and closest wins 150.</p>
+    <p>How many bestemmie, really? The number goes on the wall and every guess is paid by distance: 150 for exact, nothing at double or zero.</p>
     <input id="tbTruth" type="text" inputmode="numeric" placeholder="0">
     <br>
     <button type="button" id="tbGo">Reveal it</button>
@@ -628,8 +628,8 @@
   </div>
 </div>
 
-<script src="config.js?v=32"></script>
-<script src="quiz-data.js?v=32"></script>
+<script src="config.js?v=33"></script>
+<script src="quiz-data.js?v=33"></script>
 <script>
 (function () {
   'use strict';
@@ -793,7 +793,7 @@
 
     else if (d.t === 'tb') {
       fx.classList.add('t-center');
-      fx.appendChild(cas(h('div', 'kicker', 'Tie breaker · open answer · closest wins 150')));
+      fx.appendChild(cas(h('div', 'kicker', 'Tie breaker · open answer · paid by distance, 150 for exact')));
       fx.appendChild(cas(h('h2', 'qtext', esc(QUIZ.tb.text))));
       fx.appendChild(cas(h('p', 'sub', 'Type a number on your phone. A prayer is not a number.')));
       fx.appendChild(cas(h('div', 'silence-count mono', '<span id="tbCount">0</span>')));
@@ -1361,7 +1361,7 @@
           return Math.abs(parseInt(a.answer, 10) - truth) - Math.abs(parseInt(b.answer, 10) - truth);
         });
         var best = rows.slice(0, 3).map(function (r2) {
-          return esc(byId[r2.player_id] || '?') + ' (' + esc(r2.answer) + ')';
+          return esc(byId[r2.player_id] || '?') + ' (' + esc(r2.answer) + ', +' + QUIZ.tbPoints(truth, r2.answer) + ')';
         });
         var el = document.getElementById('tbResult');
         el.innerHTML = 'The official count: <b class="mono" style="color:var(--accent-lit)">' + truth + '</b>' +
@@ -1387,18 +1387,11 @@
         if (a.q === TB_N) return;
         pl.pts += QUIZ.points(revealedMap[a.q], a);
       });
-      /* tie breaker: closest guess(es) collect 150 */
+      /* tie breaker: every guess earns by distance, see QUIZ.tbPoints */
       var tbRev = revealedMap[TB_N];
       if (tbRev && tbRev.n != null) {
-        var guesses = answers.filter(function (a) { return a.q === TB_N; });
-        var bestDist = Infinity;
-        guesses.forEach(function (g) {
-          bestDist = Math.min(bestDist, Math.abs(parseInt(g.answer, 10) - tbRev.n));
-        });
-        guesses.forEach(function (g) {
-          if (Math.abs(parseInt(g.answer, 10) - tbRev.n) === bestDist && byPlayer[g.player_id]) {
-            byPlayer[g.player_id].pts += 150;
-          }
+        answers.forEach(function (g) {
+          if (g.q === TB_N && byPlayer[g.player_id]) byPlayer[g.player_id].pts += QUIZ.tbPoints(tbRev.n, g.answer);
         });
       }
       var list = Object.keys(byPlayer).map(function (k) { return byPlayer[k]; });
