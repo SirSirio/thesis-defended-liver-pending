@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>31026 · Live Exam · Examiner</title>
-<link rel="icon" href="assets/favicon.svg?v=31" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=32" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -234,6 +234,18 @@
     0%, 35% { background: var(--accent); color: #fff; border-color: var(--accent-lit); transform: scale(1.15) rotate(-4deg); }
     100%    { background: transparent; transform: none; }
   }
+
+  /* SORT questions: single column, a little tighter, and at the truth the
+     rows walk into their true order wearing rank numerals */
+  .opts.sortq .opt { font-size: clamp(14px, 2.15vh, 22px); padding: clamp(7px, 1.2vh, 11px) clamp(14px, 1.8vw, 22px); }
+  .opt .rank {
+    display: none; flex: none; width: 1.9em; height: 1.9em; place-items: center;
+    border-radius: 50%; background: var(--accent); color: #fff;
+    font-size: 0.8em; position: relative; z-index: 1;
+  }
+  .opts.ranked .opt .rank { display: grid; }
+  .is-revealed .opts.ranked .opt { opacity: 1; border-color: var(--rule-lit); }
+  .is-revealed .opts.ranked .opt .bar { background: rgba(153,0,0,0.35); }
 
   /* the split of the room, before the verdict: bars and numbers, no dimming */
   .is-counted .opt .bar { transform: scaleX(var(--w, 0)); }
@@ -533,7 +545,7 @@
 <div class="boardwrap" id="board"></div>
 
 <div class="film" id="film">
-  <video id="qvideo" src="assets/quiz-video.mp4?v=31" preload="metadata" playsinline></video>
+  <video id="qvideo" src="assets/quiz-video.mp4?v=32" preload="metadata" playsinline></video>
   <div class="missing" id="filmMissing" hidden>
     <div>
       <b>Reel missing</b>
@@ -616,8 +628,8 @@
   </div>
 </div>
 
-<script src="config.js?v=31"></script>
-<script src="quiz-data.js?v=31"></script>
+<script src="config.js?v=32"></script>
+<script src="quiz-data.js?v=32"></script>
 <script>
 (function () {
   'use strict';
@@ -631,9 +643,11 @@
      took slot 3), the ranking retired outright. Thirteen questions remain. */
   var ANSWERS = {
     1: 'B', 2: 'B', 3: 'B', 4: 'D', 5: 'B', 6: 'B',
-    7: 'A',    /* still New Year's Eve; the options were reshuffled 2026-09-05 */
-    8: null,   /* the one he does not really mind: STILL UNSET */
-    9: 'A', 10: 'D', 11: 'A', 12: 'D', 13: 'C',
+    7: 'C',        /* bachelor's graduation, 8 PM (owner, 2026-09-26) */
+    8: 'CEAFBD',   /* the SORT: display letters in true order, least minded to most hated */
+    9: 'B', 10: 'D',
+    11: 'AB',      /* two right answers: VEERY NIIIICEEE and Porco dio */
+    12: 'D', 13: 'C',
   };
 
   var P = (window.PARTY_CONFIG && window.PARTY_CONFIG.photos) || {};
@@ -729,15 +743,18 @@
       var q = d.q;
       fx.appendChild(h('div', 'ghost mono', pad(q.n)));
       fx.appendChild(cas(h('div', 'kicker',
-        'Question ' + pad(q.n) + ' / ' + pad(QUIZ.questions.length) + (q.film ? ' · film screening' : ''))));
+        'Question ' + pad(q.n) + ' / ' + pad(QUIZ.questions.length) +
+        (q.film ? ' · film screening' : '') + (q.sort ? ' · sort them, least minded first' : ''))));
       fx.appendChild(cas(h('h2', 'qtext', esc(q.text))));
       var opts = h('div', 'opts');
-      if (q.opts.length > 5) opts.classList.add('cols2');
+      if (q.opts.length > 5 && !q.sort) opts.classList.add('cols2');
+      if (q.sort) opts.classList.add('sortq');
       if (q.opts.some(function (o) { return o.length > 70; })) opts.classList.add('long');
       q.opts.forEach(function (o, i) {
         var r = h('div', 'opt veil');   /* dealt one keypress at a time */
         r.dataset.l = LETTERS[i];
         r.appendChild(h('div', 'bar'));
+        r.appendChild(h('span', 'rank mono', ''));
         r.appendChild(h('span', 'tag', LETTERS[i]));
         r.appendChild(h('span', 'txt', esc(o)));
         r.appendChild(h('span', 'cnt', ''));
@@ -792,12 +809,14 @@
       fx.appendChild(cas(h('div', 'kicker', 'Correction · question ' + pad(aq.n) + ' / ' + pad(QUIZ.questions.length))));
       fx.appendChild(cas(h('h2', 'qtext', esc(aq.text))));
       var aopts = h('div', 'opts');
-      if (aq.opts.length > 5) aopts.classList.add('cols2');
+      if (aq.opts.length > 5 && !aq.sort) aopts.classList.add('cols2');
+      if (aq.sort) aopts.classList.add('sortq');
       if (aq.opts.some(function (o) { return o.length > 70; })) aopts.classList.add('long');
       aq.opts.forEach(function (o, i) {
         var r = h('div', 'opt');
         r.dataset.l = LETTERS[i];
         r.appendChild(h('div', 'bar'));
+        r.appendChild(h('span', 'rank mono', ''));
         r.appendChild(h('span', 'tag', LETTERS[i]));
         r.appendChild(h('span', 'txt', esc(o)));
         r.appendChild(h('span', 'cnt', ''));
@@ -1112,7 +1131,7 @@
   function showBars(d, s) {
     d.step = 'bars';
     push('reveal', d.q.n);   /* freezes the answers; the letter comes one press later */
-    fetchCounts(d.q.n).then(function (counts) {
+    fetchCounts(d.q).then(function (counts) {
       d.counts = counts;
       paintCounts(s, counts);
       s.classList.add('is-counted');
@@ -1178,42 +1197,66 @@
       /* re-entering an already revealed question, resuming after a reload,
          or a correction slide: the verdict is known but the bars still
          deserve their numbers, so fetch them and paint again */
-      api('quiz_answers?select=answer&q=eq.' + q.n + '&limit=500')
-        .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (rows) {
-          var cs = {};
-          rows.forEach(function (row) {
-            var l = String(row.answer || '').toUpperCase();
-            cs[l] = (cs[l] || 0) + 1;
-          });
-          paintReveal(s, q, cs, letter);
-        });
+      fetchCounts(q).then(function (cs) { paintReveal(s, q, cs, letter); });
       return;
     }
-    var hitL = letter || (revealedMap[q.n] && revealedMap[q.n].a) || null;
+    /* truth may be several letters (more than one right answer) or, for a
+       sort, the whole order */
+    var truth = letter || (revealedMap[q.n] && revealedMap[q.n].a) || '';
     var rows = s.querySelectorAll('.opt');
     var max = 1;
     for (var k in counts) { max = Math.max(max, counts[k]); }
     rows.forEach(function (r) {
       var l = r.dataset.l;
-      r.classList.toggle('hit', hitL === l);
+      r.classList.toggle('hit', !q.sort && truth.indexOf(l) >= 0);
       r.style.setProperty('--w', ((counts[l] || 0) / max).toFixed(3));
       r.querySelector('.cnt').textContent = counts[l] || 0;
     });
+    if (q.sort && truth) sortRows(s, truth);
     s.classList.add('is-revealed');
   }
 
-  function fetchCounts(qn) {
-    return api('quiz_answers?select=answer&q=eq.' + qn + '&limit=500')
+  /* Per option: how many picked it. For a SORT question, per item: how many
+     placed it in its true slot, which is the suspense the wall can show
+     before the order itself is out. */
+  function fetchCounts(q) {
+    return api('quiz_answers?select=answer&q=eq.' + q.n + '&limit=500')
       .then(function (r) { return r.ok ? r.json() : []; })
       .then(function (rows) {
         var counts = {};
+        if (q.sort) {
+          var truth = (revealedMap[q.n] && revealedMap[q.n].a) || ANSWERS[q.n] || '';
+          rows.forEach(function (row) {
+            var g = String(row.answer || '').toUpperCase();
+            for (var i = 0; i < truth.length; i++) {
+              if (g.charAt(i) === truth.charAt(i)) counts[truth.charAt(i)] = (counts[truth.charAt(i)] || 0) + 1;
+            }
+          });
+          return counts;
+        }
         rows.forEach(function (row) {
           var l = String(row.answer || '').toUpperCase();
           counts[l] = (counts[l] || 0) + 1;
         });
         return counts;
       });
+  }
+
+  /* the truth act of a SORT: rows walk into their true order, numbered */
+  function sortRows(s, truth) {
+    var opts = s.querySelector('.opts');
+    var byL = {};
+    opts.querySelectorAll('.opt').forEach(function (r) { byL[r.dataset.l] = r; });
+    for (var i = 0; i < truth.length; i++) {
+      var r = byL[truth.charAt(i)];
+      if (!r) continue;
+      r.querySelector('.rank').textContent = i + 1;
+      r.classList.remove('dealt'); void r.offsetWidth;
+      r.style.animationDelay = (i * 0.09) + 's';
+      r.classList.add('dealt');
+      opts.appendChild(r);
+    }
+    opts.classList.add('ranked');
   }
 
   /* bars rise and the numbers tick up to their totals, verdict withheld */
@@ -1241,10 +1284,12 @@
       /* no key: ask on the spot rather than dying on stage */
       var typed = prompt('No answer set for question ' + qn + '. Which letter is correct?', '');
       if (!typed) return;
-      a = typed.trim().toUpperCase().slice(0, 1);
-      if (LETTERS.indexOf(a) < 0) return;
+      a = typed.trim().toUpperCase().replace(/[^A-I]/g, '');
+      if (!a) return;
     }
-    revealedMap[qn] = { a: a, t: (room && room.started_at) || new Date().toISOString() };
+    var rev = { a: a, t: (room && room.started_at) || new Date().toISOString() };
+    if (d.q.sort) rev.sort = true;
+    revealedMap[qn] = rev;
     push('reveal', qn, revealedMap);
     paintReveal(s, d.q, d.counts || null);
     d.step = 'done';

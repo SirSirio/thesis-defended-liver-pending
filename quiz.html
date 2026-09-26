@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>31026 · Final Exam</title>
-<link rel="icon" href="assets/favicon.svg?v=31" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=32" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -192,6 +192,14 @@
   /* --- Options ---------------------------------------------------------- */
   .opts { display: grid; gap: clamp(8px, 1.5vh, 14px); max-width: 1100px; }
   .opts.cols2 { grid-template-columns: 1fr 1fr; column-gap: clamp(16px, 2.5vw, 32px); }
+  /* SORT questions: single column, tighter, and at the reveal the rows wear rank numerals */
+  .opts.sortq .opt { font-size: clamp(14px, 2.15vh, 22px); padding: clamp(7px, 1.2vh, 11px) clamp(14px, 1.8vw, 22px); }
+  .opt .rank {
+    display: none; flex: none; width: 1.9em; height: 1.9em; place-items: center;
+    border-radius: 50%; background: var(--accent); color: #fff; font-size: 0.8em;
+  }
+  .opts.ranked .opt .rank { display: grid; }
+  .is-revealed .opts.ranked .opt { opacity: 1; transform: none; }
   @media (max-width: 760px) { .opts.cols2 { grid-template-columns: 1fr; } }
 
   .opt {
@@ -523,7 +531,7 @@
 
 <!-- Full-screen film layer for question 7 -->
 <div class="film" id="film">
-  <video id="qvideo" src="assets/quiz-video.mp4?v=31" preload="metadata" playsinline></video>
+  <video id="qvideo" src="assets/quiz-video.mp4?v=32" preload="metadata" playsinline></video>
   <div class="missing" id="filmMissing" hidden>
     <div>
       <b>Reel missing</b>
@@ -643,15 +651,15 @@ const DECK = [
       'Bachelor’s graduation, 8 PM',
       'A completely ordinary Tuesday, 9 AM',
     ],
-    answer: 'A' },   /* the truth moved seats on 2026-09-05; it is still New Year's Eve */
+    answer: 'C' },   /* bachelor's graduation, 8 PM (owner, 2026-09-26) */
 
-  { type: 'q', text: 'A few things I don’t like. Which one do I actually just <em>not really mind</em>?',
-    opts: [
-      'Beer', 'Windy weather', 'Cold water', 'Techno music', 'People complaining',
-      'Biotechnology', 'Balaton lake', 'Dressing up for parties',
-      'People driving slowly (THOSE F***ING BASTARDS SHOULD JUST F***ING WALK!!!)',
-    ],
-    answer: null },
+  /* Question 8 is a SORT: the items are shown A to F in this order, and the
+     answer is the letters in the true order, least minded first, most hated
+     last. The reveal walks the rows into that order. */
+  { type: 'q', sort: true,
+    text: 'A few things I don’t like. Put them in order: the one I <em>mind least</em> first, the one I <em>hate most</em> last.',
+    opts: ['Beer', 'Biotechnology', 'Dressing up for parties', 'People driving slowly', 'Drinking cold water', 'Balaton lake'],
+    answer: 'CEAFBD' },
 
   /* RETIRED 2026-09-05, owner call: out for now, may return.
   { type: 'q', text: 'From best (I don’t mind) to worst (I f***ing hate it), which ranking is most accurate?',
@@ -672,17 +680,17 @@ const DECK = [
 
   { type: 'q', text: 'My go-to breakfast is:',
     opts: [
-      'Broccoli / carrot / cauliflower + almond milk + oats',
       'Avocado toast',
+      'Broccoli / carrot / cauliflower + whatever',
       'Croissant + apple / banana',
       'Protein banana bread',
     ],
-    answer: 'A' },
+    answer: 'B' },
 
   { type: 'q', text: 'Crazy things that happened during my stay in Denmark. Which one is <em>NOT</em> true?',
     opts: [
-      'A besty set off the fire alarm cooking a burger at 3 AM while I slept',
-      'I have carried weapons across a border',
+      'A close friend of mine set off the fire alarm cooking a burger at 3 AM while I slept',
+      'I have carried weapons across the border',
       'I have spent 30 hours in a row on a bus',
       'My bike got stolen and the guy just rode away in front of me',
       'I calmly walked through a city centre at −27°C in a swimming costume and sunglasses, drinking wine',
@@ -690,11 +698,11 @@ const DECK = [
     answer: 'D' },
 
   { type: 'q', text: 'The sentence I have said most often, with the most emphasis, in the past 2 years:',
-    opts: ['VEERY NIIIICEEE', 'Porco dio', 'Buongiornoooooo', 'Whaaaat?'],
-    answer: 'A' },
+    opts: ['VEERY NIIIICEEE', 'Porco dio', 'Buongiornoooooo', 'Whaaaat?', 'Ciaoooo'],
+    answer: 'AB' },   /* two right answers; both light up */
 
-  { type: 'q', text: 'Lately I became a workaholic. On average, how many hours was I at DTU every day, weekends included?',
-    opts: ['8', '9', '10', '12', '14'],
+  { type: 'q', text: 'In the last 8 months I became a workaholic. On average, how many hours a day was I at DTU, weekends included?',
+    opts: ['8', '14', '21', '30', '48'],
     answer: 'D' },
 
   { type: 'q', text: 'How many purchases did I make on Vinted in the past 6 months?',
@@ -809,10 +817,13 @@ DECK.forEach((d, idx) => {
     fx.appendChild(cas(h('div', 'kicker', `Question ${pad(n)} / ${pad(TOTAL_Q)}` + (d.type === 'video' ? ' · film screening' : ''))));
     fx.appendChild(cas(h('h2', 'qtext', d.text)));
     const opts = h('div', 'opts');
-    if (d.opts.length > 5) opts.classList.add('cols2');
+    if (d.opts.length > 5 && !d.sort) opts.classList.add('cols2');
+    if (d.sort) opts.classList.add('sortq');
     if (d.opts.some(o => o.length > 70)) opts.classList.add('long');
     d.opts.forEach((o, i) => {
       const row = h('div', 'opt');
+      row.dataset.l = LETTERS[i];
+      row.appendChild(h('span', 'rank mono', ''));
       row.appendChild(h('span', 'tag', LETTERS[i]));
       row.appendChild(h('span', '', o));
       opts.appendChild(cas(row));
@@ -836,17 +847,25 @@ DECK.forEach((d, idx) => {
     fx.appendChild(cas(h('div', 'kicker', `Correction · question ${pad(n)} / ${pad(TOTAL_Q)}`)));
     fx.appendChild(cas(h('h2', 'qtext', q.text)));
     const opts = h('div', 'opts');
-    if (q.opts.length > 5) opts.classList.add('cols2');
+    if (q.opts.length > 5 && !q.sort) opts.classList.add('cols2');
+    if (q.sort) opts.classList.add('sortq', 'ranked');
     if (q.opts.some(o => o.length > 70)) opts.classList.add('long');
-    const hitIdx = q.answer ? LETTERS.indexOf(String(q.answer).toUpperCase()) : -1;
-    q.opts.forEach((o, i) => {
-      const row = h('div', i === hitIdx ? 'opt hit' : 'opt');
-      row.appendChild(h('span', 'tag', LETTERS[i]));
+    const truth = q.answer ? String(q.answer).toUpperCase() : '';
+    /* a sort is shown already in its true order; anything else lights every right letter */
+    const order = q.sort && truth ? truth.split('') : LETTERS.slice(0, q.opts.length).split('');
+    order.forEach((l, pos) => {
+      const i = LETTERS.indexOf(l);
+      const o = q.opts[i];
+      if (o == null) return;
+      const row = h('div', !q.sort && truth.indexOf(l) >= 0 ? 'opt hit' : 'opt');
+      row.dataset.l = l;
+      row.appendChild(h('span', 'rank mono', q.sort ? String(pos + 1) : ''));
+      row.appendChild(h('span', 'tag', l));
       row.appendChild(h('span', '', o));
       opts.appendChild(cas(row));
     });
     fx.appendChild(opts);
-    if (hitIdx < 0) fx.appendChild(cas(h('p', 'silence-hint', 'answer not set in quiz.html: improvise, examiner')));
+    if (!truth) fx.appendChild(cas(h('p', 'silence-hint', 'answer not set in quiz.html: improvise, examiner')));
     addEvidence(slide, q);
   }
 
@@ -899,7 +918,9 @@ DECK.forEach((d, idx) => {
       qn += 1;
       const cell = h('div', 'keycell');
       cell.appendChild(h('span', 'kq', 'Q' + pad(qn)));
-      cell.appendChild(h('span', 'ka', dd.answer || '—'));
+      const ka = h('span', 'ka', dd.answer || '—');
+      if (dd.answer && dd.answer.length > 2) ka.style.fontSize = 'clamp(14px, 2.4vh, 24px)';
+      cell.appendChild(ka);
       grid.appendChild(cas(cell));
     });
     const tbCell = h('div', 'keycell');
@@ -1181,11 +1202,28 @@ function reveal() {
     setTimeout(() => na.classList.remove('show'), 2200);
     return;
   }
-  const idx = LETTERS.indexOf(String(d.answer).toUpperCase());
-  const opt = s.querySelectorAll('.opt')[idx];
-  if (!opt) return;
+  const truth = String(d.answer).toUpperCase();
   s.querySelectorAll('.opt').forEach(o => o.classList.remove('hit'));
-  opt.classList.add('hit');
+  if (d.sort) {
+    /* the rows walk into their true order, numbered */
+    const opts = s.querySelector('.opts');
+    const byL = {};
+    opts.querySelectorAll('.opt').forEach(o => { byL[o.dataset.l] = o; });
+    truth.split('').forEach((l, pos) => {
+      const o = byL[l];
+      if (!o) return;
+      o.querySelector('.rank').textContent = pos + 1;
+      o.style.transitionDelay = (pos * 0.08) + 's';
+      opts.appendChild(o);
+    });
+    opts.classList.add('ranked');
+  } else {
+    let any = false;
+    s.querySelectorAll('.opt').forEach(o => {
+      if (truth.indexOf(o.dataset.l) >= 0) { o.classList.add('hit'); any = true; }
+    });
+    if (!any) return;
+  }
   state.revealed[i] = true;
   s.classList.add('is-revealed');
   sfx.reveal();

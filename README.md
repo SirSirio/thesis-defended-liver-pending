@@ -135,7 +135,10 @@ Before doors on the night: wipe once, then let people scan.
 | `quiz-sheet.html` | A4 answer sheet, one per guest. `?key=1` prints the host key. |
 
 Answers here are in `quiz.html` (`DECK`) and `quiz-sheet.html` (`ROWS`), by
-hand, and must agree with the host page's key. Three copies, one truth,
+hand, and must agree with the host page's key. Question 8 is a sort: its
+answer is the six letters in the true order, and phones arrange the items
+with arrows; 25 points per item in its right slot, no speed bonus. Question
+11 has two right letters. Three copies, one truth,
 checked by eye. Question 7 is the film in every version: `assets/quiz-video.mp4`.
 
 Every link, including these, is in `LINKS.md`.

@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0B0B0C">
 <title>31026 · Live Exam</title>
-<link rel="icon" href="assets/favicon.svg?v=31" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.svg?v=32" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -206,6 +206,34 @@
     100% { opacity: 0; transform: translate(-50%,-50%) rotate(-10deg) scale(1.02); }
   }
 
+  /* --- sort question: rows with up/down, no dragging on a wet phone ------- */
+  .sortcap { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin: 4px 0; text-align: center; }
+  .sortlist { display: grid; gap: 8px; }
+  .srow {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--rule-lit); border-radius: 14px;
+    padding: 8px 8px 8px 12px; font: 500 15px/1.3 var(--body);
+  }
+  .srow .tg {
+    flex: none; width: 30px; height: 30px; display: grid; place-items: center;
+    font-family: var(--mono); font-size: 12px; border: 1px solid var(--rule-lit);
+    border-radius: 8px; color: var(--ink-dim);
+  }
+  .srow .st { flex: 1; }
+  .srow .sbtns { display: flex; gap: 6px; flex: none; }
+  .srow .sbtns button {
+    appearance: none; width: 42px; height: 42px; border-radius: 10px;
+    border: 1px solid var(--rule-lit); background: var(--surface-2); color: var(--ink);
+    font-size: 15px; touch-action: manipulation; cursor: pointer;
+  }
+  .srow .sbtns button:active { background: var(--accent); border-color: var(--accent-lit); }
+  .srow.moved { animation: rowMoved .4s var(--ease-out); }
+  @keyframes rowMoved {
+    0% { background: var(--accent); border-color: var(--accent-lit); transform: scale(1.02); }
+    100% { background: var(--surface); transform: none; }
+  }
+  .truth.ordered { text-align: left; display: inline-block; }
+
   /* --- reveal ------------------------------------------------------------- */
   .verdict {
     border-radius: 20px; padding: 26px 20px; text-align: center;
@@ -287,8 +315,8 @@
 <div class="stamp mono" id="stamp">NOTED</div>
 <canvas id="confetti"></canvas>
 
-<script src="config.js?v=31"></script>
-<script src="quiz-data.js?v=31"></script>
+<script src="config.js?v=32"></script>
+<script src="quiz-data.js?v=32"></script>
 <script>
 (function () {
   'use strict';
@@ -470,6 +498,7 @@
   }
 
   function viewQuestion(q) {
+    if (q.sort) { viewSort(q); return; }
     var mine = myAnswers[q.n];
     var long = q.opts.length > 5 || q.opts.some(function (o) { return o.length > 70; });
     var html =
@@ -494,6 +523,88 @@
       if (!btn || tiles.classList.contains('saving')) return;
       if (myAnswers[q.n] && myAnswers[q.n].answer === btn.dataset.l) return;
       saveAnswer(q.n, btn.dataset.l, btn, tiles);
+    });
+  }
+
+  /* A SORT question: the items in the order you believe, ▲▼ to move them,
+     one button to lock or change. The answer is the letters in your order. */
+  function viewSort(q) {
+    var mine = myAnswers[q.n];
+    var n = q.opts.length;
+    var order = (mine && mine.answer && mine.answer.length === n)
+      ? mine.answer.toUpperCase().split('')
+      : LETTERS.slice(0, n).split('');
+    var html =
+      '<div class="qhead">' +
+      '  <p class="kicker">Question ' + String(q.n).padStart(2, '0') + ' / ' + QUIZ.questions.length + ' · sort</p>' +
+      '  <h2>' + esc(q.text) + '</h2>' +
+      '</div>' +
+      '<p class="sortcap">▲ mind least</p>' +
+      '<div class="sortlist" id="sortList">' +
+      order.map(function (l) {
+        return '<div class="srow" data-l="' + l + '"><span class="tg">' + l + '</span>' +
+               '<span class="st">' + esc(q.opts[LETTERS.indexOf(l)] || '') + '</span>' +
+               '<span class="sbtns"><button type="button" data-mv="-1" aria-label="move up">▲</button>' +
+               '<button type="button" data-mv="1" aria-label="move down">▼</button></span></div>';
+      }).join('') +
+      '</div>' +
+      '<p class="sortcap">hate most ▼</p>' +
+      '<button class="btn" id="sortBtn" type="button">' + (mine ? 'Change it' : 'Lock it in') + '</button>' +
+      '<p class="scoreline" id="qNote">' + (mine ? 'Noted. Change your mind until the verdict.' : '&nbsp;') + '</p>';
+    show(html);
+    var list = document.getElementById('sortList');
+    list.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-mv]');
+      if (!b) return;
+      var row = b.closest('.srow');
+      var dir = parseInt(b.dataset.mv, 10);
+      var sib = dir < 0 ? row.previousElementSibling : row.nextElementSibling;
+      if (!sib) return;
+      if (dir < 0) list.insertBefore(row, sib); else list.insertBefore(sib, row);
+      row.classList.remove('moved'); void row.offsetWidth; row.classList.add('moved');
+      if (navigator.vibrate) { try { navigator.vibrate(12); } catch (err) {} }
+    });
+    document.getElementById('sortBtn').addEventListener('click', function () {
+      var btn = this;
+      var note = document.getElementById('qNote');
+      var value = [].map.call(list.querySelectorAll('.srow'), function (r) { return r.dataset.l; }).join('');
+      var prev = myAnswers[q.n] || null;
+      if (prev && prev.answer === value) { note.textContent = 'That is already your order.'; return; }
+      btn.disabled = true;
+      persistAnswer(q.n, value).then(function (row) {
+        myAnswers[q.n] = row;
+        stampWord(prev ? 'CHANGED' : 'NOTED');
+        btn.disabled = false; btn.textContent = 'Change it';
+        note.textContent = 'Noted. Change your mind until the verdict.';
+      }).catch(function (why) {
+        btn.disabled = false;
+        if (why === 'dead') return;
+        note.textContent = why === 'closed' ? 'Too late. The verdict was already in.' : 'The registrar refused. Try again.';
+      });
+    });
+  }
+
+  /* first write inserts, later ones patch; both refused once the question closes */
+  function persistAnswer(qn, value) {
+    var prev = myAnswers[qn] || null;
+    var req = prev
+      ? api('quiz_answers?player_id=eq.' + me.id + '&q=eq.' + qn, {
+          method: 'PATCH', headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ answer: value }) })
+      : api('quiz_answers', {
+          method: 'POST', headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ player_id: me.id, q: qn, answer: value }) });
+    return req.then(function (r) {
+      if (r.ok) return r.json().then(function (rows) { if (!rows.length) throw 'closed'; return rows[0]; });
+      if (r.status === 409) {
+        return r.json().catch(function () { return {}; }).then(function (body) {
+          if (body && body.code === '23503') { resetIdentity(); render(); throw 'dead'; }
+          /* a racing double tap already made the row: patch it instead */
+          myAnswers[qn] = myAnswers[qn] || { answer: value, created_at: new Date().toISOString() };
+          return persistAnswer(qn, value);
+        });
+      }
+      throw r.status;
     });
   }
 
@@ -611,24 +722,39 @@
     });
   }
 
+  function truthLines(q, rev) {
+    var letters = String(rev.a).split('');
+    if (rev.sort) {
+      return letters.map(function (l, i) { return (i + 1) + '. ' + esc(q.opts[LETTERS.indexOf(l)] || l); }).join('<br>');
+    }
+    return letters.map(function (l) { return l + ' · ' + esc(q.opts[LETTERS.indexOf(l)] || ''); }).join('<br>');
+  }
+
   function viewReveal(q) {
     var rev = room.revealed[String(q.n)];
     var mine = myAnswers[q.n];
     if (!rev || !rev.a) { viewWall('The verdict is on the wall.'); return; }
     var pts = QUIZ.points(rev, mine);
-    var right = pts > 0;
-    var truthText = q.opts[LETTERS.indexOf(rev.a)] || '';
+    var right, big, sub;
+    if (rev.sort) {
+      var hits = mine ? QUIZ.sortHits(rev.a, mine.answer) : 0;
+      right = !!mine && hits === rev.a.length;
+      big = !mine ? 'Absent' : right ? 'Perfect' : hits + ' of ' + rev.a.length;
+      sub = !mine ? 'No order on record.'
+          : right ? '+' + pts + ' pts. Flawless.'
+          : 'in the right place. +' + pts + (pts ? ' pts' : '. Ouch.');
+    } else {
+      right = !!mine && pts > 0;
+      big = !mine ? 'Absent' : right ? 'Correct' : 'Wrong';
+      sub = !mine ? 'No answer on record.' : right ? '+' + pts + ' pts' : '+0. Painful.';
+    }
     var html =
       '<p class="kicker">Question ' + String(q.n).padStart(2, '0') + ' · the verdict</p>' +
-      (mine
-        ? '<div class="verdict ' + (right ? 'right' : 'wrong') + '">' +
-          '<span class="big">' + (right ? 'Correct' : 'Wrong') + '</span>' +
-          '<span class="pts mono">' + (right ? '+' + pts + ' pts' : '+0. Painful.') + '</span>' +
-          '<p class="truth">' + rev.a + ' · ' + esc(truthText) + '</p>' +
-          '</div>'
-        : '<div class="verdict wrong"><span class="big">Absent</span>' +
-          '<span class="pts mono">No answer on record.</span>' +
-          '<p class="truth">' + rev.a + ' · ' + esc(truthText) + '</p></div>') +
+      '<div class="verdict ' + (right ? 'right' : 'wrong') + '">' +
+      '<span class="big">' + big + '</span>' +
+      '<span class="pts mono">' + sub + '</span>' +
+      '<p class="truth' + (rev.sort ? ' ordered' : '') + '">' + truthLines(q, rev) + '</p>' +
+      '</div>' +
       '<p class="scoreline">Running total: <b>' + myScore() + '</b> pts</p>';
     show(html);
     if (right) burst(70);

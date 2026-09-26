@@ -52,12 +52,13 @@ window.QUIZ_LIVE = {
         'A completely ordinary Tuesday, 9 AM',
       ] },
 
-    { n: 8, text: 'A few things I don’t like. Which one do I actually just not really mind?',
-      opts: [
-        'Beer', 'Windy weather', 'Cold water', 'Techno music', 'People complaining',
-        'Biotechnology', 'Balaton lake', 'Dressing up for parties',
-        'People driving slowly (THOSE F***ING BASTARDS SHOULD JUST F***ING WALK!!!)',
-      ] },
+    /* Question 8 is a SORT. The items are shown in this fixed display order
+       (A to F) and the answer is the letters in the true order, least minded
+       first, most hated last. Scored 25 points per item in its exact slot,
+       no speed bonus: sorting deserves thought. */
+    { n: 8, sort: true,
+      text: 'A few things I don’t like. Put them in order: the one I mind least first, the one I hate most last.',
+      opts: ['Beer', 'Biotechnology', 'Dressing up for parties', 'People driving slowly', 'Drinking cold water', 'Balaton lake'] },
 
     /* RETIRED 2026-09-05, owner call: out for now, may return.
     { text: 'From best (I don’t mind) to worst (I f***ing hate it), which ranking is most accurate?',
@@ -70,26 +71,26 @@ window.QUIZ_LIVE = {
 
     { n: 9, text: 'My go-to breakfast is:',
       opts: [
-        'Broccoli / carrot / cauliflower + almond milk + oats',
         'Avocado toast',
+        'Broccoli / carrot / cauliflower + whatever',
         'Croissant + apple / banana',
         'Protein banana bread',
       ] },
 
     { n: 10, text: 'Crazy things that happened during my stay in Denmark. Which one is NOT true?',
       opts: [
-        'A besty set off the fire alarm cooking a burger at 3 AM while I slept',
-        'I have carried weapons across a border',
+        'A close friend of mine set off the fire alarm cooking a burger at 3 AM while I slept',
+        'I have carried weapons across the border',
         'I have spent 30 hours in a row on a bus',
         'My bike got stolen and the guy just rode away in front of me',
         'I calmly walked through a city centre at −27°C in a swimming costume and sunglasses, drinking wine',
       ] },
 
     { n: 11, text: 'The sentence I have said most often, with the most emphasis, in the past 2 years:',
-      opts: ['VEERY NIIIICEEE', 'Porco dio', 'Buongiornoooooo', 'Whaaaat?'] },
+      opts: ['VEERY NIIIICEEE', 'Porco dio', 'Buongiornoooooo', 'Whaaaat?', 'Ciaoooo'] },
 
-    { n: 12, text: 'Lately I became a workaholic. On average, how many hours was I at DTU every day, weekends included?',
-      opts: ['8', '9', '10', '12', '14'] },
+    { n: 12, text: 'In the last 8 months I became a workaholic. On average, how many hours a day was I at DTU, weekends included?',
+      opts: ['8', '14', '21', '30', '48'] },
 
     { n: 13, text: 'How many purchases did I make on Vinted in the past 6 months?',
       opts: ['8', '15', '26', '35'] },
@@ -107,9 +108,23 @@ window.QUIZ_LIVE = {
      `rev` is the revealed entry for the question: { a: 'C', t: started_at }. */
   points: function (rev, answerRow) {
     if (!rev || !rev.a || !answerRow) return 0;
-    if (String(answerRow.answer || '').toUpperCase() !== rev.a) return 0;
+    var given = String(answerRow.answer || '').toUpperCase();
+    if (rev.sort) {
+      /* one slot at a time: 25 for each item in its true position */
+      return Math.round(150 * window.QUIZ_LIVE.sortHits(rev.a, given) / rev.a.length);
+    }
+    /* rev.a may hold several letters when more than one option is right */
+    if (given.length !== 1 || rev.a.indexOf(given) < 0) return 0;
     var dt = (new Date(answerRow.created_at) - new Date(rev.t)) / 1000;
     if (!(dt >= 0)) return 100;
     return 100 + Math.max(0, Math.round(50 * (1 - Math.min(dt, 20) / 20)));
+  },
+
+  /* how many of a sort answer's items sit in their true slot */
+  sortHits: function (truth, given) {
+    var hits = 0;
+    given = String(given || '').toUpperCase();
+    for (var i = 0; i < truth.length; i++) if (given.charAt(i) === truth.charAt(i)) hits += 1;
+    return hits;
   },
 };
