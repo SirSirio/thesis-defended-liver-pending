@@ -27,5 +27,6 @@ Base: https://sirsirio.github.io/thesis-defended-liver-pending/
 |---|---|
 | Admin panel (PIN) | https://sirsirio.github.io/thesis-defended-liver-pending/admin.html |
 | QR poster for photo uploads (A4) | https://sirsirio.github.io/thesis-defended-liver-pending/qr.html |
+| Guest certificates (A4, for the window envelopes) | https://sirsirio.github.io/thesis-defended-liver-pending/certificates.html |
 | WhatsApp group icon | https://sirsirio.github.io/thesis-defended-liver-pending/assets/whatsapp-group-logo.png |
 | Repo | https://github.com/SirSirio/thesis-defended-liver-pending |
