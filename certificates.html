@@ -344,23 +344,24 @@
      DTU red the rest of the sheet already wears.
 
      A name row is [name, confirmed, alias, crossedPrefix, batch]. Yana's
-     crossed J is the engraving typo, honoured on purpose. `batch` marks the
-     26 September print run: the sheets that came in, or came back, after
-     the first full stack was printed, reachable in one go from the group
-     dropdown. */
+     crossed J is the engraving typo, honoured on purpose. `batch` marks
+     whatever is still waiting for the printer, reachable in one go from
+     the group dropdown; flags are cleared once a run is on paper. The 26
+     September run (Viktor, Lucia, Aisha, Andris, Majo, Konstantinos, all
+     of Pokeriño) is printed and cleared; Farid arrived 30 September. */
   var GROUPS = [
     { g: 'Housewarming',    c: '#C2571A', names: [
       ['Kristóf', 1], ['Rebi', 1], ['Natalia', 1], ['Kacper', 1], ['Luc', 1],
-      ['Andris', 1, null, null, 1] ] },
+      ['Andris', 1] ] },
     { g: 'AGC',             c: '#6A4C93', names: [
       ['Marina', 1], ['Paula', 1], ['Raquel', 1], ['Rhishi', 1], ['Marcel', 1], ['Lucrezia', 1],
       ['Laura', 1], ['Yana', 1, null, 'J'], ['Salma', 1],
-      ['Viktor', 1, null, null, 1], ['Lucia', 1, null, null, 1], ['Aisha', 1, null, null, 1] ] },
+      ['Viktor', 1], ['Lucia', 1], ['Aisha', 1],
+      ['Farid', 1, null, null, 1] ] },
     /* The Italian delegation, confirmed on 2026-09-26, tilde and all. */
     { g: 'Pokeriño',        c: '#1F7A5C', sub: 'Italian Delegation', names: [
-      ['Pantsera', 1, null, null, 1], ['Campe', 1, null, null, 1], ['Goli', 1, null, null, 1],
-      ['Csgrnd', 1, null, null, 1], ['Andrea', 1, null, null, 1], ['Ditu', 1, null, null, 1],
-      ['Bonny', 1, null, null, 1] ] },
+      ['Pantsera', 1], ['Campe', 1], ['Goli', 1], ['Csgrnd', 1], ['Andrea', 1],
+      ['Ditu', 1], ['Bonny', 1] ] },
     { g: 'Fortunkollegiet', c: '#1D6FB8', names: [
       ['Aryan', 1], ['Gabriel', 1], ['Mikki', 1], ['Niko', 1], ['Kushagra', 1], ['Snehil', 1],
       ['Kåre', 1], ['Bjarki', 1], ['Pilutaq', 1], ['Arjun', 1], ['Gergő', 1], ['Ian', 1],
@@ -368,10 +369,9 @@
       ['Christian', 1], ['Vinit', 1] ] },
     { g: 'Uni',             c: '#8A6D1B', names: [
       ['Dali', 1], ['Fernando', 1], ['Samer', 1], ['Mado', 1], ['Leo', 1], ['Theo', 1],
-      ['Majo', 1, null, null, 1] ] },
+      ['Majo', 1] ] },
     { g: 'iGEM',            c: '#157F3D', names: [
-      ['Reinis', 1], ['Mikkel', 1], ['Georgios', 1],
-      ['Konstantinos', 1, null, null, 1] /* reprint */ ] },
+      ['Reinis', 1], ['Mikkel', 1], ['Georgios', 1], ['Konstantinos', 1] ] },
     /* Not party guests. UniTn comes to visit but skips both the party and
        the defense; Famiglia comes for the thesis defense itself, in
        Italian. Both keep the measured plate, because the envelopes are the
@@ -529,7 +529,7 @@
   var hint = document.getElementById('count-hint');
 
   pickGroup.add(new Option('All groups', ''));
-  pickGroup.add(new Option('Print batch · 26 Sep', '__batch'));
+  pickGroup.add(new Option('Print batch · 30 Sep', '__batch'));
   GROUPS.forEach(function (grp) { pickGroup.add(new Option(grp.g, grp.g)); });
   // The batch is what the owner is printing today, so it is where the page opens.
   pickGroup.value = '__batch';
