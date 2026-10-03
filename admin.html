@@ -58,13 +58,19 @@
   .person__acts { display: flex; gap: 8px; margin-top: 8px; }
   .person__acts button { min-height: 36px; padding: 6px 10px; font-size: 13px; }
   .person input[type=text] { background: var(--bg); border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 8px 10px; font-size: 14px; width: 100%; margin-top: 6px; }
-  .links { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 12px; }
+  .links-cat { font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+               text-transform: uppercase; color: var(--dim); margin: 20px 0 0; }
+  .links { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 8px; }
   .links a { display: block; background: var(--surface); border: 1px solid var(--line);
              border-radius: 8px; padding: 10px 12px; min-height: 44px;
              color: var(--ink); text-decoration: none; }
   .links a:hover { border-color: var(--dim); }
   .links a b { font-weight: 600; font-size: 14px; }
+  .links a .ico { margin-right: 8px; }
   .links a small { display: block; color: var(--dim); font-size: 12px; margin-top: 2px; }
+  /* Pages past their moment stay listed but stop competing for the eye. */
+  .links a.dim { opacity: 0.45; }
+  .links a.dim:hover { opacity: 0.8; }
 </style>
 </head>
 <body>
@@ -79,18 +85,36 @@
        new tab so this panel stays where it is. -->
   <section id="pages">
     <h2>All the pages</h2>
+
+    <h3 class="links-cat">Guests</h3>
     <nav class="links">
-      <a href="./" target="_blank" rel="noopener"><b>The invitation</b><small>Guests · the site, registration</small></a>
-      <a href="album.html" target="_blank" rel="noopener"><b>The album</b><small>Guests · everybody's photographs</small></a>
-      <a href="https://chat.whatsapp.com/LyLq84bmmfr7r0vHuXV23c" target="_blank" rel="noopener"><b>WhatsApp group</b><small>Guests · the invite link</small></a>
-      <a href="quiz-live.html" target="_blank" rel="noopener"><b>Live quiz · phones</b><small>The night · guests answer here</small></a>
-      <a href="quiz-live-host.html" target="_blank" rel="noopener"><b>Live quiz · host console</b><small>The night · laptop, needs the PIN</small></a>
-      <a href="quiz.html" target="_blank" rel="noopener"><b>Paper quiz · deck</b><small>Fallback · projected</small></a>
-      <a href="quiz-sheet.html" target="_blank" rel="noopener"><b>Paper quiz · answer sheet</b><small>Fallback · A4, print a stack</small></a>
-      <a href="quiz-sheet.html?key=1" target="_blank" rel="noopener"><b>Paper quiz · host key</b><small>Fallback · print exactly one</small></a>
-      <a href="qr.html" target="_blank" rel="noopener"><b>QR poster</b><small>Print · A4, photo uploads</small></a>
-      <a href="certificates.html" target="_blank" rel="noopener"><b>Certificates</b><small>Print · A4, the window envelopes</small></a>
-      <a href="https://github.com/SirSirio/thesis-defended-liver-pending" target="_blank" rel="noopener"><b>The repo</b><small>GitHub</small></a>
+      <a href="./" target="_blank" rel="noopener"><b><span class="ico">🎓</span>The invitation</b><small>The site, registration</small></a>
+      <a href="album.html" target="_blank" rel="noopener"><b><span class="ico">📸</span>The album</b><small>Everybody's photographs</small></a>
+      <a href="https://chat.whatsapp.com/LyLq84bmmfr7r0vHuXV23c" target="_blank" rel="noopener"><b><span class="ico">💬</span>WhatsApp group</b><small>The invite link</small></a>
+    </nav>
+
+    <h3 class="links-cat">The night</h3>
+    <nav class="links">
+      <a href="quiz-live.html" target="_blank" rel="noopener"><b><span class="ico">📱</span>Live quiz · phones</b><small>Guests answer here</small></a>
+      <a href="quiz-live-host.html" target="_blank" rel="noopener"><b><span class="ico">🎛️</span>Live quiz · host console</b><small>Laptop, needs the PIN</small></a>
+    </nav>
+
+    <h3 class="links-cat">Printables</h3>
+    <nav class="links">
+      <a href="qr.html" target="_blank" rel="noopener"><b><span class="ico">🔳</span>QR poster</b><small>A4, photo uploads</small></a>
+      <a href="certificates.html" target="_blank" rel="noopener"><b><span class="ico">📜</span>Certificates</b><small>A4, the window envelopes</small></a>
+    </nav>
+
+    <h3 class="links-cat">Paper quiz · the fallback</h3>
+    <nav class="links">
+      <a class="dim" href="quiz.html" target="_blank" rel="noopener"><b><span class="ico">📽️</span>Projected deck</b><small>Only if the live quiz dies</small></a>
+      <a class="dim" href="quiz-sheet.html" target="_blank" rel="noopener"><b><span class="ico">📝</span>Answer sheet</b><small>A4, print a stack</small></a>
+      <a class="dim" href="quiz-sheet.html?key=1" target="_blank" rel="noopener"><b><span class="ico">🗝️</span>Host key</b><small>Print exactly one</small></a>
+    </nav>
+
+    <h3 class="links-cat">Everything else</h3>
+    <nav class="links">
+      <a href="https://github.com/SirSirio/thesis-defended-liver-pending" target="_blank" rel="noopener"><b><span class="ico">🐙</span>The repo</b><small>GitHub</small></a>
     </nav>
   </section>
 
