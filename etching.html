@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0B0B0C">
+<meta name="color-scheme" content="dark">
+<title>31026 · Etched</title>
+<link rel="icon" href="assets/favicon.svg?v=33" type="image/svg+xml">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Saira:wght@500;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<!-- ==========================================================================
+     ETCHED
+     ==========================================================================
+     The gift show: how the named cutlery was made, projected, nearly wordless.
+     Same family as quiz.html and self contained for the same reason: no
+     styles.css, no app.js, nothing between the laptop and the wall that can
+     break on the night.
+
+     HOW TO DRIVE IT
+       →  space  click        next
+       ←                      back
+       P                      pause / play the video on screen
+       R                      replay the video on screen
+       M                      sound on / off (on by default)
+       A                      auto: videos advance when they end, photos after 7 s
+       F                      fullscreen
+
+     THE MEDIA lives in assets/metal etching/, untouched apart from a lossless
+     faststart remux so the videos begin before they finish downloading. The
+     DECK array below is the whole running order; change a title there.
+
+     SOUND: browsers only allow sound after the first key or click on the page,
+     which is why the deck opens on a title card. A deep link straight onto a
+     video slide starts muted and the first key or tap turns sound on.
+     ========================================================================== -->
+
+<style>
+  :root {
+    --bg:        #0B0B0C;
+    --surface:   #141416;
+    --ink:       #F4F4F5;
+    --ink-dim:   #A1A1A6;
+    --ink-faint: #6E6E73;
+    --accent:    #990000;
+    --accent-lit:#E83F48;
+    --rule:      #2A2A2E;
+    --display: 'Saira', 'Arial Narrow', system-ui, sans-serif;
+    --body:    'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --ease-out:  cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-both: cubic-bezier(0.65, 0, 0.35, 1);
+    --ease-pop:  cubic-bezier(0.34, 1.56, 0.64, 1);
+    --steel: linear-gradient(180deg, #FFFFFF 0%, #D9D9DE 38%, #8A8A92 52%, #C4C4CA 70%, #F2F2F4 100%);
+    --frame-h: 84vh;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+  body.no-cursor { cursor: none; }
+
+  /* --- The room ---------------------------------------------------------- */
+  /* Ambilight: the media on screen, drawn tiny into a canvas and blown up
+     behind everything, so each slide lights the room in its own colours. */
+  #amb {
+    position: fixed; inset: -12%; width: 124%; height: 124%; z-index: 0;
+    filter: blur(60px) saturate(1.5); opacity: .38;
+    transition: opacity .6s var(--ease-out);
+  }
+  #amb.dim { opacity: 0; }
+  .ambient {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(42% 55% at 82% 12%, rgba(153,0,0,0.20), transparent 70%),
+      radial-gradient(50% 60% at 8% 95%, rgba(153,0,0,0.14), transparent 70%);
+    animation: breathe 14s var(--ease-both) infinite alternate;
+  }
+  @keyframes breathe {
+    from { transform: translate3d(0,0,0) scale(1); opacity: .85; }
+    to   { transform: translate3d(-2%,1.5%,0) scale(1.06); opacity: 1; }
+  }
+  .vignette {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: radial-gradient(120% 120% at 50% 45%, rgba(11,11,12,.25) 40%, rgba(0,0,0,0.75) 100%);
+  }
+  canvas.fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #back  { z-index: 2; }
+  #front { z-index: 6; }
+
+  /* --- The cut: a laser band that sweeps across on every change of slide - */
+  .cut {
+    position: fixed; top: -30vh; left: 0; z-index: 7; pointer-events: none;
+    width: 22vw; height: 160vh;
+    transform: translateX(-60vw) skewX(-18deg);
+    background: linear-gradient(90deg,
+      transparent 0%, rgba(153,0,0,.0) 10%, rgba(153,0,0,.55) 42%,
+      rgba(255,190,190,.95) 49.5%, #fff 50%, rgba(255,190,190,.95) 50.5%,
+      rgba(153,0,0,.55) 58%, rgba(153,0,0,0) 90%, transparent 100%);
+    mix-blend-mode: screen;
+    opacity: 0;
+  }
+  .cut.go     { animation: cut .9s var(--ease-both) both; }
+  .cut.go.rev { animation-name: cutRev; }
+  @keyframes cut    { 0% { opacity: 1; transform: translateX(-40vw) skewX(-18deg); }
+                      100% { opacity: 1; transform: translateX(130vw) skewX(-18deg); } }
+  @keyframes cutRev { 0% { opacity: 1; transform: translateX(130vw) skewX(-18deg); }
+                      100% { opacity: 1; transform: translateX(-40vw) skewX(-18deg); } }
+
+  /* --- Stage and slides -------------------------------------------------- */
+  .stage { position: fixed; inset: 0; z-index: 4; }
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    gap: clamp(32px, 6vw, 120px);
+    padding: 4vh clamp(28px, 7vw, 120px) 9vh;
+    visibility: hidden; pointer-events: none;
+  }
+  .slide.right { flex-direction: row-reverse; }
+  .slide.is-active, .slide.is-leaving { visibility: visible; }
+  .slide.is-active { pointer-events: auto; }
+
+  /* Huge outlined step number behind each slide. */
+  .ghost {
+    position: absolute; bottom: -10vh; z-index: -1;
+    font-family: var(--display); font-weight: 800; line-height: 1;
+    font-size: clamp(240px, 52vh, 640px); letter-spacing: -0.03em;
+    color: transparent; -webkit-text-stroke: 2px rgba(232,63,72,0.28);
+    opacity: 0; transform: translateX(80px) rotate(4deg);
+    transition: opacity .5s var(--ease-out), transform .6s var(--ease-out);
+    pointer-events: none;
+  }
+  .slide:not(.right) .ghost { left: -2vw; transform: translateX(-80px) rotate(-4deg); }
+  .slide.right .ghost { right: -2vw; }
+  .is-active .ghost {
+    opacity: 1; transform: none;
+    transition: opacity 1s var(--ease-out) .35s, transform 1.4s var(--ease-out) .35s;
+  }
+
+  /* --- Words ------------------------------------------------------------- */
+  .txt {
+    flex: 0 1 auto; max-width: 46vw;
+    opacity: 0; transform: translateY(30px);
+    transition: opacity .35s var(--ease-out), transform .45s var(--ease-out);
+  }
+  .is-active .txt { opacity: 1; transform: none; transition-delay: .25s; }
+  .slide.right .txt { text-align: right; }
+
+  .kicker {
+    font-family: var(--mono); font-size: clamp(13px, 1.8vh, 18px);
+    letter-spacing: .16em; text-transform: uppercase; color: var(--accent-lit);
+    display: flex; align-items: center; gap: 14px; margin-bottom: 1.6vh;
+  }
+  .slide.right .kicker { flex-direction: row-reverse; }
+  .kicker::after {
+    content: ''; height: 1px; flex: 0 1 160px;
+    background: linear-gradient(90deg, var(--accent-lit), transparent);
+    transform-origin: left; transform: scaleX(0);
+    transition: transform .9s var(--ease-out) .6s;
+  }
+  .slide.right .kicker::after { transform-origin: right; background: linear-gradient(270deg, var(--accent-lit), transparent); }
+  .is-active .kicker::after { transform: scaleX(1); }
+
+  /* The title is etched in: each letter lands red hot and cools to steel,
+     then a shine runs across it now and again. */
+  .title {
+    font-family: var(--display); font-weight: 800; text-transform: uppercase;
+    font-size: clamp(64px, 17vh, 210px); line-height: .9; letter-spacing: -.01em;
+    margin: 0; white-space: nowrap;
+  }
+  .ch {
+    display: inline-block;
+    background: linear-gradient(110deg, transparent 42%, rgba(255,255,255,.95) 50%, transparent 58%) no-repeat,
+                var(--steel);
+    background-size: 300% 100%, 100% 100%;
+    background-position: 150% 0, 0 0;
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    opacity: 0;
+  }
+  .is-active .ch {
+    animation: burn 1.2s var(--ease-out) both, shine 5.5s linear infinite;
+    animation-delay: calc(.4s + var(--i) * .075s), calc(2.4s + var(--i) * .05s);
+  }
+  .is-leaving .ch { opacity: 1; }
+  @keyframes burn {
+    0%   { opacity: 0; transform: translateY(-.35em) scale(1.7) rotate(-8deg);
+           filter: blur(14px) brightness(3) drop-shadow(0 0 18px #ff3a2a); }
+    35%  { opacity: 1; transform: translateY(.04em) scale(.96) rotate(1deg);
+           filter: blur(0) brightness(2.2) sepia(1) saturate(6) hue-rotate(-30deg) drop-shadow(0 0 22px #E83F48); }
+    100% { opacity: 1; transform: none; filter: none; }
+  }
+  @keyframes shine {
+    0%, 70% { background-position: 150% 0, 0 0; }
+    100%    { background-position: -50% 0, 0 0; }
+  }
+
+  .tag {
+    font-family: var(--mono); font-size: clamp(14px, 2.4vh, 24px);
+    color: var(--ink-dim); margin-top: 2.4vh; letter-spacing: .04em;
+    opacity: 0; transform: translateX(-20px);
+    transition: opacity .3s, transform .3s;
+  }
+  .slide.right .tag { transform: translateX(20px); }
+  .is-active .tag {
+    opacity: 1; transform: none;
+    transition: opacity .7s var(--ease-out) 1.1s, transform .9s var(--ease-out) 1.1s;
+  }
+  .tag::before { content: '// '; color: var(--accent-lit); }
+
+  /* --- The frame: a portrait screen with a steel bezel -------------------- */
+  .frame {
+    position: relative; flex: none;
+    height: var(--frame-h); aspect-ratio: 9 / 16;
+    padding: 5px; border-radius: 30px;
+    background: var(--steel);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.08),
+                0 40px 90px -20px rgba(0,0,0,.9),
+                0 0 80px -10px rgba(153,0,0,.55);
+    opacity: 0;
+    transition: transform .55s cubic-bezier(.55,0,.85,.35), opacity .4s ease-in;
+    will-change: transform, opacity;
+  }
+  .frame .scr {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 25px; overflow: hidden; background: #000;
+  }
+  .frame video, .frame img {
+    display: block; width: 100%; height: 100%; object-fit: cover;
+  }
+  .slide.is-active .frame {
+    opacity: 1; transform: none;
+    transition: transform 1.1s var(--ease-pop) .12s, opacity .5s var(--ease-out) .12s;
+  }
+  /* Four entrances, dealt round robin so no two neighbours move alike. */
+  .slide:not(.is-active)[data-in="tilt"] .frame { transform: perspective(1400px) rotateY(-70deg) translateX(30vw) scale(.8); }
+  .slide:not(.is-active)[data-in="drop"] .frame { transform: translateY(-115vh) rotate(9deg); }
+  .slide:not(.is-active)[data-in="spin"] .frame { transform: rotate(-200deg) scale(.15); }
+  .slide:not(.is-active)[data-in="flip"] .frame { transform: perspective(1400px) rotateX(80deg) translateY(40vh) scale(.7); }
+
+  /* Photos breathe: a slow push in. */
+  .is-active .frame img { animation: kb 11s var(--ease-both) .4s infinite alternate; }
+  @keyframes kb { from { transform: scale(1); } to { transform: scale(1.14) translate(-2%, -3%); } }
+
+  /* Reveal slides: a polish shine across the photo, every few seconds. */
+  .gleam {
+    position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.55) 48%, rgba(255,255,255,0) 60%);
+    transform: translateX(-120%);
+  }
+  .is-active .gleam { animation: gleam 4.2s var(--ease-both) 1.4s infinite; }
+  @keyframes gleam { 0% { transform: translateX(-120%); } 45%, 100% { transform: translateX(120%); } }
+
+  /* The laser line on the laser slide; JS drives its position and the sparks. */
+  .laser {
+    position: absolute; left: -10%; right: -10%; top: 0; height: 3px;
+    background: linear-gradient(90deg, transparent, #ff6b6b 20%, #fff 50%, #ff6b6b 80%, transparent);
+    box-shadow: 0 0 14px 4px rgba(232,63,72,.85), 0 0 40px 10px rgba(153,0,0,.6);
+    mix-blend-mode: screen; opacity: 0; transition: opacity .4s;
+  }
+  .is-active .laser { opacity: .9; transition-delay: 1.2s; }
+
+  /* Video furniture: a timecode chip and a progress hairline. */
+  .chip {
+    position: absolute; top: 14px; left: 14px; z-index: 2;
+    font-family: var(--mono); font-size: 12px; letter-spacing: .08em;
+    background: rgba(11,11,12,.6); backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.12); border-radius: 99px;
+    padding: 4px 10px; color: var(--ink);
+    display: flex; gap: 7px; align-items: center;
+  }
+  .chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-lit);
+            animation: rec 1.1s steps(2, jump-none) infinite; }
+  .slide.paused .chip i, .slide.ended .chip i { animation: none; opacity: .35; }
+  @keyframes rec { 50% { opacity: .15; } }
+  .bar { position: absolute; left: 0; bottom: 0; height: 4px; width: 100%;
+         background: rgba(255,255,255,.12); z-index: 2; }
+  .bar b { display: block; height: 100%; width: 0; background: var(--accent-lit);
+           box-shadow: 0 0 10px var(--accent-lit); }
+  .replay {
+    position: absolute; inset: 0; z-index: 3; display: grid; place-items: center;
+    background: rgba(0,0,0,.45); opacity: 0; transition: opacity .4s;
+    font-family: var(--mono); font-size: 13px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink); pointer-events: none;
+  }
+  .replay span { display: grid; place-items: center; gap: 10px; }
+  .replay svg { width: 54px; height: 54px; }
+  .slide.ended .replay, .slide.paused .replay { opacity: 1; }
+
+  /* --- Cover and finale ---------------------------------------------------- */
+  .solo { flex-direction: column; text-align: center; gap: 0; }
+  .solo .txt { max-width: none; text-align: center; }
+  .solo .kicker { justify-content: center; }
+  .solo .kicker::after { display: none; }
+  .solo .title { font-size: clamp(90px, 30vh, 380px); }
+  .solo .tag { transform: translateY(16px); }
+  .solo .ghost { display: none; }
+  .hint {
+    margin-top: 6vh; font-family: var(--mono); font-size: 13px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-faint);
+    opacity: 0; transition: opacity .3s;
+  }
+  .is-active .hint { opacity: 1; transition: opacity 1s 2.4s; animation: nudge 2s var(--ease-both) 3s infinite; }
+  @keyframes nudge { 50% { transform: translateX(8px); } }
+  .hint kbd { font-family: inherit; border: 1px solid var(--rule); border-radius: 6px; padding: 2px 7px; color: var(--ink-dim); }
+
+  /* --- HUD --------------------------------------------------------------- */
+  .hud {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 8;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 0 clamp(16px, 3vw, 40px) clamp(14px, 2.4vh, 26px);
+    font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-faint);
+    transition: opacity .6s var(--ease-out);
+  }
+  body.hud-hidden .hud { opacity: .0; }
+  .dots { display: flex; gap: 8px; }
+  .dots i { width: 22px; height: 3px; border-radius: 2px; background: var(--rule);
+            transition: background .4s, width .5s var(--ease-out); }
+  .dots i.on { background: var(--accent-lit); width: 44px; }
+  .dots i.seen { background: rgba(232,63,72,.4); }
+  .hud .r { display: flex; gap: 16px; }
+  .hud .r span[data-on="1"] { color: var(--accent-lit); }
+  .next-pulse {
+    position: fixed; right: clamp(16px, 3vw, 40px); top: 50%; z-index: 8;
+    width: 54px; height: 54px; margin-top: -27px; border-radius: 50%;
+    border: 1px solid rgba(232,63,72,.5); display: grid; place-items: center;
+    color: var(--accent-lit); opacity: 0; pointer-events: none; transition: opacity .4s;
+  }
+  body.wants-next .next-pulse { opacity: 1; animation: pulse 1.6s var(--ease-out) infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(232,63,72,.5); } 100% { box-shadow: 0 0 0 22px rgba(232,63,72,0); } }
+
+  .sound-chip {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 9;
+    font-family: var(--mono); font-size: 13px; letter-spacing: .1em; text-transform: uppercase;
+    background: var(--accent); color: #fff; border-radius: 99px; padding: 8px 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5); display: none;
+  }
+  body.needs-sound .sound-chip { display: block; animation: nudge 2s var(--ease-both) infinite; }
+
+  /* --- Portrait screens (a phone): frame centred, words above it ---------- */
+  @media (max-aspect-ratio: 1/1) {
+    :root { --frame-h: min(64vh, calc((100vw - 40px) * 16 / 9)); }
+    .slide, .slide.right { flex-direction: column; gap: 3vh; padding: 5vh 20px 10vh; justify-content: center; }
+    .txt, .slide.right .txt { max-width: none; text-align: center; }
+    .kicker, .slide.right .kicker { justify-content: center; flex-direction: row; }
+    .kicker::after { display: none; }
+    .title { font-size: clamp(48px, 9vh, 110px); }
+    .tag { margin-top: 1vh; }
+    .solo .title { font-size: clamp(64px, 19vw, 200px); }
+    .ghost { font-size: 60vw; }
+    .next-pulse { display: none; }
+    .hud .r .k { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ambient, .is-active .frame img, .is-active .gleam, .hint { animation: none !important; }
+    .slide[data-in] .frame { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="amb" width="36" height="64" aria-hidden="true"></canvas>
+<div class="ambient" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+<canvas class="fx" id="back" aria-hidden="true"></canvas>
+
+<main class="stage" id="stage"></main>
+
+<canvas class="fx" id="front" aria-hidden="true"></canvas>
+<div class="cut" id="cut" aria-hidden="true"></div>
+
+<div class="next-pulse" aria-hidden="true">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+</div>
+<div class="sound-chip">🔊 tap for sound</div>
+
+<footer class="hud">
+  <span id="where">Etched</span>
+  <span class="dots" id="dots"></span>
+  <span class="r">
+    <span id="hudSound" data-on="1">Sound</span>
+    <span id="hudAuto" class="k">Auto</span>
+  </span>
+</footer>
+
+<script>
+'use strict';
+
+/* ---- The running order ---------------------------------------------------- */
+const DIR = 'assets/metal etching/';
+const DECK = [
+  { type: 'cover',  kicker: '31026 · Lab practical', title: 'Etched', tag: 'a small gift, in steel', amb: '5 - Almost-done.jpg' },
+  { type: 'video',  src: 'laser cutter.mp4',               n: '01',  kicker: 'Step 01',     title: 'Laser',  tag: 'cut the stencil', fx: 'laser' },
+  { type: 'photo',  src: '2 - knife-tak-laser-cutted.jpg', n: '02',  kicker: 'Step 02',     title: 'Masked', tag: 'name to the metal' },
+  { type: 'video',  src: '3.1 - etching DC.mp4',           n: '03',  kicker: 'Step 03 · DC', title: 'Etch',  tag: 'direct current', fx: 'bubbles' },
+  { type: 'video',  src: '3.2 - etching AC cotton.mp4',    n: '03',  kicker: 'Step 03 · AC', title: 'Swab',  tag: 'by hand', fx: 'bubbles' },
+  { type: 'video',  src: '3.3 - etching AC immersion.mp4', n: '03',  kicker: 'Step 03 · AC', title: 'Dip',   tag: 'by immersion', fx: 'bubbles' },
+  { type: 'photo',  src: '4 - after etching.jpg',          n: '04',  kicker: 'Step 04',     title: 'Reveal', tag: 'peel', fx: 'gleam' },
+  { type: 'photo',  src: '5 - Almost-done.jpg',            n: '05',  kicker: 'Step 05',     title: 'Scrub',  tag: 'almost done', fx: 'gleam' },
+  { type: 'finale', kicker: 'Step 06', title: 'Yours', tag: 'buon appetito', amb: '5 - Almost-done.jpg', fx: 'cutlery' },
+];
+const ENTRANCES = ['tilt', 'drop', 'spin', 'flip'];
+const PHOTO_HOLD = 7000;
+const url = (f) => encodeURI(DIR + f);
+
+/* ---- Build ---------------------------------------------------------------- */
+const stage = document.getElementById('stage');
+const dotsEl = document.getElementById('dots');
+
+function etch(word) {
+  return [...word].map((c, i) => `<span class="ch" style="--i:${i}">${c}</span>`).join('');
+}
+
+let media = 0;
+const slides = DECK.map((d, i) => {
+  const s = document.createElement('section');
+  s.className = 'slide';
+  const txt = `
+    <div class="txt">
+      <div class="kicker">${d.kicker}</div>
+      <h1 class="title">${etch(d.title)}</h1>
+      <div class="tag">${d.tag}</div>
+      ${d.type === 'cover' ? '<div class="hint">press <kbd>→</kbd> &nbsp; <kbd>F</kbd> fullscreen</div>' : ''}
+    </div>`;
+  if (d.type === 'cover' || d.type === 'finale') {
+    s.classList.add('solo');
+    s.innerHTML = txt;
+  } else {
+    if (media % 2) s.classList.add('right');
+    s.dataset.in = ENTRANCES[media % ENTRANCES.length];
+    media++;
+    const inner = d.type === 'video'
+      ? `<video src="${url(d.src)}" playsinline preload="${i === 1 ? 'auto' : 'metadata'}"></video>
+         <div class="chip"><i></i><span class="tc">0:00</span></div>
+         <div class="bar"><b></b></div>
+         <div class="replay"><span>
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+           <em class="rp-word" style="font-style:normal">R · replay</em></span></div>`
+      : `<img src="${url(d.src)}" alt="" decoding="async">`;
+    s.innerHTML = `
+      <div class="ghost">${d.n}</div>
+      ${txt}
+      <div class="frame"><div class="scr">${inner}
+        ${d.fx === 'laser' ? '<div class="laser"></div>' : ''}
+        ${d.fx === 'gleam' ? '<div class="gleam"></div>' : ''}
+      </div></div>`;
+  }
+  stage.appendChild(s);
+  dotsEl.appendChild(document.createElement('i'));
+  return s;
+});
+const dots = [...dotsEl.children];
+
+/* ---- State ---------------------------------------------------------------- */
+const state = { i: -1, sound: true, auto: false, unlocked: false };
+let holdT = null;
+const cutEl = document.getElementById('cut');
+
+function vidOf(i) { return slides[i] && slides[i].querySelector('video'); }
+function fmt(t) { t = Math.max(0, Math.floor(t || 0)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+
+function goTo(next, dir) {
+  next = Math.max(0, Math.min(DECK.length - 1, next));
+  if (next === state.i) return;
+  const prev = state.i;
+  clearTimeout(holdT);
+  document.body.classList.remove('wants-next', 'needs-sound');
+
+  if (prev >= 0) {
+    const ps = slides[prev];
+    const pv = vidOf(prev);
+    if (pv) pv.pause();
+    ps.classList.remove('is-active', 'ended', 'paused');
+    ps.classList.add('is-leaving');
+    setTimeout(() => ps.classList.remove('is-leaving'), 700);
+    /* the laser band sweeps across, in the direction of travel */
+    cutEl.classList.remove('go', 'rev');
+    void cutEl.offsetWidth;
+    cutEl.classList.add('go');
+    if (dir < 0) cutEl.classList.add('rev');
+  }
+
+  state.i = next;
+  const s = slides[next];
+  void s.offsetWidth;
+  s.classList.add('is-active');
+
+  dots.forEach((d, k) => { d.classList.toggle('on', k === next); d.classList.toggle('seen', k < next); });
+  document.getElementById('where').textContent = String(next + 1).padStart(2, '0') + ' / ' + String(DECK.length).padStart(2, '0') + ' · ' + DECK[next].title;
+
+  /* warm the next video while this slide plays */
+  const nv = vidOf(next + 1);
+  if (nv) nv.preload = 'auto';
+
+  const d = DECK[next];
+  ambFrom(next);
+  fxMode(d.fx || (d.type === 'cover' ? 'dust' : 'dust'), next);
+
+  const v = vidOf(next);
+  if (v) {
+    setTimeout(() => { if (state.i === next) playVid(v); }, 450);
+  } else if (d.type === 'photo' && state.auto) {
+    holdT = setTimeout(() => nextStep(), PHOTO_HOLD);
+  }
+  if (d.type === 'finale') setTimeout(() => { if (state.i === next) cutleryBurst(); }, 900);
+
+  location.replace('#' + next);
+}
+
+function playVid(v) {
+  try { v.currentTime = 0; } catch (e) {}
+  v.muted = !state.sound;
+  const p = v.play();
+  if (p && p.catch) p.catch(() => {
+    /* no gesture yet: play silently, and the first key or tap brings the sound */
+    v.muted = true;
+    v.play().catch(() => {});
+    if (state.sound) document.body.classList.add('needs-sound');
+  });
+}
+
+function nextStep() { if (state.i < DECK.length - 1) goTo(state.i + 1, +1); }
+function prevStep() { if (state.i > 0) goTo(state.i - 1, -1); }
+
+slides.forEach((s, i) => {
+  const v = vidOf(i);
+  if (!v) return;
+  v.addEventListener('ended', () => {
+    if (state.i !== i) return;
+    s.classList.add('ended');
+    if (state.auto) holdT = setTimeout(nextStep, 700);
+    else document.body.classList.add('wants-next');
+  });
+  v.addEventListener('play', () => { s.classList.remove('ended', 'paused'); document.body.classList.remove('wants-next'); });
+});
+
+function togglePause() {
+  const v = vidOf(state.i);
+  if (!v || v.ended) return;
+  if (v.paused) { v.play().catch(() => {}); slides[state.i].classList.remove('paused'); }
+  else { v.pause(); slides[state.i].classList.add('paused'); }
+}
+function replay() { const v = vidOf(state.i); if (v) playVid(v); }
+
+function setSound(on) {
+  state.sound = on;
+  document.getElementById('hudSound').dataset.on = on ? '1' : '0';
+  document.getElementById('hudSound').textContent = on ? 'Sound' : 'Muted';
+  const v = vidOf(state.i);
+  if (v) v.muted = !on;
+  if (!on) document.body.classList.remove('needs-sound');
+}
+function setAuto(on) {
+  state.auto = on;
+  document.getElementById('hudAuto').dataset.on = on ? '1' : '0';
+  clearTimeout(holdT);
+  const d = DECK[state.i], v = vidOf(state.i);
+  if (on && d.type === 'photo') holdT = setTimeout(nextStep, PHOTO_HOLD);
+  if (on && v && v.ended) holdT = setTimeout(nextStep, 700);
+}
+
+/* Any first gesture unlocks sound on a video that had to start silently. */
+function unlock() {
+  if (!document.body.classList.contains('needs-sound')) return false;
+  document.body.classList.remove('needs-sound');
+  const v = vidOf(state.i);
+  if (v && state.sound) { v.muted = false; v.play().catch(() => {}); }
+  return true;
+}
+
+/* ---- Input ---------------------------------------------------------------- */
+document.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const swallowed = unlock() && !['ArrowRight', 'ArrowLeft', ' ', 'PageDown', 'PageUp'].includes(e.key);
+  if (swallowed) return;
+  switch (e.key) {
+    case 'ArrowRight': case ' ': case 'PageDown': case 'ArrowDown': case 'Enter':
+      e.preventDefault(); nextStep(); break;
+    case 'ArrowLeft': case 'PageUp': case 'ArrowUp': case 'Backspace':
+      e.preventDefault(); prevStep(); break;
+    case 'p': case 'P': togglePause(); break;
+    case 'r': case 'R': replay(); break;
+    case 'm': case 'M': setSound(!state.sound); break;
+    case 'a': case 'A': setAuto(!state.auto); break;
+    case 'f': case 'F':
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.().catch(() => {});
+      break;
+    case 'Home': goTo(0, -1); break;
+    case 'End': goTo(DECK.length - 1, +1); break;
+  }
+});
+
+let touchX = null, swiped = false;
+addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; swiped = false; }, { passive: true });
+addEventListener('touchend', (e) => {
+  if (touchX == null) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  touchX = null;
+  if (Math.abs(dx) > 50) { swiped = true; unlock(); dx < 0 ? nextStep() : prevStep(); }
+}, { passive: true });
+
+/* Click or tap: on the playing video it pauses, the left fifth goes back,
+   anywhere else goes forward. */
+document.addEventListener('click', (e) => {
+  if (swiped) { swiped = false; return; }
+  if (unlock()) return;
+  if (e.target.closest('.hud')) {
+    if (e.target.id === 'hudSound') setSound(!state.sound);
+    if (e.target.id === 'hudAuto') setAuto(!state.auto);
+    return;
+  }
+  if (e.target.closest('.is-active .frame') && vidOf(state.i)) {
+    const v = vidOf(state.i);
+    v.ended ? replay() : togglePause();
+    return;
+  }
+  (e.clientX < innerWidth * 0.2) ? prevStep() : nextStep();
+});
+
+let idleT = null;
+function poke() {
+  document.body.classList.remove('no-cursor', 'hud-hidden');
+  clearTimeout(idleT);
+  idleT = setTimeout(() => document.body.classList.add('no-cursor', 'hud-hidden'), 2500);
+}
+addEventListener('mousemove', poke);
+addEventListener('keydown', poke);
+poke();
+
+/* ---- Ambilight ------------------------------------------------------------ */
+const amb = document.getElementById('amb');
+const actx = amb.getContext('2d');
+let ambSrc = null;
+const ambImgs = {};
+function ambFrom(i) {
+  const d = DECK[i];
+  amb.classList.add('dim');
+  setTimeout(() => {
+    if (state.i !== i) return;
+    const v = vidOf(i);
+    if (v) ambSrc = v;
+    else {
+      const f = d.src || d.amb;
+      if (!ambImgs[f]) { ambImgs[f] = new Image(); ambImgs[f].src = url(f); }
+      ambSrc = ambImgs[f];
+    }
+    amb.classList.remove('dim');
+  }, 350);
+}
+function drawAmb() {
+  if (!ambSrc) return;
+  const ok = ambSrc.tagName === 'VIDEO' ? ambSrc.readyState >= 2 : ambSrc.complete && ambSrc.naturalWidth;
+  if (ok) { try { actx.drawImage(ambSrc, 0, 0, amb.width, amb.height); } catch (e) {} }
+}
+
+/* ---- Particles ------------------------------------------------------------ */
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const back = document.getElementById('back'), front = document.getElementById('front');
+const bctx = back.getContext('2d'), fctx = front.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function size() {
+  DPR = Math.min(devicePixelRatio || 1, 1.5);
+  W = innerWidth; H = innerHeight;
+  [back, front].forEach(c => { c.width = W * DPR; c.height = H * DPR; });
+  [bctx, fctx].forEach(x => x.setTransform(DPR, 0, 0, DPR, 0, 0));
+}
+addEventListener('resize', size); size();
+
+let mode = 'dust';
+const P = [];   // { layer, kind, x, y, vx, vy, r, life, max, rot, vr, ch, hue }
+function fxMode(m) {
+  mode = m;
+  /* the previous slide's bubbles and sparks fade out instead of drifting on */
+  P.forEach(p => { if (p.kind === 'bub' || p.kind === 'spark') p.max = Math.min(p.max, p.life + 40); });
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function emit() {
+  if (reduced) return;
+  const fr = slides[state.i] && slides[state.i].querySelector('.frame');
+  if (mode === 'bubbles' && P.length < 220) {
+    for (let k = 0; k < 2; k++) P.push({ layer: 0, kind: 'bub', x: rnd(0, W), y: H + 20, vx: 0, vy: -rnd(.6, 2.4),
+      r: rnd(2, 11), life: 0, max: rnd(300, 700), ph: rnd(0, 6.28) });
+  }
+  if (mode === 'dust' || mode === 'gleam' || mode === undefined) {
+    if (Math.random() < .25 && P.length < 90) P.push({ layer: 0, kind: 'mote', x: rnd(0, W), y: rnd(0, H), vx: rnd(-.15, .15), vy: rnd(-.3, -.05),
+      r: rnd(.6, 2.2), life: 0, max: rnd(200, 420), red: Math.random() < .5 });
+  }
+  if (mode === 'laser' && fr && laserY != null) {
+    const rc = fr.getBoundingClientRect();
+    for (let k = 0; k < 4; k++) P.push({ layer: 1, kind: 'spark', x: rnd(rc.left + 10, rc.right - 10), y: rc.top + 5 + laserY * (rc.height - 10),
+      vx: rnd(-3, 3), vy: rnd(-4, 1), r: rnd(1, 2.4), life: 0, max: rnd(25, 60) });
+  }
+}
+
+function cutleryBurst() {
+  if (reduced) return;
+  const glyphs = ['🍴', '🥄', '🔪', '✨', '🍴', '🥄'];
+  for (let k = 0; k < 90; k++) {
+    P.push({ layer: 1, kind: 'glyph', ch: glyphs[k % glyphs.length], x: W / 2 + rnd(-W * .3, W * .3), y: H + 30,
+      vx: rnd(-9, 9), vy: rnd(-26, -12), r: rnd(26, 52), rot: rnd(0, 6.28), vr: rnd(-.2, .2), life: 0, max: 260 });
+  }
+  setTimeout(() => {
+    if (DECK[state.i].type !== 'finale') return;
+    for (let k = 0; k < 50; k++) P.push({ layer: 1, kind: 'glyph', ch: glyphs[k % glyphs.length], x: rnd(0, W), y: -40 - rnd(0, 300),
+      vx: rnd(-1, 1), vy: rnd(2, 5), r: rnd(22, 44), rot: rnd(0, 6.28), vr: rnd(-.08, .08), life: 0, max: 400 });
+  }, 1200);
+}
+
+let laserY = null;
+function tick(now) {
+  /* laser line: a slow scan down and back up the frame */
+  const s = slides[state.i];
+  const las = s && s.querySelector('.laser');
+  if (las && mode === 'laser') {
+    const t = (now / 1800) % 2;
+    laserY = (1 - Math.cos(Math.PI * (t < 1 ? t : 2 - t))) / 2;
+    las.style.top = (laserY * 100) + '%';
+  } else laserY = null;
+
+  /* video timecode + progress */
+  const v = vidOf(state.i);
+  if (v && v.duration) {
+    s.querySelector('.bar b').style.width = (v.currentTime / v.duration * 100) + '%';
+    s.querySelector('.tc').textContent = fmt(v.currentTime) + ' / ' + fmt(v.duration);
+  }
+
+  drawAmb();
+  emit();
+
+  bctx.clearRect(0, 0, W, H);
+  fctx.clearRect(0, 0, W, H);
+  for (let k = P.length - 1; k >= 0; k--) {
+    const p = P[k];
+    p.life++;
+    if (p.life > p.max || p.y > H + 120 || p.y < -400) { P.splice(k, 1); continue; }
+    const c = p.layer ? fctx : bctx;
+    const a = Math.min(1, p.life / 20) * Math.min(1, (p.max - p.life) / 30);
+    if (p.kind === 'bub') {
+      p.y += p.vy; p.x += Math.sin(p.life / 22 + p.ph) * .5;
+      c.beginPath(); c.arc(p.x, p.y, p.r, 0, 6.283);
+      c.strokeStyle = `rgba(255,255,255,${.28 * a})`; c.lineWidth = 1.2; c.stroke();
+      c.beginPath(); c.arc(p.x - p.r * .35, p.y - p.r * .35, p.r * .25, 0, 6.283);
+      c.fillStyle = `rgba(255,255,255,${.35 * a})`; c.fill();
+    } else if (p.kind === 'mote') {
+      p.x += p.vx; p.y += p.vy;
+      c.beginPath(); c.arc(p.x, p.y, p.r, 0, 6.283);
+      c.fillStyle = p.red ? `rgba(232,63,72,${.5 * a})` : `rgba(255,255,255,${.25 * a})`; c.fill();
+    } else if (p.kind === 'spark') {
+      p.vy += .18; p.x += p.vx; p.y += p.vy;
+      const f = 1 - p.life / p.max;
+      c.strokeStyle = `rgba(255,${Math.round(120 + 135 * f)},${Math.round(80 * f)},${f})`;
+      c.lineWidth = p.r; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx * 2.2, p.y - p.vy * 2.2); c.stroke();
+    } else if (p.kind === 'glyph') {
+      p.vy += .42; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      if (p.vy > 9) p.vy = 9;
+      c.save(); c.globalAlpha = a; c.translate(p.x, p.y); c.rotate(p.rot);
+      c.font = `${p.r}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+      c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(p.ch, 0, 0); c.restore();
+    }
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* ---- Go ------------------------------------------------------------------- */
+setSound(true);
+goTo(Math.max(0, Math.min(DECK.length - 1, parseInt(location.hash.slice(1), 10) || 0)), +1);
+</script>
+
+</body>
+</html>

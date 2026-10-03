@@ -16,6 +16,7 @@ Mirrored as the "All the pages" section at the top of admin.html — keep the tw
 |---|---|
 | Phone — guests answer here (QR points here) | https://sirsirio.github.io/thesis-defended-liver-pending/quiz-live.html |
 | Host console — laptop, needs the PIN | https://sirsirio.github.io/thesis-defended-liver-pending/quiz-live-host.html |
+| Etched — the cutlery gift show (projector, sound on) | https://sirsirio.github.io/thesis-defended-liver-pending/etching.html |
 
 ## Paper quiz (fallback)
 | What | Link |
