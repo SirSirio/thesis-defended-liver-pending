@@ -2,6 +2,8 @@
 
 Base: https://sirsirio.github.io/thesis-defended-liver-pending/
 
+Mirrored as the "All the pages" section at the top of admin.html — keep the two in step.
+
 ## Guests
 | What | Link |
 |---|---|

@@ -58,12 +58,41 @@
   .person__acts { display: flex; gap: 8px; margin-top: 8px; }
   .person__acts button { min-height: 36px; padding: 6px 10px; font-size: 13px; }
   .person input[type=text] { background: var(--bg); border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 8px 10px; font-size: 14px; width: 100%; margin-top: 6px; }
+  .links { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 12px; }
+  .links a { display: block; background: var(--surface); border: 1px solid var(--line);
+             border-radius: 8px; padding: 10px 12px; min-height: 44px;
+             color: var(--ink); text-decoration: none; }
+  .links a:hover { border-color: var(--dim); }
+  .links a b { font-weight: 600; font-size: 14px; }
+  .links a small { display: block; color: var(--dim); font-size: 12px; margin-top: 2px; }
 </style>
 </head>
 <body>
 <main>
   <h1>Course administration</h1>
   <p class="lede">Unlisted. Every action is checked server&#8209;side against the PIN; this page grants nothing on its own.</p>
+
+  <!-- Every page this project serves, one tap away, ABOVE the gate on
+       purpose: these are all public URLs already, so hiding them behind the
+       PIN would cost the owner typing on the night and protect nothing.
+       Mirrors LINKS.md; the two are maintained together. Each opens in a
+       new tab so this panel stays where it is. -->
+  <section id="pages">
+    <h2>All the pages</h2>
+    <nav class="links">
+      <a href="./" target="_blank" rel="noopener"><b>The invitation</b><small>Guests · the site, registration</small></a>
+      <a href="album.html" target="_blank" rel="noopener"><b>The album</b><small>Guests · everybody's photographs</small></a>
+      <a href="https://chat.whatsapp.com/LyLq84bmmfr7r0vHuXV23c" target="_blank" rel="noopener"><b>WhatsApp group</b><small>Guests · the invite link</small></a>
+      <a href="quiz-live.html" target="_blank" rel="noopener"><b>Live quiz · phones</b><small>The night · guests answer here</small></a>
+      <a href="quiz-live-host.html" target="_blank" rel="noopener"><b>Live quiz · host console</b><small>The night · laptop, needs the PIN</small></a>
+      <a href="quiz.html" target="_blank" rel="noopener"><b>Paper quiz · deck</b><small>Fallback · projected</small></a>
+      <a href="quiz-sheet.html" target="_blank" rel="noopener"><b>Paper quiz · answer sheet</b><small>Fallback · A4, print a stack</small></a>
+      <a href="quiz-sheet.html?key=1" target="_blank" rel="noopener"><b>Paper quiz · host key</b><small>Fallback · print exactly one</small></a>
+      <a href="qr.html" target="_blank" rel="noopener"><b>QR poster</b><small>Print · A4, photo uploads</small></a>
+      <a href="certificates.html" target="_blank" rel="noopener"><b>Certificates</b><small>Print · A4, the window envelopes</small></a>
+      <a href="https://github.com/SirSirio/thesis-defended-liver-pending" target="_blank" rel="noopener"><b>The repo</b><small>GitHub</small></a>
+    </nav>
+  </section>
 
   <section id="gate">
     <label for="pin">Admin PIN</label>
